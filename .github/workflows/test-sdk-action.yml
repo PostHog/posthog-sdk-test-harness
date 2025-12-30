@@ -36,6 +36,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      pull-requests: write
     outputs:
       tests-passed: ${{ steps.run-tests.outcome == 'success' }}
       report-path: "sdk-compliance-report.md"

@@ -3,6 +3,7 @@ name: Test Minimal Adapter
 permissions:
   contents: read
   packages: read
+  pull-requests: write
 
 on:
   pull_request:
