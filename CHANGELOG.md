@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-12-30
+
+### Added
+- Modular contract structure (split into adapter_actions, test_actions, and test suites)
+- 4 new tests: compression, batch format, error handling (413, 408)
+- New actions: assert_request_has_header, assert_batch_format
+- Total: 17 tests across 6 categories
+
+### Changed
+- Split CONTRACT.yaml into modular files in contracts/ directory
+- Separated adapter_actions from test_actions for clarity
+- Updated documentation to reflect modular structure
+
 ## [0.1.0] - 2025-12-30
 
 ### Added
