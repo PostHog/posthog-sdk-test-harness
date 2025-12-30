@@ -202,14 +202,14 @@ When making changes to the test harness:
 ## Versioning
 
 Docker images are published with semantic versioning:
-- `latest` - Latest stable release
-- `1.0` - Major version
+- `latest` - Latest release from main branch
+- `1` - Latest v1.x.x release
+- `1.0` - Latest v1.0.x release
 - `1.0.0` - Specific version
-- `main-abc123` - Commit from main
 
 Pin to a specific version in your CI for stability:
 ```yaml
-test-harness-version: "1.0"
+test-harness-version: "1.0"  # Recommended: pin to major.minor
 ```
 
 ## Documentation
