@@ -1,0 +1,21 @@
+name: Test Minimal Adapter
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: write
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-minimal-adapter:
+    name: Test the minimal adapter example
+    uses: ./.github/workflows/test-sdk-action.yml
+    with:
+      adapter-dockerfile: "Dockerfile"
+      adapter-context: "examples/minimal_adapter"
+      test-harness-version: "latest"

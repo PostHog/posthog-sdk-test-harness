@@ -33,6 +33,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
     outputs:
       tests-passed: ${{ steps.run-tests.outcome == 'success' }}
       report-path: "sdk-compliance-report.md"
@@ -46,6 +50,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pull test harness image
         run: docker pull ghcr.io/posthog/sdk-test-harness:${{ inputs.test-harness-version }}
 
@@ -53,7 +64,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: sdk-repo/${{ inputs.adapter-context }}
-          file: sdk-repo/${{ inputs.adapter-dockerfile }}
+          file: sdk-repo/${{ inputs.adapter-context }}/${{ inputs.adapter-dockerfile }}
           tags: sdk-adapter:test
           load: true
           cache-from: type=gha
@@ -70,64 +81,30 @@ jobs:
             -e PORT=8080 \
             sdk-adapter:test
 
+      - name: Create report directory
+        run: mkdir -p ${{ github.workspace }}/report
+
       - name: Run tests
         id: run-tests
+        continue-on-error: true
         run: |
           docker run --rm \
+            --name test-harness \
             --network test-network \
             -v ${{ github.workspace }}/report:/report \
             ghcr.io/posthog/sdk-test-harness:${{ inputs.test-harness-version }} \
             run \
             --adapter-url http://sdk-adapter:8080 \
-            --mock-url http://localhost:8081 \
-            --output json \
-            --report /report/sdk-compliance-report.json
-
-      - name: Generate markdown report
-        if: always()
-        run: |
-          cd test-harness
-          uv run python -c "
-          import json
-          import sys
-          sys.path.insert(0, 'src')
-          from posthog_test_harness.report import generate_markdown_report
-          from posthog_test_harness.types import TestSummary, TestSuiteResult, TestResult
-
-          with open('${{ github.workspace }}/report/sdk-compliance-report.json') as f:
-              data = json.load(f)
-
-          # Reconstruct TestSummary from JSON
-          suites = []
-          for suite_data in data['suites']:
-              results = [
-                  TestResult(
-                      name=r['name'],
-                      passed=r['passed'],
-                      duration_ms=r['duration_ms'],
-                      message=r.get('message')
-                  )
-                  for r in suite_data['tests']
-              ]
-              suites.append(TestSuiteResult(name=suite_data['name'], results=results))
-
-          summary = TestSummary(suites=suites, duration_ms=data['duration_ms'])
-
-          # Generate markdown
-          markdown = generate_markdown_report(summary, data['sdk_name'])
-
-          with open('${{ github.workspace }}/report/sdk-compliance-report.md', 'w') as f:
-              f.write(markdown)
-          "
+            --mock-url http://test-harness:8081 \
+            --output text \
+            --report /report/sdk-compliance-report.md
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.report-name }}
-          path: |
-            report/sdk-compliance-report.json
-            report/sdk-compliance-report.md
+          path: report/sdk-compliance-report.md
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -136,14 +113,46 @@ jobs:
           script: |
             const fs = require('fs');
             const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
-            const report = fs.readFileSync(reportPath, 'utf8');
 
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            if (!fs.existsSync(reportPath)) {
+              console.log('Report file not found, skipping PR comment');
+              return;
+            }
+
+            const report = fs.readFileSync(reportPath, 'utf8');
+            const commentMarker = '<!-- posthog-sdk-compliance-report -->';
+            const body = `${commentMarker}\n${report}`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: report
+              issue_number: context.issue.number,
             });
+
+            const existingComment = comments.find(comment =>
+              comment.body.includes(commentMarker)
+            );
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body
+              });
+              console.log('Updated existing comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              console.log('Created new comment');
+            }
 
       - name: Stop containers
         if: always()
