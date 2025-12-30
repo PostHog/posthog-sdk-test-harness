@@ -12,14 +12,8 @@ on:
 jobs:
   test-minimal-adapter:
     name: Test the minimal adapter example
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run tests with docker-compose
-        run: |
-          docker-compose up --build --abort-on-container-exit
-          EXIT_CODE=$?
-          docker-compose down
-          exit $EXIT_CODE
+    uses: ./.github/workflows/test-sdk-action.yml
+    with:
+      adapter-dockerfile: "Dockerfile"
+      adapter-context: "examples/minimal_adapter"
+      test-harness-version: "latest"
