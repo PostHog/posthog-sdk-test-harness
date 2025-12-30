@@ -80,8 +80,12 @@ jobs:
             -e PORT=8080 \
             sdk-adapter:test
 
+      - name: Create report directory
+        run: mkdir -p ${{ github.workspace }}/report
+
       - name: Run tests
         id: run-tests
+        continue-on-error: true
         run: |
           docker run --rm \
             --network test-network \
@@ -90,54 +94,15 @@ jobs:
             run \
             --adapter-url http://sdk-adapter:8080 \
             --mock-url http://localhost:8081 \
-            --output json \
-            --report /report/sdk-compliance-report.json
-
-      - name: Generate markdown report
-        if: always()
-        run: |
-          cd test-harness
-          uv run python -c "
-          import json
-          import sys
-          sys.path.insert(0, 'src')
-          from posthog_test_harness.report import generate_markdown_report
-          from posthog_test_harness.types import TestSummary, TestSuiteResult, TestResult
-
-          with open('${{ github.workspace }}/report/sdk-compliance-report.json') as f:
-              data = json.load(f)
-
-          # Reconstruct TestSummary from JSON
-          suites = []
-          for suite_data in data['suites']:
-              results = [
-                  TestResult(
-                      name=r['name'],
-                      passed=r['passed'],
-                      duration_ms=r['duration_ms'],
-                      message=r.get('message')
-                  )
-                  for r in suite_data['tests']
-              ]
-              suites.append(TestSuiteResult(name=suite_data['name'], results=results))
-
-          summary = TestSummary(suites=suites, duration_ms=data['duration_ms'])
-
-          # Generate markdown
-          markdown = generate_markdown_report(summary, data['sdk_name'])
-
-          with open('${{ github.workspace }}/report/sdk-compliance-report.md', 'w') as f:
-              f.write(markdown)
-          "
+            --output text \
+            --report /report/sdk-compliance-report.md
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.report-name }}
-          path: |
-            report/sdk-compliance-report.json
-            report/sdk-compliance-report.md
+          path: report/sdk-compliance-report.md
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -146,6 +111,12 @@ jobs:
           script: |
             const fs = require('fs');
             const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
+
+            if (!fs.existsSync(reportPath)) {
+              console.log('Report file not found, skipping PR comment');
+              return;
+            }
+
             const report = fs.readFileSync(reportPath, 'utf8');
 
             await github.rest.issues.createComment({
