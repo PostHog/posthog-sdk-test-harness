@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Format Python code using black and ruff
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
+
+echo "Formatting Python code..."
+
+# Format with black
+echo "Running black..."
+uv run black src/ examples/
+
+# Fix with ruff
+echo "Running ruff..."
+uv run ruff check src/ examples/ --fix
+
+echo "✓ Formatting complete"

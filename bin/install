@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+# Install the test harness in development mode
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
+
+echo "Installing PostHog SDK Test Harness..."
+
+# Use uv for installation
+uv sync --extra dev
+
+echo ""
+echo "✓ Installation complete"
+echo ""
+echo "Available commands:"
+echo "  uv run posthog-test-harness      - Run the test harness CLI"
+echo "  bin/test-adapter                  - Helper to test an adapter"
+echo "  bin/fmt                           - Format code"
+echo ""
+echo "Try it out:"
+echo "  uv run posthog-test-harness --help"
+echo "  bin/test-adapter --help"

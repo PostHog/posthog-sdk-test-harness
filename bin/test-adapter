@@ -1,0 +1,199 @@
+#!/bin/bash
+set -e
+
+# PostHog SDK Test Harness - Adapter Test Runner
+#
+# This script makes it easy to test SDK adapters by:
+# 1. Starting the mock server
+# 2. Starting the SDK adapter
+# 3. Running the test harness
+# 4. Cleaning up processes
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Default values
+ADAPTER_URL="${SDK_ADAPTER_URL:-http://localhost:8080}"
+MOCK_PORT="${MOCK_PORT:-8081}"
+OUTPUT_FORMAT="${OUTPUT_FORMAT:-text}"
+TIMEOUT="${TIMEOUT:-30}"
+
+# PIDs to track
+ADAPTER_PID=""
+
+usage() {
+    cat << EOF
+Usage: bin/test-adapter [OPTIONS] ADAPTER_COMMAND
+
+Test an SDK adapter against the PostHog test harness.
+
+ADAPTER_COMMAND: Command to start the SDK adapter (e.g., "python adapter.py")
+
+OPTIONS:
+    --adapter-url URL     URL where adapter will run (default: http://localhost:8080)
+    --mock-port PORT      Port for mock server (default: 8081)
+    --output FORMAT       Output format: text or json (default: text)
+    --timeout SECONDS     Timeout for adapter health check (default: 30)
+    --suite SUITE         Run specific test suite (can be specified multiple times)
+    --help                Show this help message
+
+EXAMPLES:
+    # Test the curl adapter
+    bin/test-adapter "python examples/curl_adapter/adapter.py"
+
+    # Test with custom ports
+    bin/test-adapter --adapter-url http://localhost:9000 "python adapter.py"
+
+    # Run only capture tests
+    bin/test-adapter --suite capture "python adapter.py"
+
+    # JSON output for CI/CD
+    bin/test-adapter --output json "python adapter.py"
+
+ENVIRONMENT VARIABLES:
+    SDK_ADAPTER_URL       Adapter URL (overridden by --adapter-url)
+    MOCK_PORT            Mock server port (overridden by --mock-port)
+    OUTPUT_FORMAT        Output format (overridden by --output)
+
+EOF
+}
+
+cleanup() {
+    echo ""
+    echo -e "${YELLOW}Cleaning up...${NC}"
+
+    # Kill adapter if we started it
+    if [ -n "$ADAPTER_PID" ]; then
+        echo "Stopping adapter (PID: $ADAPTER_PID)"
+        kill $ADAPTER_PID 2>/dev/null || true
+        wait $ADAPTER_PID 2>/dev/null || true
+    fi
+
+    echo -e "${GREEN}Cleanup complete${NC}"
+}
+
+# Set up cleanup trap
+trap cleanup EXIT INT TERM
+
+# Parse arguments
+SUITES=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --adapter-url)
+            ADAPTER_URL="$2"
+            shift 2
+            ;;
+        --mock-port)
+            MOCK_PORT="$2"
+            shift 2
+            ;;
+        --output)
+            OUTPUT_FORMAT="$2"
+            shift 2
+            ;;
+        --timeout)
+            TIMEOUT="$2"
+            shift 2
+            ;;
+        --suite)
+            SUITES+=("$2")
+            shift 2
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo -e "${RED}Unknown option: $1${NC}"
+            usage
+            exit 1
+            ;;
+        *)
+            ADAPTER_CMD="$1"
+            shift
+            break
+            ;;
+    esac
+done
+
+# Validate adapter command
+if [ -z "$ADAPTER_CMD" ]; then
+    echo -e "${RED}Error: No adapter command specified${NC}"
+    usage
+    exit 1
+fi
+
+# Banner
+echo "=========================================="
+echo "  PostHog SDK Test Harness"
+echo "=========================================="
+echo ""
+echo "Configuration:"
+echo "  Adapter URL:    $ADAPTER_URL"
+echo "  Mock Port:      $MOCK_PORT"
+echo "  Output Format:  $OUTPUT_FORMAT"
+echo "  Timeout:        ${TIMEOUT}s"
+if [ ${#SUITES[@]} -gt 0 ]; then
+    echo "  Test Suites:    ${SUITES[*]}"
+fi
+echo ""
+
+# Check if there's a requirements.txt in the adapter directory
+ADAPTER_DIR=$(dirname "$(echo $ADAPTER_CMD | awk '{print $2}')")
+if [ -f "$ADAPTER_DIR/requirements.txt" ]; then
+    echo -e "${YELLOW}Installing adapter dependencies...${NC}"
+    pip install -q -r "$ADAPTER_DIR/requirements.txt"
+    echo ""
+fi
+
+# Start the adapter
+echo -e "${YELLOW}Starting adapter...${NC}"
+echo "  Command: $ADAPTER_CMD"
+eval "$ADAPTER_CMD" &
+ADAPTER_PID=$!
+echo "  PID: $ADAPTER_PID"
+echo ""
+
+# Wait a moment for adapter to start
+sleep 1
+
+# Check if adapter is still running
+if ! kill -0 $ADAPTER_PID 2>/dev/null; then
+    echo -e "${RED}Error: Adapter failed to start${NC}"
+    exit 1
+fi
+
+# Build test harness command
+TEST_CMD="uv run posthog-test-harness run --adapter-url $ADAPTER_URL --mock-port $MOCK_PORT --timeout $TIMEOUT --output $OUTPUT_FORMAT"
+
+# Add suite filters if specified
+for suite in "${SUITES[@]}"; do
+    TEST_CMD="$TEST_CMD --suite $suite"
+done
+
+# Run the tests
+echo -e "${YELLOW}Running tests...${NC}"
+echo "  Command: $TEST_CMD"
+echo ""
+
+# Run tests and capture exit code
+set +e
+eval "$TEST_CMD"
+TEST_EXIT_CODE=$?
+set -e
+
+# Report results
+echo ""
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}✓ All tests passed!${NC}"
+else
+    echo -e "${RED}✗ Some tests failed${NC}"
+fi
+
+exit $TEST_EXIT_CODE

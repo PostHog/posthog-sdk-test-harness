@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  # SDK Adapter - Replace this with your own adapter
+  # This example uses the minimal adapter
+  sdk-adapter:
+    build:
+      context: examples/minimal_adapter
+      dockerfile: Dockerfile
+    networks:
+      - test-network
+    environment:
+      PORT: "8080"
+
+  # Test Harness - Runs the tests
+  test-harness:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["run", "--adapter-url", "http://sdk-adapter:8080", "--mock-url", "http://test-harness:8081"]
+    networks:
+      - test-network
+    depends_on:
+      - sdk-adapter
+
+networks:
+  test-network:
+    driver: bridge

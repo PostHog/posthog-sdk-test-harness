@@ -1,0 +1,157 @@
+name: PostHog SDK Compliance Tests
+
+on:
+  workflow_call:
+    inputs:
+      adapter-dockerfile:
+        description: "Path to the SDK adapter Dockerfile"
+        required: true
+        type: string
+      adapter-context:
+        description: "Build context for the adapter (directory containing Dockerfile)"
+        required: false
+        type: string
+        default: "."
+      test-harness-version:
+        description: "Version of the test harness to use (e.g., 'latest', '1.0', '1.0.0')"
+        required: false
+        type: string
+        default: "latest"
+      report-name:
+        description: "Name for the test report artifact"
+        required: false
+        type: string
+        default: "sdk-compliance-report"
+    outputs:
+      tests-passed:
+        description: "Whether all tests passed"
+        value: ${{ jobs.test.outputs.tests-passed }}
+      report-path:
+        description: "Path to the test report"
+        value: ${{ jobs.test.outputs.report-path }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      tests-passed: ${{ steps.run-tests.outcome == 'success' }}
+      report-path: "sdk-compliance-report.md"
+
+    steps:
+      - name: Checkout SDK repository
+        uses: actions/checkout@v4
+        with:
+          path: sdk-repo
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Pull test harness image
+        run: docker pull ghcr.io/posthog/sdk-test-harness:${{ inputs.test-harness-version }}
+
+      - name: Build SDK adapter
+        uses: docker/build-push-action@v5
+        with:
+          context: sdk-repo/${{ inputs.adapter-context }}
+          file: sdk-repo/${{ inputs.adapter-dockerfile }}
+          tags: sdk-adapter:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create Docker network
+        run: docker network create test-network
+
+      - name: Start SDK adapter
+        run: |
+          docker run -d \
+            --name sdk-adapter \
+            --network test-network \
+            -e PORT=8080 \
+            sdk-adapter:test
+
+      - name: Run tests
+        id: run-tests
+        run: |
+          docker run --rm \
+            --network test-network \
+            -v ${{ github.workspace }}/report:/report \
+            ghcr.io/posthog/sdk-test-harness:${{ inputs.test-harness-version }} \
+            run \
+            --adapter-url http://sdk-adapter:8080 \
+            --mock-url http://localhost:8081 \
+            --output json \
+            --report /report/sdk-compliance-report.json
+
+      - name: Generate markdown report
+        if: always()
+        run: |
+          cd test-harness
+          uv run python -c "
+          import json
+          import sys
+          sys.path.insert(0, 'src')
+          from posthog_test_harness.report import generate_markdown_report
+          from posthog_test_harness.types import TestSummary, TestSuiteResult, TestResult
+
+          with open('${{ github.workspace }}/report/sdk-compliance-report.json') as f:
+              data = json.load(f)
+
+          # Reconstruct TestSummary from JSON
+          suites = []
+          for suite_data in data['suites']:
+              results = [
+                  TestResult(
+                      name=r['name'],
+                      passed=r['passed'],
+                      duration_ms=r['duration_ms'],
+                      message=r.get('message')
+                  )
+                  for r in suite_data['tests']
+              ]
+              suites.append(TestSuiteResult(name=suite_data['name'], results=results))
+
+          summary = TestSummary(suites=suites, duration_ms=data['duration_ms'])
+
+          # Generate markdown
+          markdown = generate_markdown_report(summary, data['sdk_name'])
+
+          with open('${{ github.workspace }}/report/sdk-compliance-report.md', 'w') as f:
+              f.write(markdown)
+          "
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.report-name }}
+          path: |
+            report/sdk-compliance-report.json
+            report/sdk-compliance-report.md
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = '${{ github.workspace }}/report/sdk-compliance-report.md';
+            const report = fs.readFileSync(reportPath, 'utf8');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });
+
+      - name: Stop containers
+        if: always()
+        run: |
+          docker stop sdk-adapter || true
+          docker rm sdk-adapter || true
+          docker network rm test-network || true
+
+      - name: Fail if tests failed
+        if: steps.run-tests.outcome != 'success'
+        run: exit 1

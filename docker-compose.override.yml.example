@@ -1,0 +1,30 @@
+# docker-compose.override.yml.example
+#
+# Copy this file to docker-compose.override.yml and customize for your SDK adapter
+#
+# Example:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   # Edit docker-compose.override.yml to point to your adapter
+#   docker-compose up
+
+version: "3.8"
+
+services:
+  sdk-adapter:
+    # Option 1: Build from a local directory
+    build:
+      context: /path/to/your/adapter
+      dockerfile: Dockerfile
+
+    # Option 2: Use a pre-built image
+    # image: your-registry/your-adapter:latest
+
+    # Option 3: Use one of the examples
+    # build:
+    #   context: examples/minimal_adapter
+    #   dockerfile: Dockerfile
+
+    environment:
+      # Customize environment variables for your adapter
+      PORT: "8080"
+      # Add any other env vars your adapter needs

@@ -1,0 +1,650 @@
+# PostHog SDK Adapter Contract
+#
+# This contract defines the interface that SDK adapters must implement
+# and the compliance tests they must pass.
+
+version: "1.0"
+
+# SDK Adapter Interface
+# All adapters must implement these endpoints
+adapter_interface:
+  # Health check - returns SDK information
+  health:
+    method: GET
+    path: /health
+    response:
+      type: object
+      required: [sdk_name, sdk_version, adapter_version]
+      properties:
+        sdk_name:
+          type: string
+          description: Name of the SDK (e.g., "posthog-python")
+        sdk_version:
+          type: string
+          description: Version of the SDK being tested
+        adapter_version:
+          type: string
+          description: Version of the adapter implementation
+
+  # Initialize SDK with configuration
+  init:
+    method: POST
+    path: /init
+    request:
+      type: object
+      required: [api_key, host]
+      properties:
+        api_key:
+          type: string
+          description: PostHog API key
+        host:
+          type: string
+          description: PostHog server URL
+        flush_at:
+          type: integer
+          description: Number of events to batch before flushing
+          default: 100
+        flush_interval_ms:
+          type: integer
+          description: Time in milliseconds to wait before flushing
+          default: 500
+        max_retries:
+          type: integer
+          description: Maximum number of retries for failed requests
+          default: 3
+        enable_compression:
+          type: boolean
+          description: Enable gzip compression
+          default: false
+    response:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+  # Capture a single event
+  capture:
+    method: POST
+    path: /capture
+    request:
+      type: object
+      required: [distinct_id, event]
+      properties:
+        distinct_id:
+          type: string
+          description: Unique identifier for the user
+        event:
+          type: string
+          description: Event name
+        properties:
+          type: object
+          description: Event properties
+        timestamp:
+          type: string
+          format: iso8601
+          description: Event timestamp
+    response:
+      type: object
+      required: [success, uuid]
+      properties:
+        success:
+          type: boolean
+        uuid:
+          type: string
+          format: uuid
+          description: Unique identifier for this event
+
+  # Flush all pending events
+  flush:
+    method: POST
+    path: /flush
+    description: |
+      Force the SDK to send all pending events immediately, bypassing any batching logic.
+      This should block until all events have been sent (or failed permanently).
+
+      Most SDKs batch events and send them when either:
+      - The batch is full (e.g., 100 events)
+      - A timer expires (e.g., 500ms)
+
+      flush() overrides this behavior and sends everything immediately.
+
+      Implementation: Call your SDK's flush() method (e.g., client.flush(), posthog.flush())
+    response:
+      type: object
+      required: [success, events_flushed]
+      properties:
+        success:
+          type: boolean
+        events_flushed:
+          type: integer
+          description: Number of events that were successfully sent
+
+  # Get internal SDK state for test assertions
+  state:
+    method: GET
+    path: /state
+    description: |
+      Return the internal state of the SDK for test assertions.
+
+      This endpoint allows the test harness to verify SDK behavior by inspecting:
+      - How many events are queued vs sent
+      - What HTTP requests were made (with status codes, retry attempts, UUIDs)
+      - Whether retries are working correctly
+
+      You'll need to instrument your SDK to track this information.
+      See examples/minimal_adapter/adapter.py for implementation details.
+    response:
+      type: object
+      required: [pending_events, total_events_captured, total_events_sent, total_retries, requests_made]
+      properties:
+        pending_events:
+          type: integer
+          description: Number of events in queue waiting to be sent
+        total_events_captured:
+          type: integer
+          description: Total number of events captured
+        total_events_sent:
+          type: integer
+          description: Total number of events successfully sent
+        total_retries:
+          type: integer
+          description: Total number of retry attempts
+        last_error:
+          type: string
+          nullable: true
+          description: Last error message, if any
+        requests_made:
+          type: array
+          description: List of HTTP requests made to the server
+          items:
+            type: object
+            required: [timestamp_ms, status_code, retry_attempt, event_count, uuid_list]
+            properties:
+              timestamp_ms:
+                type: integer
+                description: Unix timestamp in milliseconds
+              status_code:
+                type: integer
+                description: HTTP status code received
+              retry_attempt:
+                type: integer
+                description: Retry attempt number (0 for first attempt)
+              event_count:
+                type: integer
+                description: Number of events in this request
+              uuid_list:
+                type: array
+                items:
+                  type: string
+                description: List of event UUIDs in this request
+
+  # Reset SDK state
+  reset:
+    method: POST
+    path: /reset
+    response:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+# Test Harness Actions
+# These are actions that the test harness provides for writing tests
+test_actions:
+  # Adapter interaction actions
+  init:
+    description: Initialize the SDK adapter
+    params:
+      api_key:
+        type: string
+        default: phc_test_key
+      host:
+        type: string
+        default: http://mock-server:8081
+      flush_at:
+        type: integer
+        optional: true
+      flush_interval_ms:
+        type: integer
+        optional: true
+      max_retries:
+        type: integer
+        optional: true
+      enable_compression:
+        type: boolean
+        optional: true
+
+  capture:
+    description: Capture a single event via the adapter
+    params:
+      distinct_id:
+        type: string
+        required: true
+      event:
+        type: string
+        required: true
+      properties:
+        type: object
+        optional: true
+      timestamp:
+        type: string
+        optional: true
+
+  capture_multiple:
+    description: Capture multiple events
+    params:
+      count:
+        type: integer
+        required: true
+        description: Number of events to capture
+      params:
+        type: object
+        required: true
+        description: Template for event parameters (can use {index} placeholder)
+
+  flush:
+    description: Flush pending events via the adapter
+    params: {}
+
+  reset:
+    description: Reset adapter state
+    params: {}
+
+  # Mock server configuration actions
+  configure_mock_responses:
+    description: Configure mock server to return specific responses
+    params:
+      responses:
+        type: array
+        required: true
+        items:
+          type: object
+          properties:
+            status_code:
+              type: integer
+              default: 200
+            headers:
+              type: object
+              default: {}
+            body:
+              type: string
+              optional: true
+
+  # Timing actions
+  wait:
+    description: Wait for a specified duration
+    params:
+      duration_ms:
+        type: integer
+        required: true
+        description: Duration to wait in milliseconds
+
+  # Assertion actions - Request level
+  assert_request_count:
+    description: Assert exact number of HTTP requests made to mock server
+    params:
+      expected:
+        type: integer
+        required: true
+
+  assert_request_count_gte:
+    description: Assert number of requests is greater than or equal to expected
+    params:
+      expected:
+        type: integer
+        required: true
+
+  # Assertion actions - Event level
+  assert_event_field:
+    description: Assert a specific field value in the first captured event
+    params:
+      field:
+        type: string
+        required: true
+        description: Field name (e.g., 'event', 'distinct_id')
+      expected:
+        type: any
+        required: true
+        description: Expected field value
+
+  assert_event_has_field:
+    description: Assert that an event has a specific field
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_event_property:
+    description: Assert event properties
+    params:
+      property:
+        type: string
+        required: true
+        description: Property name (e.g., '$lib')
+      exists:
+        type: boolean
+        optional: true
+        description: Check if property exists
+      expected:
+        type: any
+        optional: true
+        description: Expected property value
+
+  # Assertion actions - UUID validation
+  assert_uuid_format:
+    description: Assert that a field contains a valid UUID
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_all_uuids_unique:
+    description: Assert all captured events have unique UUIDs
+    params: {}
+
+  assert_uuid_preserved_on_retry:
+    description: Assert that UUIDs are the same across retry attempts
+    params: {}
+
+  assert_different_uuids:
+    description: Assert that multiple events have different UUIDs
+    params: {}
+
+  # Assertion actions - Token/Auth
+  assert_token_present:
+    description: Assert that API token is present in requests
+    params:
+      expected:
+        type: string
+        required: true
+        description: Expected token value
+
+  # Assertion actions - Retry behavior
+  assert_final_success:
+    description: Assert that at least one request succeeded (200 status)
+    params: {}
+
+  assert_retry_delay:
+    description: Assert that retry delay meets minimum requirement
+    params:
+      min_delay_ms:
+        type: integer
+        required: true
+        description: Minimum delay in milliseconds between retries
+
+  assert_backoff_implemented:
+    description: Assert that exponential backoff is implemented
+    params:
+      min_first_delay_ms:
+        type: integer
+        required: true
+        description: Minimum delay for first retry in milliseconds
+
+# Compliance Test Suites
+# Compliance Test Suites
+test_suites:
+  capture:
+    description: Tests for event capture functionality
+    categories:
+      format_validation:
+        description: Validate event format and required fields
+        tests:
+          - name: event_has_required_fields
+            description: Events must have 'event' and 'distinct_id' fields
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_event_field
+                params:
+                  field: event
+                  expected: test_event
+              - action: assert_event_field
+                params:
+                  field: distinct_id
+                  expected: test_user
+
+          - name: event_has_uuid
+            description: Events must have a valid UUID
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_has_field
+                params:
+                  field: uuid
+              - action: assert_uuid_format
+                params:
+                  field: uuid
+
+          - name: event_has_lib_properties
+            description: Events must have $lib and $lib_version properties
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: $lib
+                  exists: true
+
+          - name: distinct_id_is_string
+            description: distinct_id should be a string or stringifiable
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user_123
+                  event: test_event
+              - action: flush
+              - action: assert_event_field
+                params:
+                  field: distinct_id
+                  expected: test_user_123
+
+          - name: token_is_present
+            description: API token/key must be present in request
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_token_present
+                params:
+                  expected: phc_test_key
+
+      retry_behavior:
+        description: Validate retry logic and error handling
+        tests:
+          - name: retries_on_503
+            description: SDK should retry on 503 Service Unavailable
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                      body: '{"error": "Service unavailable"}'
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_final_success
+
+          - name: does_not_retry_on_400
+            description: SDK should not retry on 400 Bad Request
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 400
+                      body: '{"error": "Bad request"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_on_401
+            description: SDK should not retry on 401 Unauthorized
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 401
+                      body: '{"error": "Unauthorized"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: respects_retry_after_header
+            description: SDK should respect Retry-After header
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 429
+                      headers:
+                        Retry-After: "3"
+                      body: '{"error": "Rate limited"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
+          - name: implements_backoff
+            description: SDK should implement exponential backoff
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 15000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_backoff_implemented
+                params:
+                  min_first_delay_ms: 100
+
+      deduplication:
+        description: Validate UUID generation and preservation
+        tests:
+          - name: generates_unique_uuids
+            description: Each event should have a unique UUID
+            steps:
+              - action: init
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_all_uuids_unique
+
+          - name: preserves_uuid_on_retry
+            description: UUIDs should be preserved when retrying
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_uuid_preserved_on_retry
+
+          - name: different_events_have_different_uuids
+            description: Different events should have different UUIDs
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: flush
+              - action: assert_different_uuids
