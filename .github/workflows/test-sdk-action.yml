@@ -63,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: sdk-repo/${{ inputs.adapter-context }}
-          file: sdk-repo/${{ inputs.adapter-dockerfile }}
+          file: sdk-repo/${{ inputs.adapter-context }}/${{ inputs.adapter-dockerfile }}
           tags: sdk-adapter:test
           load: true
           cache-from: type=gha
