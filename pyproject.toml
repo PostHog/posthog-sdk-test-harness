@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthog-sdk-test-harness"
-version = "0.1.0"
+version = "0.1.1"
 description = "Language-agnostic test harness for validating PostHog SDK compliance"
 readme = "README.md"
 requires-python = "==3.12.12"

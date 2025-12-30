@@ -1,0 +1,59 @@
+  # Adapter interaction actions
+  init:
+    description: Initialize the SDK adapter
+    params:
+      api_key:
+        type: string
+        default: phc_test_key
+      host:
+        type: string
+        default: http://mock-server:8081
+      flush_at:
+        type: integer
+        optional: true
+      flush_interval_ms:
+        type: integer
+        optional: true
+      max_retries:
+        type: integer
+        optional: true
+      enable_compression:
+        type: boolean
+        optional: true
+
+  capture:
+    description: Capture a single event via the adapter
+    params:
+      distinct_id:
+        type: string
+        required: true
+      event:
+        type: string
+        required: true
+      properties:
+        type: object
+        optional: true
+      timestamp:
+        type: string
+        optional: true
+
+  capture_multiple:
+    description: Capture multiple events
+    params:
+      count:
+        type: integer
+        required: true
+        description: Number of events to capture
+      params:
+        type: object
+        required: true
+        description: Template for event parameters (can use {index} placeholder)
+
+  flush:
+    description: Flush pending events via the adapter
+    params: {}
+
+  reset:
+    description: Reset adapter state
+    params: {}
+
