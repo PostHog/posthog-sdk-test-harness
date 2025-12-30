@@ -13,6 +13,25 @@ if TYPE_CHECKING:
     from .tests.context import TestContext
 
 
+class IncludeLoader(yaml.SafeLoader):
+    """YAML loader that supports !include directive."""
+
+    def __init__(self, stream):
+        self._root = Path(stream.name).parent
+        super().__init__(stream)
+
+
+def include_constructor(loader: IncludeLoader, node: yaml.Node) -> Any:
+    """Construct included YAML file."""
+    filepath = loader._root / loader.construct_scalar(node)
+    with open(filepath) as f:
+        return yaml.load(f, IncludeLoader)
+
+
+# Register the !include constructor
+IncludeLoader.add_constructor('!include', include_constructor)
+
+
 class ContractExecutor:
     """Executes tests defined in CONTRACT.yaml."""
 
@@ -24,13 +43,13 @@ class ContractExecutor:
         self._load_contract()
 
     def _load_contract(self) -> None:
-        """Load and parse the CONTRACT.yaml file."""
+        """Load and parse the CONTRACT.yaml file with !include support."""
         if not self.contract_path.exists():
             # Try relative to this file
             self.contract_path = Path(__file__).parent.parent.parent / "CONTRACT.yaml"
 
         with open(self.contract_path) as f:
-            self.contract = yaml.safe_load(f)
+            self.contract = yaml.load(f, IncludeLoader)
 
     async def execute_action(
         self, action_name: str, params: Dict[str, Any], ctx: "TestContext"
@@ -88,4 +107,7 @@ class ContractExecutor:
 
     def get_test_actions(self) -> Dict[str, Any]:
         """Get all test action definitions from the contract."""
-        return self.contract.get("test_actions", {})
+        # Merge adapter_actions and test_actions
+        adapter_actions = self.contract.get("adapter_actions", {})
+        test_actions = self.contract.get("test_actions", {})
+        return {**adapter_actions, **test_actions}

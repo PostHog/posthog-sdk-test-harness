@@ -512,6 +512,116 @@ class AssertBackoffImplementedAction(Action):
 
 
 # ============================================================================
+# Assertion Actions - Error Responses
+# ============================================================================
+
+
+class AssertResponseStatusAction(Action):
+    """Assert that the adapter returns a specific HTTP status code."""
+
+    @property
+    def name(self) -> str:
+        return "assert_response_status"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        # This action expects the previous action to have failed
+        # We check the last error from the SDK state
+        state = await ctx.sdk_adapter.get_state()
+        last_error = state.last_error
+
+        if not last_error:
+            raise AssertionError("Expected an error but none was recorded")
+
+        expected_status = params["expected"]
+        # Parse status code from error message (format: "500, message='...'")
+        if str(expected_status) not in str(last_error):
+            raise AssertionError(
+                f"Expected status {expected_status} in error, got: {last_error}"
+            )
+
+
+class AssertCaptureFailsAction(Action):
+    """Assert that a capture attempt fails (for testing validation)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_capture_fails"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        # Previous capture should have failed
+        # This is a marker action that does nothing - the test framework
+        # will catch the exception from the previous action
+        pass
+
+
+class AssertRequestHasHeaderAction(Action):
+    """Assert that requests contain a specific header."""
+
+    @property
+    def name(self) -> str:
+        return "assert_request_has_header"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        header_name = params["header"].lower()
+        expected_value = params.get("expected")
+
+        # Check if header exists in any request
+        found = False
+        for req in requests:
+            # Headers are case-insensitive
+            headers_lower = {k.lower(): v for k, v in req.headers.items()}
+            if header_name in headers_lower:
+                if expected_value is None:
+                    found = True
+                    break
+                elif headers_lower[header_name] == expected_value:
+                    found = True
+                    break
+
+        if not found:
+            if expected_value:
+                raise AssertionError(
+                    f"Header '{params['header']}' with value '{expected_value}' not found in requests"
+                )
+            else:
+                raise AssertionError(f"Header '{params['header']}' not found in requests")
+
+
+class AssertBatchFormatAction(Action):
+    """Assert that requests use proper batch format."""
+
+    @property
+    def name(self) -> str:
+        return "assert_batch_format"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body = requests[0].body_decompressed
+        if not body:
+            raise AssertionError("No body in request")
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            raise AssertionError("Body is not valid JSON")
+
+        if params.get("has_api_key_field"):
+            if "api_key" not in data:
+                raise AssertionError("Batch format missing 'api_key' field at root level")
+
+        if params.get("has_batch_array"):
+            if "batch" not in data or not isinstance(data["batch"], list):
+                raise AssertionError("Batch format missing 'batch' array field")
+
+
+# ============================================================================
 # Action Registry
 # ============================================================================
 

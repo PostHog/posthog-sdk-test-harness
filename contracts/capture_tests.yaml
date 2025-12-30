@@ -1,0 +1,381 @@
+    description: Tests for event capture functionality
+    categories:
+      format_validation:
+        description: Validate event format and required fields
+        tests:
+          - name: event_has_required_fields
+            description: Events must have 'event' and 'distinct_id' fields
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_event_field
+                params:
+                  field: event
+                  expected: test_event
+              - action: assert_event_field
+                params:
+                  field: distinct_id
+                  expected: test_user
+
+          - name: event_has_uuid
+            description: Events must have a valid UUID
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_has_field
+                params:
+                  field: uuid
+              - action: assert_uuid_format
+                params:
+                  field: uuid
+
+          - name: event_has_lib_properties
+            description: Events must have $lib and $lib_version properties
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: $lib
+                  exists: true
+
+          - name: distinct_id_is_string
+            description: distinct_id should be a string or stringifiable
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user_123
+                  event: test_event
+              - action: flush
+              - action: assert_event_field
+                params:
+                  field: distinct_id
+                  expected: test_user_123
+
+          - name: token_is_present
+            description: API token/key must be present in request
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_token_present
+                params:
+                  expected: phc_test_key
+
+      retry_behavior:
+        description: Validate retry logic and error handling
+        tests:
+          - name: retries_on_503
+            description: SDK should retry on 503 Service Unavailable
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                      body: '{"error": "Service unavailable"}'
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_final_success
+
+          - name: does_not_retry_on_400
+            description: SDK should not retry on 400 Bad Request
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 400
+                      body: '{"error": "Bad request"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_on_401
+            description: SDK should not retry on 401 Unauthorized
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 401
+                      body: '{"error": "Unauthorized"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: respects_retry_after_header
+            description: SDK should respect Retry-After header
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 429
+                      headers:
+                        Retry-After: "3"
+                      body: '{"error": "Rate limited"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
+          - name: implements_backoff
+            description: SDK should implement exponential backoff
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 15000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_backoff_implemented
+                params:
+                  min_first_delay_ms: 100
+
+      deduplication:
+        description: Validate UUID generation and preservation
+        tests:
+          - name: generates_unique_uuids
+            description: Each event should have a unique UUID
+            steps:
+              - action: init
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_all_uuids_unique
+
+          - name: preserves_uuid_on_retry
+            description: UUIDs should be preserved when retrying
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_uuid_preserved_on_retry
+
+          - name: different_events_have_different_uuids
+            description: Different events should have different UUIDs
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: flush
+              - action: assert_different_uuids
+
+      compression:
+        description: Validate compression support
+        tests:
+          - name: sends_gzip_when_enabled
+            description: SDK should send gzip-compressed data when compression is enabled
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: gzip
+
+      batch_format:
+        description: Validate batch request format
+        tests:
+          - name: uses_proper_batch_structure
+            description: SDK should send events in proper batch format
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_batch_format
+                params:
+                  has_api_key_field: true
+                  has_batch_array: true
+
+      compression:
+        description: Validate compression support
+        tests:
+          - name: sends_gzip_when_enabled
+            description: SDK should send gzip-compressed data when compression is enabled
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: gzip
+
+      batch_format:
+        description: Validate batch request format
+        tests:
+          - name: uses_proper_batch_structure
+            description: SDK should send events in proper batch format with api_key and batch array
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_batch_format
+                params:
+                  has_api_key_field: true
+                  has_batch_array: true
+
+      error_handling:
+        description: Validate error response handling
+        tests:
+          - name: does_not_retry_on_413
+            description: SDK should not retry on 413 Payload Too Large
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 413
+                      body: '{"error": "Payload too large"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: retries_on_408
+            description: SDK should retry on 408 Request Timeout
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 408
+                      body: '{"error": "Request timeout"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success

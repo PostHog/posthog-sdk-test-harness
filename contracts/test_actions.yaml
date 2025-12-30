@@ -1,0 +1,155 @@
+  # Mock server configuration actions
+  configure_mock_responses:
+    description: Configure mock server to return specific responses
+    params:
+      responses:
+        type: array
+        required: true
+        items:
+          type: object
+          properties:
+            status_code:
+              type: integer
+              default: 200
+            headers:
+              type: object
+              default: {}
+            body:
+              type: string
+              optional: true
+
+  # Timing actions
+  wait:
+    description: Wait for a specified duration
+    params:
+      duration_ms:
+        type: integer
+        required: true
+        description: Duration to wait in milliseconds
+
+  # Assertion actions - Request level
+  assert_request_count:
+    description: Assert exact number of HTTP requests made to mock server
+    params:
+      expected:
+        type: integer
+        required: true
+
+  assert_request_count_gte:
+    description: Assert number of requests is greater than or equal to expected
+    params:
+      expected:
+        type: integer
+        required: true
+
+  # Assertion actions - Event level
+  assert_event_field:
+    description: Assert a specific field value in the first captured event
+    params:
+      field:
+        type: string
+        required: true
+        description: Field name (e.g., 'event', 'distinct_id')
+      expected:
+        type: any
+        required: true
+        description: Expected field value
+
+  assert_event_has_field:
+    description: Assert that an event has a specific field
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_event_property:
+    description: Assert event properties
+    params:
+      property:
+        type: string
+        required: true
+        description: Property name (e.g., '$lib')
+      exists:
+        type: boolean
+        optional: true
+        description: Check if property exists
+      expected:
+        type: any
+        optional: true
+        description: Expected property value
+
+  # Assertion actions - UUID validation
+  assert_uuid_format:
+    description: Assert that a field contains a valid UUID
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_all_uuids_unique:
+    description: Assert all captured events have unique UUIDs
+    params: {}
+
+  assert_uuid_preserved_on_retry:
+    description: Assert that UUIDs are the same across retry attempts
+    params: {}
+
+  assert_different_uuids:
+    description: Assert that multiple events have different UUIDs
+    params: {}
+
+  # Assertion actions - Token/Auth
+  assert_token_present:
+    description: Assert that API token is present in requests
+    params:
+      expected:
+        type: string
+        required: true
+        description: Expected token value
+
+  # Assertion actions - Retry behavior
+  assert_final_success:
+    description: Assert that at least one request succeeded (200 status)
+    params: {}
+
+  assert_retry_delay:
+    description: Assert that retry delay meets minimum requirement
+    params:
+      min_delay_ms:
+        type: integer
+        required: true
+        description: Minimum delay in milliseconds between retries
+
+  assert_backoff_implemented:
+    description: Assert that exponential backoff is implemented
+    params:
+      min_first_delay_ms:
+        type: integer
+        required: true
+        description: Minimum delay for first retry in milliseconds
+
+  # Assertion actions - Headers and Format
+  assert_request_has_header:
+    description: Assert that HTTP requests contain a specific header
+    params:
+      header:
+        type: string
+        required: true
+        description: Header name (case-insensitive)
+      expected:
+        type: string
+        optional: true
+        description: Expected header value (if omitted, just checks presence)
+
+  assert_batch_format:
+    description: Assert that requests use proper batch format
+    params:
+      has_api_key_field:
+        type: boolean
+        optional: true
+        description: Check for api_key at root level
+      has_batch_array:
+        type: boolean
+        optional: true
+        description: Check for batch array field
+

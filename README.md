@@ -101,26 +101,18 @@ def capture():
 
 See [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) for complete implementation details and [examples/minimal_adapter/](examples/minimal_adapter/) for a full example.
 
-## Test Categories
+## Tests
 
-All tests are defined in [CONTRACT.yaml](CONTRACT.yaml).
+All tests are defined in [CONTRACT.yaml](CONTRACT.yaml). Current test categories:
 
-### Current Tests (13 total)
+- **Format Validation** - Required fields, UUIDs, SDK metadata
+- **Retry Behavior** - Retry logic, backoff, error handling
+- **Deduplication** - UUID uniqueness and preservation
+- **Compression** - GZIP support
+- **Batch Format** - Proper request structure
+- **Error Handling** - Correct responses to various HTTP errors
 
-**Format Validation**
-- Events have required fields
-- UUIDs are generated
-- SDK metadata properties present
-
-**Retry Behavior**
-- Retries on 503/502/500
-- No retry on 400/401
-- Respects Retry-After headers
-- Exponential backoff
-
-**Deduplication**
-- Unique UUIDs per event
-- UUIDs preserved on retry
+See [CONTRACT.yaml](CONTRACT.yaml) for the complete test specification.
 
 ## CLI Usage
 
@@ -216,7 +208,11 @@ test-harness-version: "1.0"  # Recommended: pin to major.minor
 
 - [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) - Complete guide to implementing adapters
 - [EXTENDING.md](EXTENDING.md) - How to add new tests and actions
-- [CONTRACT.yaml](CONTRACT.yaml) - Complete API specification
+- [CONTRACT.yaml](CONTRACT.yaml) - Main contract (references modular contracts)
+- [contracts/](contracts/) - Modular contract definitions:
+  - `adapter_actions.yaml` - Actions that call the adapter
+  - `test_actions.yaml` - Test harness actions (assertions, etc.)
+  - `capture_tests.yaml` - Event capture test suite
 - [examples/minimal_adapter/](examples/minimal_adapter/) - Working example
 
 ## License

@@ -74,52 +74,61 @@ class AssertSomethingAction(Action):
 
 ## Adding New Tests
 
-Once you have actions, add tests to `CONTRACT.yaml`:
+### Quick: Add a Test to Existing Suite
 
-### 1. Document the Action
-
-Add to the `test_actions` section:
+Add tests to `contracts/capture_tests.yaml` (or other suite files):
 
 ```yaml
-test_actions:
-  my_custom_action:
-    description: Does something custom
-    params:
-      some_param:
-        type: string
-        required: true
-        description: A parameter
-      another_param:
-        type: integer
-        optional: true
-        default: 100
-```
-
-### 2. Write Tests
-
-Add to the `test_suites` section:
-
-```yaml
-test_suites:
-  my_new_suite:
-    description: Tests for my new feature
-    categories:
-      my_category:
-        description: Category description
-        tests:
-          - name: my_test
-            description: Test description
-            steps:
-              - action: init
-              - action: my_custom_action
-                params:
-                  some_param: value
-              - action: assert_something
-                params:
-                  expected: value
+categories:
+  my_new_category:
+    description: Test my feature
+    tests:
+      - name: my_test
+        description: Test description
+        steps:
+          - action: init
+          - action: capture
+            params:
+              distinct_id: user1
+              event: test_event
+          - action: assert_event_field
+            params:
+              field: event
+              expected: test_event
 ```
 
 That's it! No Python code needed.
+
+### Advanced: Add a New Test Action
+
+If you need custom test logic, add an action to `src/posthog_test_harness/actions.py`:
+
+```python
+class MyCustomAction(Action):
+    @property
+    def name(self) -> str:
+        return "my_custom_action"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        # Your assertion logic
+        value = params.get("some_param")
+        # Check something about ctx.mock_server or ctx.sdk_adapter
+        if not valid:
+            raise AssertionError("Something wrong")
+```
+
+Then document it in `contracts/test_actions.yaml`:
+
+```yaml
+my_custom_action:
+  description: Does something custom
+  params:
+    some_param:
+      type: string
+      required: true
+```
+
+Your action is now available in all tests!
 
 ## Adding New Mock Server Endpoints
 

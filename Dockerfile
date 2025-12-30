@@ -7,6 +7,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy project files
 COPY pyproject.toml uv.lock CONTRACT.yaml ./
+COPY contracts/ ./contracts/
 COPY src/ ./src/
 
 # Install the test harness
