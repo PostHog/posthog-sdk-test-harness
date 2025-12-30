@@ -89,12 +89,13 @@ jobs:
         continue-on-error: true
         run: |
           docker run --rm \
+            --name test-harness \
             --network test-network \
             -v ${{ github.workspace }}/report:/report \
             ghcr.io/posthog/sdk-test-harness:${{ inputs.test-harness-version }} \
             run \
             --adapter-url http://sdk-adapter:8080 \
-            --mock-url http://localhost:8081 \
+            --mock-url http://test-harness:8081 \
             --output text \
             --report /report/sdk-compliance-report.md
 
