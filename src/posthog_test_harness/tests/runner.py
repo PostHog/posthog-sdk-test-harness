@@ -9,15 +9,14 @@ from .context import TestContext
 from .suites import ContractTestSuite
 
 
-async def run_all_suites(
-    ctx: TestContext, suite_names: Optional[List[str]] = None
-) -> TestSummary:
+async def run_all_suites(ctx: TestContext, suite_names: Optional[List[str]] = None, sdk_type: str = "server") -> TestSummary:
     """
     Run all test suites from CONTRACT.yaml (or specific ones if provided).
 
     Args:
         ctx: Test context
         suite_names: Optional list of suite names to run (runs all if None)
+        sdk_type: SDK type for filtering tests ('client' or 'server')
 
     Returns:
         TestSummary with results from all suites
@@ -37,9 +36,9 @@ async def run_all_suites(
 
     # Run each suite
     for suite_name in suites_to_run:
-        print(f"Running test suite: {suite_name}")
+        print(f"Running test suite: {suite_name} (SDK type: {sdk_type})")
         suite = ContractTestSuite(suite_name, contract)
-        result = await suite.run(ctx)
+        result = await suite.run(ctx, sdk_type=sdk_type)
         summary.add_suite(result)
 
     summary.duration_ms = int(time.time() * 1000) - start_ms

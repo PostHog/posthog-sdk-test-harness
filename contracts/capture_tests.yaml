@@ -4,7 +4,8 @@
         description: Validate event format and required fields
         tests:
           - name: event_has_required_fields
-            description: Events must have 'event' and 'distinct_id' fields
+            description: Events must have 'event' and 'distinct_id' fields (server SDKs)
+            sdk_types: [server]
             steps:
               - action: init
                 params:
@@ -26,8 +27,33 @@
                   field: distinct_id
                   expected: test_user
 
+          - name: event_has_required_fields_client
+            description: Events must have 'event' and properties.distinct_id (client SDKs)
+            sdk_types: [client]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_event_field
+                params:
+                  field: event
+                  expected: test_event
+              - action: assert_event_property
+                params:
+                  property: distinct_id
+                  expected: test_user
+
           - name: event_has_uuid
             description: Events must have a valid UUID
+            sdk_types: [client, server]
             steps:
               - action: init
               - action: capture
@@ -44,6 +70,7 @@
 
           - name: event_has_lib_properties
             description: Events must have $lib and $lib_version properties
+            sdk_types: [client, server]
             steps:
               - action: init
               - action: capture
@@ -57,7 +84,8 @@
                   exists: true
 
           - name: distinct_id_is_string
-            description: distinct_id should be a string or stringifiable
+            description: distinct_id should be a string or stringifiable (server SDKs)
+            sdk_types: [server]
             steps:
               - action: init
               - action: capture
@@ -70,8 +98,24 @@
                   field: distinct_id
                   expected: test_user_123
 
+          - name: distinct_id_is_string_client
+            description: properties.distinct_id should be a string (client SDKs)
+            sdk_types: [client]
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user_123
+                  event: test_event
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: distinct_id
+                  expected: test_user_123
+
           - name: token_is_present
-            description: API token/key must be present in request
+            description: API token/key must be present in request (server SDKs)
+            sdk_types: [server]
             steps:
               - action: init
                 params:
@@ -85,11 +129,28 @@
                 params:
                   expected: phc_test_key
 
+          - name: token_is_present_client
+            description: API token/key must be present in each event (client SDKs)
+            sdk_types: [client]
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_token_present_client
+                params:
+                  expected: phc_test_key
+
       retry_behavior:
         description: Validate retry logic and error handling
         tests:
           - name: retries_on_503
             description: SDK should retry on 503 Service Unavailable
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -114,6 +175,7 @@
 
           - name: does_not_retry_on_400
             description: SDK should not retry on 400 Bad Request
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -134,6 +196,7 @@
                   expected: 1
 
           - name: does_not_retry_on_401
+            sdk_types: [client, server]
             description: SDK should not retry on 401 Unauthorized
             steps:
               - action: configure_mock_responses
@@ -156,6 +219,7 @@
 
           - name: respects_retry_after_header
             description: SDK should respect Retry-After header
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -183,6 +247,7 @@
 
           - name: implements_backoff
             description: SDK should implement exponential backoff
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -212,6 +277,7 @@
         tests:
           - name: generates_unique_uuids
             description: Each event should have a unique UUID
+            sdk_types: [client, server]
             steps:
               - action: init
               - action: capture_multiple
@@ -225,6 +291,7 @@
 
           - name: preserves_uuid_on_retry
             description: UUIDs should be preserved when retrying
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -244,6 +311,7 @@
 
           - name: different_events_have_different_uuids
             description: Different events should have different UUIDs
+            sdk_types: [client, server]
             steps:
               - action: init
               - action: capture
@@ -280,28 +348,12 @@
                   header: Content-Encoding
                   expected: gzip
 
-      batch_format:
-        description: Validate batch request format
-        tests:
-          - name: uses_proper_batch_structure
-            description: SDK should send events in proper batch format
-            steps:
-              - action: init
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: assert_batch_format
-                params:
-                  has_api_key_field: true
-                  has_batch_array: true
-
       compression:
         description: Validate compression support
         tests:
           - name: sends_gzip_when_enabled
             description: SDK should send gzip-compressed data when compression is enabled
+            sdk_types: [server]  # Server SDKs use Content-Encoding header, client SDKs use compression query param
             steps:
               - action: init
                 params:
@@ -321,6 +373,7 @@
         tests:
           - name: uses_proper_batch_structure
             description: SDK should send events in proper batch format with api_key and batch array
+            sdk_types: [server]  # Only server SDKs use {api_key, batch} format
             steps:
               - action: init
               - action: capture
@@ -338,6 +391,7 @@
         tests:
           - name: does_not_retry_on_413
             description: SDK should not retry on 413 Payload Too Large
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:
@@ -359,6 +413,7 @@
 
           - name: retries_on_408
             description: SDK should retry on 408 Request Timeout
+            sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
                 params:

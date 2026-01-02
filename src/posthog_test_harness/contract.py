@@ -3,9 +3,10 @@
 This module parses CONTRACT.yaml and executes tests defined in it.
 """
 
-import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
+
+import yaml
 
 from .actions import get_all_actions
 
@@ -29,7 +30,7 @@ def include_constructor(loader: IncludeLoader, node: yaml.Node) -> Any:
 
 
 # Register the !include constructor
-IncludeLoader.add_constructor('!include', include_constructor)
+IncludeLoader.add_constructor("!include", include_constructor)
 
 
 class ContractExecutor:
@@ -51,9 +52,7 @@ class ContractExecutor:
         with open(self.contract_path) as f:
             self.contract = yaml.load(f, IncludeLoader)
 
-    async def execute_action(
-        self, action_name: str, params: Dict[str, Any], ctx: "TestContext"
-    ) -> Any:
+    async def execute_action(self, action_name: str, params: Dict[str, Any], ctx: "TestContext") -> Any:
         """
         Execute a single test action.
 
@@ -74,9 +73,7 @@ class ContractExecutor:
         action = self.actions[action_name]
         return await action.execute(params, ctx)
 
-    async def run_test(
-        self, test_def: Dict[str, Any], ctx: "TestContext"
-    ) -> None:
+    async def run_test(self, test_def: Dict[str, Any], ctx: "TestContext") -> None:
         """
         Run a single test from the contract.
 
@@ -97,8 +94,7 @@ class ContractExecutor:
                 await self.execute_action(action, params, ctx)
             except KeyError as e:
                 raise ValueError(
-                    f"Missing required parameter {e} for action '{action}'. "
-                    f"Available params: {list(params.keys())}"
+                    f"Missing required parameter {e} for action '{action}'. " f"Available params: {list(params.keys())}"
                 ) from e
 
     def get_test_suites(self) -> Dict[str, Any]:

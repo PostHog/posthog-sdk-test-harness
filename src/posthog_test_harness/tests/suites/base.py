@@ -35,9 +35,7 @@ class TestSuite(ABC):
         """
         pass
 
-    async def run_test(
-        self, name: str, test_fn: Callable[[], Awaitable[None]]
-    ) -> TestResult:
+    async def run_test(self, name: str, test_fn: Callable[[], Awaitable[None]]) -> TestResult:
         """
         Run a single test and return the result.
 
@@ -55,6 +53,4 @@ class TestSuite(ABC):
             return TestResult(name=name, passed=True, duration_ms=duration_ms)
         except Exception as e:
             duration_ms = int(time.time() * 1000) - start_ms
-            return TestResult(
-                name=name, passed=False, duration_ms=duration_ms, message=str(e)
-            )
+            return TestResult(name=name, passed=False, duration_ms=duration_ms, message=str(e))

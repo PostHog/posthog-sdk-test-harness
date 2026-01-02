@@ -9,7 +9,6 @@ This demonstrates a more complete adapter implementation with:
 - Proper state tracking
 """
 
-import json
 import os
 import queue
 import sys
@@ -120,13 +119,15 @@ class SDKState:
 
             # Record request
             with self.lock:
-                self.requests_made.append({
-                    "timestamp_ms": int(time.time() * 1000),
-                    "status_code": response.status_code,
-                    "retry_attempt": retry_attempt,
-                    "event_count": len(events),
-                    "uuid_list": [e.uuid for e in events],
-                })
+                self.requests_made.append(
+                    {
+                        "timestamp_ms": int(time.time() * 1000),
+                        "status_code": response.status_code,
+                        "retry_attempt": retry_attempt,
+                        "event_count": len(events),
+                        "uuid_list": [e.uuid for e in events],
+                    }
+                )
 
             if response.status_code == 200:
                 with self.lock:
@@ -144,10 +145,10 @@ class SDKState:
                             delay = int(retry_after)
                         except ValueError:
                             # If not an integer, use exponential backoff
-                            delay = 2 ** retry_attempt
+                            delay = 2**retry_attempt
                     else:
                         # Exponential backoff
-                        delay = 2 ** retry_attempt
+                        delay = 2**retry_attempt
 
                     time.sleep(delay)
 
@@ -186,7 +187,7 @@ class SDKState:
         total_sent = 0
 
         for i in range(0, len(events_to_send), batch_size):
-            batch = events_to_send[i:i + batch_size]
+            batch = events_to_send[i : i + batch_size]
             if self.send_batch(batch):
                 total_sent += len(batch)
 
@@ -200,11 +201,13 @@ state = SDKState()
 @app.route("/health", methods=["GET"])
 def health() -> Any:
     """Health check endpoint."""
-    return jsonify({
-        "sdk_name": "minimal-adapter",
-        "sdk_version": "1.0.0",
-        "adapter_version": "1.0.0",
-    })
+    return jsonify(
+        {
+            "sdk_name": "minimal-adapter",
+            "sdk_version": "1.0.0",
+            "adapter_version": "1.0.0",
+        }
+    )
 
 
 @app.route("/init", methods=["POST"])
@@ -228,6 +231,7 @@ def init() -> Any:
         return jsonify({"success": True})
     except Exception as e:
         import traceback
+
         print(f"Error in /init: {e}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -265,6 +269,7 @@ def capture() -> Any:
         return jsonify({"success": True, "uuid": event.uuid})
     except Exception as e:
         import traceback
+
         print(f"Error in /capture: {e}", file=sys.stderr)
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -285,14 +290,16 @@ def get_state() -> Any:
     """Get internal SDK state."""
     try:
         with state.lock:
-            return jsonify({
-                "pending_events": state.queue.qsize(),
-                "total_events_captured": state.total_events_captured,
-                "total_events_sent": state.total_events_sent,
-                "total_retries": state.total_retries,
-                "last_error": state.last_error,
-                "requests_made": state.requests_made,
-            })
+            return jsonify(
+                {
+                    "pending_events": state.queue.qsize(),
+                    "total_events_captured": state.total_events_captured,
+                    "total_events_sent": state.total_events_sent,
+                    "total_retries": state.total_retries,
+                    "last_error": state.last_error,
+                    "requests_made": state.requests_made,
+                }
+            )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import sys
 import threading
 from typing import Optional
@@ -103,7 +104,8 @@ def cli() -> None:
 
 @cli.command()
 @click.option("--port", default=8081, help="Port to listen on")
-def mock_server(port: int) -> None:
+@click.option("--debug", is_flag=True, help="Enable debug logging")
+def mock_server(port: int, debug: bool) -> None:
     """Run the mock PostHog server standalone."""
     click.echo(f"Starting mock PostHog server on port {port}...")
 
@@ -138,6 +140,13 @@ def mock_server(port: int) -> None:
 )
 @click.option("--suite", multiple=True, help="Specific test suite(s) to run")
 @click.option("--report", help="Path to save report (markdown or json based on extension)")
+@click.option("--debug", is_flag=True, help="Enable debug logging")
+@click.option(
+    "--sdk-type",
+    type=click.Choice(["client", "server"]),
+    default="server",
+    help="SDK type for test filtering (client for browser/mobile, server for backend)",
+)
 def run(
     adapter_url: str,
     mock_port: int,
@@ -146,9 +155,15 @@ def run(
     output: str,
     suite: tuple,
     report: Optional[str],
+    debug: bool,
+    sdk_type: str,
 ) -> None:
     """Run compliance tests against an SDK adapter."""
-    asyncio.run(_run_tests(adapter_url, mock_port, mock_url, timeout, output, list(suite), report))
+    # Configure logging
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
+    asyncio.run(_run_tests(adapter_url, mock_port, mock_url, timeout, output, list(suite), report, sdk_type))
 
 
 async def _run_tests(
@@ -159,6 +174,7 @@ async def _run_tests(
     output: str,
     suite_names: list,
     report_path: Optional[str],
+    sdk_type: str,
 ) -> None:
     """Async implementation of run command."""
     # Determine mock server URL
@@ -204,8 +220,8 @@ async def _run_tests(
     )
 
     # Run tests
-    click.echo("Running tests...")
-    summary = await run_all_suites(ctx, suite_names=suite_names if suite_names else None)
+    click.echo(f"Running tests for SDK type: {sdk_type}...")
+    summary = await run_all_suites(ctx, suite_names=suite_names if suite_names else None, sdk_type=sdk_type)
 
     # Print results
     print_summary(summary, output)

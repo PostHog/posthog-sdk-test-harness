@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Tuple
 
-from flask import Request, Response
+from flask import Request
 
 
 class EndpointHandler(ABC):
