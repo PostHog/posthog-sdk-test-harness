@@ -2,12 +2,15 @@
 
 import gzip
 import json
+import logging
 import threading
 import time
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
+from typing import Deque, Dict, List
 
 from ..types import MockResponse, RecordedRequest
+
+logger = logging.getLogger(__name__)
 
 
 class MockServerState:
@@ -59,19 +62,45 @@ class MockServerState:
             if body_decompressed:
                 try:
                     data = json.loads(body_decompressed)
-                    # Handle both single event and batch formats
-                    if isinstance(data, dict):
-                        if "batch" in data:
-                            # Batch format: {"api_key": "...", "batch": [...]}
-                            parsed_events = data["batch"]
-                        else:
-                            # Single event
-                            parsed_events = [data]
-                    elif isinstance(data, list):
-                        # Array of events
+                    logger.debug(
+                        f"Parsed body: type={type(data).__name__}, "
+                        f"keys={list(data.keys()) if isinstance(data, dict) else 'N/A'}"
+                    )
+
+                    # Handle multiple request formats (matches Rust capture service)
+                    if isinstance(data, list):
+                        # Array format (posthog-js batched): [{event1}, {event2}, ...]
                         parsed_events = data
-                except Exception:
-                    pass
+                        logger.debug(f"Array of {len(parsed_events)} events")
+                        if parsed_events:
+                            first_event = parsed_events[0]
+                            logger.debug(f"First event keys: {list(first_event.keys())}")
+                            logger.debug(f"First event has properties: {'properties' in first_event}")
+                            props = first_event.get('properties')
+                            logger.debug(f"Properties value: {props}")
+                            logger.debug(f"Properties type: {type(props).__name__ if props else 'None'}")
+                            if props and isinstance(props, dict):
+                                logger.debug(f"Properties keys: {list(props.keys())[:5]}")
+                                logger.debug(f"Properties has $distinct_id: {'$distinct_id' in props}")
+                                logger.debug(f"Properties.$distinct_id: {props.get('$distinct_id')}")
+                    elif isinstance(data, dict):
+                        if "batch" in data:
+                            # Batch format (server SDKs): {"api_key": "...", "batch": [...]}
+                            parsed_events = data["batch"]
+                            logger.debug(f"Found batch with {len(parsed_events)} events")
+                        elif "data" in data and isinstance(data["data"], list):
+                            # Data array format (if SDK wraps in data key): {"data": [...]}
+                            parsed_events = data["data"]
+                            logger.debug(f"Found data array with {len(parsed_events)} events")
+                        else:
+                            # Single event format: {event: "...", properties: {...}}
+                            parsed_events = [data]
+                            logger.debug("Single event format")
+                except Exception as e:
+                    logger.warning(f"Failed to parse events from body: {e}")
+                    logger.debug(f"Body preview: {body_decompressed[:200]}")
+            else:
+                logger.debug(f"No body_decompressed (body_raw length={len(body_raw)})")
 
             # Get next response from queue or use default
             if self._response_queue:

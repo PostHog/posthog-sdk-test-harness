@@ -3,7 +3,7 @@
 # This contract defines the interface that SDK adapters must implement
 # and the compliance tests they must pass.
 
-version: "1.0"
+version: "1.1"
 
 # SDK Adapter Interface
 # All adapters must implement these endpoints

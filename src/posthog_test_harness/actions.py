@@ -27,7 +27,7 @@ That's it! Your action is now available for use in CONTRACT.yaml:
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict
 
 from .types import CaptureRequest, InitRequest, MockResponse
 
@@ -305,13 +305,17 @@ class AssertEventPropertyAction(Action):
 
         if params.get("exists"):
             if prop_name not in properties:
-                raise AssertionError(f"Event missing '{prop_name}' property")
+                # Debug: show what properties actually exist
+                available_props = list(properties.keys())[:10]  # First 10 to avoid huge output
+                raise AssertionError(f"Event missing '{prop_name}' property. Available properties: {available_props}")
 
         if "expected" in params:
             actual = properties.get(prop_name)
             expected = params["expected"]
             if actual != expected:
-                raise AssertionError(f"Expected {prop_name}='{expected}', got '{actual}'")
+                # Debug: show what properties actually exist
+                available_props = list(properties.keys())[:10]
+                raise AssertionError(f"Expected {prop_name}='{expected}', got '{actual}'. Available properties: {available_props}")
 
 
 # ============================================================================
@@ -362,9 +366,7 @@ class AssertAllUuidsUniqueAction(Action):
 
         unique_uuids = set(all_uuids)
         if len(unique_uuids) != len(all_uuids):
-            raise AssertionError(
-                f"UUIDs not unique: {len(all_uuids)} total, {len(unique_uuids)} unique"
-            )
+            raise AssertionError(f"UUIDs not unique: {len(all_uuids)} total, {len(unique_uuids)} unique")
 
 
 class AssertUuidPreservedOnRetryAction(Action):
@@ -379,12 +381,8 @@ class AssertUuidPreservedOnRetryAction(Action):
         if len(requests) < 2:
             raise AssertionError("Need at least 2 requests to check retry")
 
-        first_uuids = [
-            e.get("uuid") for e in (requests[0].parsed_events or []) if "uuid" in e
-        ]
-        second_uuids = [
-            e.get("uuid") for e in (requests[1].parsed_events or []) if "uuid" in e
-        ]
+        first_uuids = [e.get("uuid") for e in (requests[0].parsed_events or []) if "uuid" in e]
+        second_uuids = [e.get("uuid") for e in (requests[1].parsed_events or []) if "uuid" in e]
 
         if first_uuids != second_uuids:
             raise AssertionError(f"UUIDs changed on retry: {first_uuids} != {second_uuids}")
@@ -535,9 +533,7 @@ class AssertResponseStatusAction(Action):
         expected_status = params["expected"]
         # Parse status code from error message (format: "500, message='...'")
         if str(expected_status) not in str(last_error):
-            raise AssertionError(
-                f"Expected status {expected_status} in error, got: {last_error}"
-            )
+            raise AssertionError(f"Expected status {expected_status} in error, got: {last_error}")
 
 
 class AssertCaptureFailsAction(Action):
@@ -584,9 +580,7 @@ class AssertRequestHasHeaderAction(Action):
 
         if not found:
             if expected_value:
-                raise AssertionError(
-                    f"Header '{params['header']}' with value '{expected_value}' not found in requests"
-                )
+                raise AssertionError(f"Header '{params['header']}' with value '{expected_value}' not found in requests")
             else:
                 raise AssertionError(f"Header '{params['header']}' not found in requests")
 
@@ -619,6 +613,74 @@ class AssertBatchFormatAction(Action):
         if params.get("has_batch_array"):
             if "batch" not in data or not isinstance(data["batch"], list):
                 raise AssertionError("Batch format missing 'batch' array field")
+
+
+# ============================================================================
+# Client SDK Specific Assertions
+# ============================================================================
+
+
+class AssertEventFieldClientAction(Action):
+    """Assert a specific field value in client SDK events (checks properties with $ prefix)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_event_field_client"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        events = requests[0].parsed_events
+        if not events:
+            raise AssertionError("No events in request")
+
+        field = params["field"]
+        expected = params["expected"]
+
+        event = events[0]
+
+        # Client SDKs put distinct_id in properties.$distinct_id
+        if field == "distinct_id":
+            properties = event.get("properties") or {}
+            actual = properties.get("$distinct_id") or properties.get("distinct_id")
+        else:
+            # Check root level first, then properties with $ prefix
+            actual = event.get(field)
+            if actual is None and "properties" in event:
+                actual = event["properties"].get(f"${field}") or event["properties"].get(field)
+
+        if actual != expected:
+            raise AssertionError(f"Expected {field}='{expected}', got '{actual}'")
+
+
+class AssertTokenPresentClientAction(Action):
+    """Assert that API token is present in client SDK requests (array format)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_token_present_client"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        expected_token = params["expected"]
+
+        # Client SDKs send token in properties
+        if requests[0].parsed_events:
+            for event in requests[0].parsed_events:
+                # Check root level and properties
+                token = (event.get("token") or
+                        event.get("api_key") or
+                        event.get("properties", {}).get("token") or
+                        event.get("properties", {}).get("api_key"))
+                if token == expected_token:
+                    return  # Token found!
+
+        raise AssertionError(f"Token '{expected_token}' not found in any events")
 
 
 # ============================================================================

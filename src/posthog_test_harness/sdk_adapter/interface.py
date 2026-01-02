@@ -1,7 +1,7 @@
 """SDK adapter interface definition."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Dict
 
 from ..types import CaptureRequest, HealthResponse, InitRequest, StateResponse
 

@@ -1,7 +1,7 @@
 """Mock PostHog server implementation."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any, List
 
 from flask import Flask, Response, jsonify, request
 
@@ -36,10 +36,12 @@ class MockServer:
                 def make_handler(h: EndpointHandler) -> Any:
                     def wrapper() -> Response:
                         # Record the request
+                        # Normalize headers to lowercase for consistent handling
+                        headers_lower = {k.lower(): v for k, v in dict(request.headers).items()}
                         recorded = self.state.record_request(
                             method=request.method,
                             path=request.path,
-                            headers=dict(request.headers),
+                            headers=headers_lower,
                             query_params=dict(request.args),
                             body_raw=request.get_data(),
                         )

@@ -126,6 +126,4 @@ class SDKAdapterClient(SDKAdapterInterface):
                 last_error = e
                 await asyncio.sleep(0.5)
 
-        raise TimeoutError(
-            f"SDK adapter not ready after {timeout_seconds}s. Last error: {last_error}"
-        )
+        raise TimeoutError(f"SDK adapter not ready after {timeout_seconds}s. Last error: {last_error}")
