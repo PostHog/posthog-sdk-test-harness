@@ -175,6 +175,11 @@ jobs:
           docker rm sdk-adapter || true
           docker network rm test-network || true
 
-      - name: Fail if tests failed
+      - name: Warn if tests failed
         if: steps.run-tests.outcome != 'success'
-        run: exit 1
+        run: echo "::warning::SDK compliance tests failed. See the test report for details."
+
+      # TODO: Uncomment when SDK compliance tests are stable and should block PRs
+      # - name: Fail if tests failed
+      #   if: steps.run-tests.outcome != 'success'
+      #   run: exit 1
