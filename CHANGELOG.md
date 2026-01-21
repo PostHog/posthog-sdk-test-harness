@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-01-21
+
+### Fixed
+- Report header now includes SDK name (e.g., `# posthog-js Compliance Report`) to match the extraction pattern in the GitHub Action, fixing SDK-specific PR comment markers
+
 ## [0.1.2] - 2025-12-30
 
 ### Fixed

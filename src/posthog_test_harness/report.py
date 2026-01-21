@@ -21,9 +21,8 @@ def generate_markdown_report(summary: TestSummary, sdk_name: str = "Unknown SDK"
     lines = []
 
     # Header
-    lines.append("# PostHog SDK Compliance Report")
+    lines.append(f"# {sdk_name} Compliance Report")
     lines.append("")
-    lines.append(f"**SDK**: {sdk_name}")
     lines.append(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
     lines.append(f"**Duration**: {summary.duration_ms}ms")
     lines.append("")
