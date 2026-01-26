@@ -145,6 +145,47 @@
                 params:
                   expected: phc_test_key
 
+          - name: custom_properties_preserved
+            description: Custom properties should be sent to server unchanged
+            sdk_types: [client, server]
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    custom_string: "hello"
+                    custom_number: 42
+                    custom_bool: true
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: custom_string
+                  expected: "hello"
+              - action: assert_event_property
+                params:
+                  property: custom_number
+                  expected: 42
+              - action: assert_event_property
+                params:
+                  property: custom_bool
+                  expected: true
+
+          - name: event_has_timestamp
+            description: Events should have a timestamp field
+            sdk_types: [client, server]
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_has_field
+                params:
+                  field: timestamp
+
       retry_behavior:
         description: Validate retry logic and error handling
         tests:
@@ -272,6 +313,105 @@
                 params:
                   min_first_delay_ms: 100
 
+          - name: retries_on_500
+            description: SDK should retry on 500 Internal Server Error
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 500
+                      body: '{"error": "Internal server error"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+
+          - name: retries_on_502
+            description: SDK should retry on 502 Bad Gateway
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 502
+                      body: '{"error": "Bad gateway"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+
+          - name: retries_on_504
+            description: SDK should retry on 504 Gateway Timeout
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 504
+                      body: '{"error": "Gateway timeout"}'
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+
+          - name: max_retries_respected
+            description: SDK should stop retrying after max_retries attempts
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+              - action: init
+                params:
+                  max_retries: 3
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 15000
+              - action: assert_request_count
+                params:
+                  expected: 4
+
       deduplication:
         description: Validate UUID generation and preservation
         tests:
@@ -334,25 +474,6 @@
         tests:
           - name: sends_gzip_when_enabled
             description: SDK should send gzip-compressed data when compression is enabled
-            steps:
-              - action: init
-                params:
-                  enable_compression: true
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: assert_request_has_header
-                params:
-                  header: Content-Encoding
-                  expected: gzip
-
-      compression:
-        description: Validate compression support
-        tests:
-          - name: sends_gzip_when_enabled
-            description: SDK should send gzip-compressed data when compression is enabled
             sdk_types: [server]  # Server SDKs use Content-Encoding header, client SDKs use compression query param
             steps:
               - action: init
@@ -386,9 +507,62 @@
                   has_api_key_field: true
                   has_batch_array: true
 
+          - name: flush_with_no_events_sends_nothing
+            description: Flushing with no pending events should not send a request
+            sdk_types: [client, server]
+            steps:
+              - action: init
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 0
+
+          - name: multiple_events_batched_together
+            description: Multiple events should be sent in a single batch request
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_batch_format
+                params:
+                  has_batch_array: true
+
       error_handling:
         description: Validate error response handling
         tests:
+          - name: does_not_retry_on_403
+            description: SDK should not retry on 403 Forbidden
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 403
+                      body: '{"error": "Forbidden"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
           - name: does_not_retry_on_413
             description: SDK should not retry on 413 Payload Too Large
             sdk_types: [client, server]

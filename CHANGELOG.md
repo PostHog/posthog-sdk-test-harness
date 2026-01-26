@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-26
+
+### Added
+
+- 9 new capture compliance tests (total: 29 tests across 6 categories)
+  - Format validation: `custom_properties_preserved`, `event_has_timestamp`
+  - Retry behavior: `retries_on_500`, `retries_on_502`, `retries_on_504`, `max_retries_respected`
+  - Batch format: `flush_with_no_events_sends_nothing`, `multiple_events_batched_together`
+  - Error handling: `does_not_retry_on_403`
+
+### Fixed
+
+- Removed duplicate `compression` category definition in capture_tests.yaml
+
 ## [0.1.3] - 2025-01-21
 
 ### Fixed
