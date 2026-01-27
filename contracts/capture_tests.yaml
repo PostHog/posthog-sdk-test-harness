@@ -449,6 +449,79 @@
                   duration_ms: 5000
               - action: assert_uuid_preserved_on_retry
 
+          - name: preserves_uuid_and_timestamp_on_retry
+            description: Both UUID and timestamp should remain identical across retry attempts
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 10000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_uuid_preserved_on_retry
+              - action: assert_timestamp_preserved_on_retry
+
+          - name: preserves_uuid_and_timestamp_on_batch_retry
+            description: All events in a batch should keep their original UUIDs and timestamps across retries
+            sdk_types: [client, server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_uuid_preserved_on_retry
+              - action: assert_timestamp_preserved_on_retry
+              - action: assert_no_duplicate_events_in_batch
+
+          - name: no_duplicate_events_in_batch
+            description: A batch request should not contain duplicate events
+            sdk_types: [client, server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_request_count_gte
+                params:
+                  expected: 1
+              - action: assert_no_duplicate_events_in_batch
+
           - name: different_events_have_different_uuids
             description: Different events should have different UUIDs
             sdk_types: [client, server]

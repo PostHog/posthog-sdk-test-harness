@@ -388,6 +388,53 @@ class AssertUuidPreservedOnRetryAction(Action):
             raise AssertionError(f"UUIDs changed on retry: {first_uuids} != {second_uuids}")
 
 
+class AssertTimestampPreservedOnRetryAction(Action):
+    """Assert that timestamps are the same across retry attempts."""
+
+    @property
+    def name(self) -> str:
+        return "assert_timestamp_preserved_on_retry"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if len(requests) < 2:
+            raise AssertionError("Need at least 2 requests to check retry")
+
+        first_timestamps = [e.get("timestamp") for e in (requests[0].parsed_events or []) if "timestamp" in e]
+        second_timestamps = [e.get("timestamp") for e in (requests[1].parsed_events or []) if "timestamp" in e]
+
+        if first_timestamps != second_timestamps:
+            raise AssertionError(f"Timestamps changed on retry: {first_timestamps} != {second_timestamps}")
+
+
+class AssertNoDuplicateEventsInBatchAction(Action):
+    """Assert that no duplicate events exist within a single batch request."""
+
+    @property
+    def name(self) -> str:
+        return "assert_no_duplicate_events_in_batch"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        for i, req in enumerate(requests):
+            if not req.parsed_events:
+                continue
+
+            seen = set()
+            for event in req.parsed_events:
+                uuid = event.get("uuid")
+                if not uuid:
+                    continue
+                if uuid in seen:
+                    raise AssertionError(
+                        f"Duplicate event UUID '{uuid}' found in request {i}"
+                    )
+                seen.add(uuid)
+
+
 class AssertDifferentUuidsAction(Action):
     """Assert that multiple events have different UUIDs."""
 
