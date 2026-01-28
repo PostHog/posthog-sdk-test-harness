@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-01-27
+
+### Added
+
+- 3 new deduplication contract tests (total: 32 tests across 6 categories)
+  - `preserves_uuid_and_timestamp_on_retry` - UUID and timestamp unchanged across single-event retries
+  - `preserves_uuid_and_timestamp_on_batch_retry` - UUID and timestamp unchanged across batch retries
+  - `no_duplicate_events_in_batch` - No duplicate events within a single batch request
+- New actions: `assert_timestamp_preserved_on_retry`, `assert_no_duplicate_events_in_batch`
+
 ## [0.1.4] - 2026-01-26
 
 ### Added
