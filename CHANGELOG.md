@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI job testing the parallel adapter with concurrency=4
 - `CONCURRENCY` environment variable support for CLI and docker-compose
 - 32 unit tests for partitioned state, scoped wrappers, and parallel runner
+- Feature flag `/decide` request payload contract tests (new `feature_flags` test suite)
+  - `request_with_person_properties_device_id` - Verifies /decide request includes correct token, distinct_id, person_properties (with auto-added distinct_id), groups, group_properties, geoip_disable, and flag_keys_to_evaluate
+- `/decide` endpoint handler in mock server
+- `FeatureFlagRequest` type for feature flag evaluation
+- `get_feature_flag` adapter interface method and client implementation
+- New actions: `get_feature_flag`, `assert_decide_request_count`, `assert_decide_request_field` (with dot-notation for nested fields)
 
 ### Changed
 
