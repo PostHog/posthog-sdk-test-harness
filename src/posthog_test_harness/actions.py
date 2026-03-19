@@ -712,47 +712,47 @@ class AssertBatchFormatAction(Action):
 
 
 # ============================================================================
-# Assertion Actions - Decide (Feature Flags)
+# Assertion Actions - Flags (Feature Flags)
 # ============================================================================
 
 
-class AssertDecideRequestCountAction(Action):
-    """Assert exact number of /decide requests made to mock server."""
+class AssertFlagsRequestCountAction(Action):
+    """Assert exact number of /flags requests made to mock server."""
 
     @property
     def name(self) -> str:
-        return "assert_decide_request_count"
+        return "assert_flags_request_count"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
-        decide_requests = [r for r in requests if "/decide" in r.path]
-        actual = len(decide_requests)
+        flags_requests = [r for r in requests if "/flags" in r.path]
+        actual = len(flags_requests)
         expected = params["expected"]
         if actual != expected:
-            raise AssertionError(f"Expected {expected} /decide requests, got {actual}")
+            raise AssertionError(f"Expected {expected} /flags requests, got {actual}")
 
 
-class AssertDecideRequestFieldAction(Action):
-    """Assert a field value in the /decide request body, with dot notation for nested fields."""
+class AssertFlagsRequestFieldAction(Action):
+    """Assert a field value in the /flags request body, with dot notation for nested fields."""
 
     @property
     def name(self) -> str:
-        return "assert_decide_request_field"
+        return "assert_flags_request_field"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
-        decide_requests = [r for r in requests if "/decide" in r.path]
-        if not decide_requests:
-            raise AssertionError("No /decide requests recorded")
+        flags_requests = [r for r in requests if "/flags" in r.path]
+        if not flags_requests:
+            raise AssertionError("No /flags requests recorded")
 
-        body_str = decide_requests[0].body_decompressed
+        body_str = flags_requests[0].body_decompressed
         if not body_str:
-            raise AssertionError("No body in /decide request")
+            raise AssertionError("No body in /flags request")
 
         try:
             body = json.loads(body_str)
         except json.JSONDecodeError:
-            raise AssertionError("Body of /decide request is not valid JSON")
+            raise AssertionError("Body of /flags request is not valid JSON")
 
         field = params["field"]
         expected = params["expected"]
@@ -768,7 +768,7 @@ class AssertDecideRequestFieldAction(Action):
                 )
             if part not in current:
                 raise AssertionError(
-                    f"Field '{part}' not found in /decide request body at path '{field}'. "
+                    f"Field '{part}' not found in /flags request body at path '{field}'. "
                     f"Available keys: {list(current.keys())}"
                 )
             current = current[part]

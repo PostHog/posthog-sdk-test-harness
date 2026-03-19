@@ -140,15 +140,15 @@
         description: Minimum delay for first retry in milliseconds
 
   # Assertion actions - Decide (Feature Flags)
-  assert_decide_request_count:
-    description: Assert exact number of /decide requests made to mock server
+  assert_flags_request_count:
+    description: Assert exact number of /flags requests made to mock server
     params:
       expected:
         type: integer
         required: true
 
-  assert_decide_request_field:
-    description: Assert a field value in the /decide request body (supports dot notation for nested fields)
+  assert_flags_request_field:
+    description: Assert a field value in the /flags request body (supports dot notation for nested fields)
     params:
       field:
         type: string

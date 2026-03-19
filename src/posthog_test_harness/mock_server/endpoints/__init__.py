@@ -2,6 +2,6 @@
 
 from .base import EndpointHandler
 from .capture import CaptureEndpoint
-from .decide import DecideEndpoint
+from .decide import FlagsEndpoint
 
-__all__ = ["EndpointHandler", "CaptureEndpoint", "DecideEndpoint"]
+__all__ = ["EndpointHandler", "CaptureEndpoint", "FlagsEndpoint"]
