@@ -27,6 +27,18 @@ class CaptureRequest:
 
 
 @dataclass
+class FeatureFlagRequest:
+    """Feature flag evaluation request."""
+
+    key: str
+    distinct_id: str
+    person_properties: Optional[Dict[str, Any]] = None
+    groups: Optional[Dict[str, Any]] = None
+    group_properties: Optional[Dict[str, Any]] = None
+    disable_geoip: Optional[bool] = None
+
+
+@dataclass
 class HealthResponse:
     """SDK adapter health response."""
 

@@ -139,6 +139,26 @@
         required: true
         description: Minimum delay for first retry in milliseconds
 
+  # Assertion actions - Decide (Feature Flags)
+  assert_decide_request_count:
+    description: Assert exact number of /decide requests made to mock server
+    params:
+      expected:
+        type: integer
+        required: true
+
+  assert_decide_request_field:
+    description: Assert a field value in the /decide request body (supports dot notation for nested fields)
+    params:
+      field:
+        type: string
+        required: true
+        description: Field path using dot notation (e.g., 'person_properties.$device_id')
+      expected:
+        type: any
+        required: true
+        description: Expected field value
+
   # Assertion actions - Headers and Format
   assert_request_has_header:
     description: Assert that HTTP requests contain a specific header

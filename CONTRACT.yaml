@@ -201,6 +201,42 @@ adapter_interface:
                   type: string
                 description: List of event UUIDs in this request
 
+  # Evaluate a feature flag
+  get_feature_flag:
+    method: POST
+    path: /get_feature_flag
+    request:
+      type: object
+      required: [key, distinct_id]
+      properties:
+        key:
+          type: string
+          description: Feature flag key to evaluate
+        distinct_id:
+          type: string
+          description: Unique identifier for the user
+        person_properties:
+          type: object
+          description: Person properties to send with the request
+        groups:
+          type: object
+          description: Group identifiers
+        group_properties:
+          type: object
+          description: Group properties
+        disable_geoip:
+          type: boolean
+          description: Disable GeoIP lookup for this request
+    response:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        value:
+          type: any
+          description: Feature flag value
+
   # Reset SDK state
   reset:
     method: POST
@@ -230,3 +266,6 @@ test_suites:
   capture: !include contracts/capture_tests.yaml
   # Capture Analytics V1 tests (new wire protocol)
   capture_v1: !include contracts/capture_analytics_v1_tests.yaml
+
+  # Feature flag evaluation tests (decide request payloads)
+  feature_flags: !include contracts/feature_flags_tests.yaml

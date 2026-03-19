@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
-from ..types import CaptureRequest, HealthResponse, InitRequest, StateResponse
+from ..types import CaptureRequest, FeatureFlagRequest, HealthResponse, InitRequest, StateResponse
 from .interface import SDKAdapterInterface
 
 
@@ -96,6 +96,30 @@ class SDKAdapterClient(SDKAdapterInterface):
                     last_error=data.get("last_error"),
                     requests_made=data.get("requests_made", []),
                 )
+
+    async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
+        """Evaluate a feature flag."""
+        payload: Dict[str, Any] = {
+            "key": request.key,
+            "distinct_id": request.distinct_id,
+        }
+
+        if request.person_properties is not None:
+            payload["person_properties"] = request.person_properties
+        if request.groups is not None:
+            payload["groups"] = request.groups
+        if request.group_properties is not None:
+            payload["group_properties"] = request.group_properties
+        if request.disable_geoip is not None:
+            payload["disable_geoip"] = request.disable_geoip
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/get_feature_flag",
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
 
     async def reset(self) -> Dict[str, bool]:
         """Reset SDK state."""

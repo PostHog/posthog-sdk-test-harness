@@ -5,7 +5,7 @@ from typing import Any, List
 
 from flask import Flask, Response, jsonify, request
 
-from .endpoints import CaptureEndpoint, EndpointHandler
+from .endpoints import CaptureEndpoint, DecideEndpoint, EndpointHandler
 from .state import MockServerState
 
 
@@ -28,6 +28,7 @@ class MockServer:
         # Register endpoint handlers
         handlers: List[EndpointHandler] = [
             CaptureEndpoint(),
+            DecideEndpoint(),
         ]
 
         for handler in handlers:
