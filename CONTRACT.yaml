@@ -25,6 +25,18 @@ adapter_interface:
         adapter_version:
           type: string
           description: Version of the adapter implementation
+        supports_parallel:
+          type: boolean
+          description: Whether the adapter supports parallel test execution via test_id isolation
+          default: false
+
+  # Parallel test execution
+  # When supports_parallel is true, the harness may send a `test_id` query
+  # parameter on all adapter endpoints (e.g., POST /init?test_id=t-abc123).
+  # The adapter must manage a separate SDK instance per test_id and configure
+  # each instance to send an `X-Test-Id` header with SDK requests to the mock
+  # server. When test_id is absent, behavior is identical to non-parallel mode.
+  # See ADAPTER_GUIDE.md for implementation details.
 
   # Initialize SDK with configuration
   init:

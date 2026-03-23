@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: "latest"
+      concurrency:
+        description: "Number of tests to run in parallel (requires parallel-capable adapter)"
+        required: false
+        type: number
+        default: 1
       report-name:
         description: "Name for the test report artifact"
         required: false
@@ -88,6 +93,11 @@ jobs:
         id: run-tests
         continue-on-error: true
         run: |
+          CONCURRENCY_ARG=""
+          if [ "${{ inputs.concurrency }}" -gt 1 ]; then
+            CONCURRENCY_ARG="--concurrency ${{ inputs.concurrency }}"
+          fi
+
           docker run --rm \
             --name test-harness \
             --network test-network \
@@ -97,7 +107,8 @@ jobs:
             --adapter-url http://sdk-adapter:8080 \
             --mock-url http://test-harness:8081 \
             --output text \
-            --report /report/sdk-compliance-report.md
+            --report /report/sdk-compliance-report.md \
+            $CONCURRENCY_ARG
 
       - name: Upload test report
         if: always()

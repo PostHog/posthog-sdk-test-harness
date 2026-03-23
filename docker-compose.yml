@@ -1,11 +1,10 @@
-version: "3.8"
-
 services:
   # SDK Adapter - Replace this with your own adapter
-  # This example uses the minimal adapter
+  # Set ADAPTER_DIR to change which adapter to use:
+  #   ADAPTER_DIR=examples/parallel_adapter docker compose up
   sdk-adapter:
     build:
-      context: examples/minimal_adapter
+      context: ${ADAPTER_DIR:-examples/minimal_adapter}
       dockerfile: Dockerfile
     networks:
       - test-network
@@ -13,11 +12,14 @@ services:
       PORT: "8080"
 
   # Test Harness - Runs the tests
+  # Set CONCURRENCY env var to run tests in parallel (requires parallel-capable adapter)
   test-harness:
     build:
       context: .
       dockerfile: Dockerfile
     command: ["run", "--adapter-url", "http://sdk-adapter:8080", "--mock-url", "http://test-harness:8081"]
+    environment:
+      CONCURRENCY: ${CONCURRENCY:-1}
     networks:
       - test-network
     depends_on:

@@ -126,6 +126,9 @@ uv run posthog-test-harness run --adapter-url http://localhost:8080 --suite capt
 # Generate report
 uv run posthog-test-harness run --adapter-url http://localhost:8080 --report report.md
 
+# Run tests in parallel (requires adapter support)
+uv run posthog-test-harness run --adapter-url http://localhost:8080 --concurrency 4
+
 # JSON output
 uv run posthog-test-harness run --adapter-url http://localhost:8080 --output json
 

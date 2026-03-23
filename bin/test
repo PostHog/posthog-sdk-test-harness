@@ -21,17 +21,18 @@ Usage: bin/test [OPTIONS]
 Run SDK adapter tests using Docker Compose.
 
 OPTIONS:
-    --adapter CONTEXT     Path to adapter directory (default: examples/curl_adapter)
+    --adapter DIR         Path to adapter directory (default: examples/minimal_adapter)
+    --concurrency N       Number of tests to run in parallel (requires parallel-capable adapter)
     --build               Force rebuild of containers
     --down                Stop and remove containers after test
     --help                Show this help message
 
 EXAMPLES:
-    # Test the curl adapter example
+    # Test the minimal adapter (sequential)
     bin/test
 
-    # Test with your own adapter
-    bin/test --adapter /path/to/your/adapter
+    # Test the parallel adapter with concurrency
+    bin/test --adapter examples/parallel_adapter --concurrency 4
 
     # Rebuild and test
     bin/test --build
@@ -43,7 +44,8 @@ EOF
 }
 
 # Default values
-ADAPTER_CONTEXT="examples/curl_adapter"
+ADAPTER_DIR="examples/minimal_adapter"
+CONCURRENCY=""
 BUILD_FLAG=""
 DOWN_FLAG=""
 
@@ -51,7 +53,11 @@ DOWN_FLAG=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --adapter)
-            ADAPTER_CONTEXT="$2"
+            ADAPTER_DIR="$2"
+            shift 2
+            ;;
+        --concurrency)
+            CONCURRENCY="$2"
             shift 2
             ;;
         --build)
@@ -78,25 +84,31 @@ echo "=========================================="
 echo "  PostHog SDK Test Harness (Docker)"
 echo "=========================================="
 echo ""
-echo "Adapter: $ADAPTER_CONTEXT"
+echo "Adapter: $ADAPTER_DIR"
+if [ -n "$CONCURRENCY" ]; then
+    echo "Concurrency: $CONCURRENCY"
+fi
 echo ""
 
-# Update docker-compose.yml to use the specified adapter
-# For now, we'll use the default one in docker-compose.yml
-# In the future, we can make this dynamic
+export ADAPTER_DIR
 
-# Build and run
+# Export concurrency for docker-compose environment variable substitution
+if [ -n "$CONCURRENCY" ]; then
+    export CONCURRENCY
+fi
+
+# Build and run using docker compose up (required for DNS resolution between containers)
 echo -e "${YELLOW}Building and starting containers...${NC}"
-docker-compose up --abort-on-container-exit $BUILD_FLAG
-
-# Capture exit code
+set +e
+docker compose up --abort-on-container-exit $BUILD_FLAG
 EXIT_CODE=$?
+set -e
 
 # Cleanup if requested
 if [ "$DOWN_FLAG" = "yes" ]; then
     echo ""
     echo -e "${YELLOW}Cleaning up containers...${NC}"
-    docker-compose down
+    docker compose down
 fi
 
 # Report results

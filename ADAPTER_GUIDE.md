@@ -237,6 +237,78 @@ Add to your `.github/workflows/test.yml`:
     adapter-context: "."
 ```
 
+## Supporting Parallel Test Execution
+
+The test harness supports running tests in parallel to speed up large test suites. This is entirely optional and requires adapter cooperation.
+
+### How It Works
+
+1. The harness sends `--concurrency N` to run N tests simultaneously
+2. Each test gets a unique `test_id` (e.g., `t-550e8400-...`)
+3. The harness appends `?test_id=<id>` to all adapter requests
+4. The adapter manages a separate SDK instance per `test_id`
+5. Each SDK instance sends an `X-Test-Id: <id>` header to the mock server
+6. The mock server partitions recorded requests by this header
+
+### Opting In
+
+Return `supports_parallel: true` in your `/health` response:
+
+```json
+{
+  "sdk_name": "posthog-python",
+  "sdk_version": "3.0.0",
+  "adapter_version": "1.0.0",
+  "supports_parallel": true
+}
+```
+
+### Implementation Pattern
+
+Manage a dict of SDK instances keyed by `test_id`:
+
+```python
+from flask import request
+
+instances = {}  # test_id -> SDKState
+
+def get_instance():
+    """Get the SDK instance for the current request."""
+    test_id = request.args.get("test_id")
+    if test_id is None:
+        return global_instance
+    if test_id not in instances:
+        instances[test_id] = SDKState()
+    return instances[test_id]
+
+@app.route("/init", methods=["POST"])
+def init():
+    instance = get_instance()
+    data = request.json
+    # Configure this instance to send X-Test-Id header
+    test_id = request.args.get("test_id")
+    extra_headers = {"X-Test-Id": test_id} if test_id else {}
+    instance.configure(data, extra_headers=extra_headers)
+    return jsonify({"success": True})
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    test_id = request.args.get("test_id")
+    if test_id and test_id in instances:
+        instances[test_id].reset()
+        del instances[test_id]
+    elif test_id is None:
+        global_instance.reset()
+    return jsonify({"success": True})
+```
+
+### Key Requirements
+
+- The `X-Test-Id` header **must** be sent with every request the SDK makes to the mock server
+- Each `test_id` instance must be fully independent (separate event queue, retry state, etc.)
+- When `test_id` is absent, behave exactly as before (single global instance)
+- This is fully backwards compatible — adapters that don't support parallel will never receive `test_id`
+
 ## Common Issues
 
 ### "Expected N requests, got 0"
@@ -251,11 +323,8 @@ Make sure UUIDs are generated once and reused on retry attempts, not regenerated
 
 Implement exponential backoff and respect `Retry-After` headers.
 
-## Full Example
+## Full Examples
 
-See [examples/minimal_adapter/adapter.py](examples/minimal_adapter/adapter.py) for a complete, working adapter implementation with:
-- Event queueing
-- Retry logic with exponential backoff
-- Retry-After header support
-- Full state tracking
-- Thread safety
+See [examples/minimal_adapter/](examples/minimal_adapter/) for a sequential adapter with event queueing, retry logic, and state tracking.
+
+See [examples/parallel_adapter/](examples/parallel_adapter/) for an adapter that supports parallel test execution with per-test-id instance isolation.

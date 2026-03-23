@@ -147,6 +147,12 @@ def mock_server(port: int, debug: bool) -> None:
     default="server",
     help="SDK type for test filtering (client for browser/mobile, server for backend)",
 )
+@click.option(
+    "--concurrency",
+    default=10,
+    envvar="CONCURRENCY",
+    help="Number of tests to run in parallel (requires adapter support)",
+)
 def run(
     adapter_url: str,
     mock_port: int,
@@ -157,13 +163,16 @@ def run(
     report: Optional[str],
     debug: bool,
     sdk_type: str,
+    concurrency: int,
 ) -> None:
     """Run compliance tests against an SDK adapter."""
     # Configure logging
     if debug:
-        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
 
-    asyncio.run(_run_tests(adapter_url, mock_port, mock_url, timeout, output, list(suite), report, sdk_type))
+    asyncio.run(
+        _run_tests(adapter_url, mock_port, mock_url, timeout, output, list(suite), report, sdk_type, concurrency)
+    )
 
 
 async def _run_tests(
@@ -175,6 +184,7 @@ async def _run_tests(
     suite_names: list,
     report_path: Optional[str],
     sdk_type: str,
+    concurrency: int = 1,
 ) -> None:
     """Async implementation of run command."""
     # Determine mock server URL
@@ -212,6 +222,16 @@ async def _run_tests(
         click.echo(f"Error: SDK adapter not ready: {e}", err=True)
         sys.exit(1)
 
+    # Determine parallel mode
+    supports_parallel = health.supports_parallel
+    if concurrency > 1 and not supports_parallel:
+        click.echo(
+            f"Warning: --concurrency={concurrency} specified but adapter does not "
+            f"declare supports_parallel. Running sequentially."
+        )
+    elif concurrency > 1 and supports_parallel:
+        click.echo(f"Parallel mode: enabled (concurrency={concurrency})")
+
     # Create test context
     ctx = TestContext(
         sdk_adapter=adapter_client,
@@ -221,7 +241,13 @@ async def _run_tests(
 
     # Run tests
     click.echo(f"Running tests for SDK type: {sdk_type}...")
-    summary = await run_all_suites(ctx, suite_names=suite_names if suite_names else None, sdk_type=sdk_type)
+    summary = await run_all_suites(
+        ctx,
+        suite_names=suite_names if suite_names else None,
+        sdk_type=sdk_type,
+        concurrency=concurrency,
+        supports_parallel=supports_parallel,
+    )
 
     # Print results
     print_summary(summary, output)
