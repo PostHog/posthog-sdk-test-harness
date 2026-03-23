@@ -95,7 +95,9 @@ adapter_interface:
       properties:
         distinct_id:
           type: string
-          description: Unique identifier for the user
+          description: >
+            Unique identifier for the user. This is always a top-level adapter parameter even
+            if the SDK ultimately sends it only in person_properties.
         event:
           type: string
           description: Event name

@@ -59,7 +59,9 @@
       distinct_id:
         type: string
         required: true
-        description: Unique identifier for the user
+        description: >
+          Unique identifier for the user. This is always a top-level adapter parameter even
+          if the SDK ultimately sends it only in person_properties.
       person_properties:
         type: object
         optional: true

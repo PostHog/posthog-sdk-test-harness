@@ -7,9 +7,10 @@
       tests:
         - name: request_with_person_properties_device_id
           description: >
-            When get_feature_flag is called with person_properties containing $device_id,
-            the /flags request must include the expected fields including auto-added distinct_id
-            in person_properties.
+            When get_feature_flag is called with a top-level distinct_id and
+            person_properties containing $device_id, the /flags request must include the
+            expected fields including auto-added distinct_id in person_properties. SDKs may
+            also include distinct_id at the top level, but that is not required by this test.
           sdk_types: [server]
           steps:
             - action: init
@@ -35,11 +36,6 @@
               params:
                 field: token
                 expected: phc_test_key
-
-            - action: assert_flags_request_field
-              params:
-                field: distinct_id
-                expected: test_user_123
 
             - action: assert_flags_request_field
               params:

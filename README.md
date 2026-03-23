@@ -69,7 +69,7 @@ GET  /state     - Return internal state
 POST /reset     - Reset SDK state
 ```
 
-If your SDK can evaluate flags locally, make `/get_feature_flag` honor `force_remote=true` so the harness can verify remote `/flags` payloads without depending on adapter defaults.
+If your SDK can evaluate flags locally, make `/get_feature_flag` honor `force_remote=true` so the harness can verify remote `/flags` payloads without depending on adapter defaults. `distinct_id` is always a top-level adapter parameter, even for SDKs that only mirror it into `person_properties` in the final `/flags` request.
 
 ### Example (Python)
 

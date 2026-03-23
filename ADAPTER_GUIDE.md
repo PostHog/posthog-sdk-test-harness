@@ -171,6 +171,7 @@ Evaluate a feature flag.
 **Notes:**
 - All params except `key` and `distinct_id` are optional
 - Omit optional params instead of sending `null`
+- `distinct_id` is always a top-level adapter parameter, even for SDKs that only mirror it into `person_properties.distinct_id` in the eventual `/flags` request
 - If your SDK supports local evaluation or cached flag definitions, honor `force_remote=true` by bypassing local evaluation and issuing a fresh remote `/flags` request
 
 ### `POST /reset`

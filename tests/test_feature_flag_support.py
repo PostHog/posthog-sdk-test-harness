@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from posthog_test_harness.actions import GetFeatureFlagAction
+from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.types import FeatureFlagRequest
 
@@ -96,3 +97,16 @@ async def test_sdk_adapter_client_serializes_force_remote(monkeypatch: pytest.Mo
         "distinct_id": "user-123",
         "force_remote": True,
     }
+
+
+def test_feature_flag_contract_keeps_top_level_action_distinct_id_without_requiring_top_level_flags_field() -> None:
+    contract = ContractExecutor()
+    feature_flag_test = contract.get_test_suites()["feature_flags"]["categories"]["request_payload"]["tests"][0]
+
+    get_feature_flag_step = next(step for step in feature_flag_test["steps"] if step["action"] == "get_feature_flag")
+    assert get_feature_flag_step["params"]["distinct_id"] == "test_user_123"
+
+    assert not any(
+        step["action"] == "assert_flags_request_field" and step["params"]["field"] == "distinct_id"
+        for step in feature_flag_test["steps"]
+    )
