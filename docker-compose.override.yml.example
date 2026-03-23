@@ -5,7 +5,11 @@
 # Example:
 #   cp docker-compose.override.yml.example docker-compose.override.yml
 #   # Edit docker-compose.override.yml to point to your adapter
-#   docker-compose up
+#   docker compose up
+#
+# Or use the ADAPTER_DIR env var without an override file:
+#   ADAPTER_DIR=examples/parallel_adapter docker compose up
+#   bin/test --adapter examples/parallel_adapter --concurrency 4
 
 version: "3.8"
 
@@ -19,9 +23,14 @@ services:
     # Option 2: Use a pre-built image
     # image: your-registry/your-adapter:latest
 
-    # Option 3: Use one of the examples
+    # Option 3: Use one of the built-in examples
     # build:
     #   context: examples/minimal_adapter
+    #   dockerfile: Dockerfile
+
+    # Option 4: Use the parallel adapter example
+    # build:
+    #   context: examples/parallel_adapter
     #   dockerfile: Dockerfile
 
     environment:

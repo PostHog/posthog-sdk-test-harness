@@ -33,6 +33,7 @@ class HealthResponse:
     sdk_name: str
     sdk_version: str
     adapter_version: str
+    supports_parallel: bool = False
 
 
 @dataclass

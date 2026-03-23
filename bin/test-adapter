@@ -23,6 +23,7 @@ ADAPTER_URL="${SDK_ADAPTER_URL:-http://localhost:8080}"
 MOCK_PORT="${MOCK_PORT:-8081}"
 OUTPUT_FORMAT="${OUTPUT_FORMAT:-text}"
 TIMEOUT="${TIMEOUT:-30}"
+CONCURRENCY=""
 
 # PIDs to track
 ADAPTER_PID=""
@@ -41,11 +42,15 @@ OPTIONS:
     --output FORMAT       Output format: text or json (default: text)
     --timeout SECONDS     Timeout for adapter health check (default: 30)
     --suite SUITE         Run specific test suite (can be specified multiple times)
+    --concurrency N       Number of tests to run in parallel (requires parallel-capable adapter)
     --help                Show this help message
 
 EXAMPLES:
-    # Test the curl adapter
-    bin/test-adapter "python examples/curl_adapter/adapter.py"
+    # Test the minimal adapter
+    bin/test-adapter "python examples/minimal_adapter/adapter.py"
+
+    # Test the parallel adapter with concurrency
+    bin/test-adapter --concurrency 4 "python examples/parallel_adapter/adapter.py"
 
     # Test with custom ports
     bin/test-adapter --adapter-url http://localhost:9000 "python adapter.py"
@@ -105,6 +110,10 @@ while [[ $# -gt 0 ]]; do
             SUITES+=("$2")
             shift 2
             ;;
+        --concurrency)
+            CONCURRENCY="$2"
+            shift 2
+            ;;
         --help)
             usage
             exit 0
@@ -139,6 +148,9 @@ echo "  Adapter URL:    $ADAPTER_URL"
 echo "  Mock Port:      $MOCK_PORT"
 echo "  Output Format:  $OUTPUT_FORMAT"
 echo "  Timeout:        ${TIMEOUT}s"
+if [ -n "$CONCURRENCY" ]; then
+    echo "  Concurrency:    $CONCURRENCY"
+fi
 if [ ${#SUITES[@]} -gt 0 ]; then
     echo "  Test Suites:    ${SUITES[*]}"
 fi
@@ -171,6 +183,11 @@ fi
 
 # Build test harness command
 TEST_CMD="uv run posthog-test-harness run --adapter-url $ADAPTER_URL --mock-port $MOCK_PORT --timeout $TIMEOUT --output $OUTPUT_FORMAT"
+
+# Add concurrency if specified
+if [ -n "$CONCURRENCY" ]; then
+    TEST_CMD="$TEST_CMD --concurrency $CONCURRENCY"
+fi
 
 # Add suite filters if specified
 for suite in "${SUITES[@]}"; do

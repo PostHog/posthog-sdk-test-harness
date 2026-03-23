@@ -1,4 +1,4 @@
-name: Test Minimal Adapter
+name: Test Example Adapters
 
 permissions:
   contents: read
@@ -19,3 +19,14 @@ jobs:
       adapter-dockerfile: "Dockerfile"
       adapter-context: "examples/minimal_adapter"
       test-harness-version: "latest"
+      report-name: "sdk-compliance-report-minimal"
+
+  test-parallel-adapter:
+    name: Test the parallel adapter example (concurrency=4)
+    uses: ./.github/workflows/test-sdk-action.yml
+    with:
+      adapter-dockerfile: "Dockerfile"
+      adapter-context: "examples/parallel_adapter"
+      test-harness-version: "latest"
+      concurrency: 4
+      report-name: "sdk-compliance-report-parallel"

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-23
+
+### Added
+
+- Parallel test execution support with `--concurrency N` flag (default 10)
+  - Tests run concurrently when adapter declares `supports_parallel: true` in `/health`
+  - Each test gets a unique `test_id` for state isolation via `X-Test-Id` header
+  - Mock server partitions recorded requests by `test_id`
+  - `ScopedMockServerState` and `ScopedSDKAdapterClient` wrappers for transparent scoping
+- `examples/parallel_adapter/` demonstrating per-test-id instance management
+- CI job testing the parallel adapter with concurrency=4
+- `CONCURRENCY` environment variable support for CLI and docker-compose
+- 32 unit tests for partitioned state, scoped wrappers, and parallel runner
+
+### Changed
+
+- `bin/test` uses `docker compose up` instead of `docker compose run` (fixes inter-container DNS resolution)
+- `docker-compose.yml` supports `ADAPTER_DIR` and `CONCURRENCY` env vars for adapter selection and parallel execution
+- `bin/test` and `bin/test-adapter` support `--adapter` and `--concurrency` flags
+
 ## [0.1.5] - 2026-01-27
 
 ### Added

@@ -42,8 +42,8 @@ The adapter will start on port 8080.
 # Terminal 1: Start the adapter
 python adapter.py
 
-# Terminal 2: Run the test harness
-posthog-test-harness run --adapter-url http://localhost:8080
+# Terminal 2: Run the test harness (from the harness repo root)
+uv run posthog-test-harness run --adapter-url http://localhost:8080
 ```
 
 ## Expected Test Results
