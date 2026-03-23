@@ -178,6 +178,7 @@ class GetFeatureFlagAction(Action):
                 groups=params.get("groups"),
                 group_properties=params.get("group_properties"),
                 disable_geoip=params.get("disable_geoip"),
+                force_remote=params.get("force_remote"),
             )
         )
 

@@ -3,7 +3,7 @@
 # This contract defines the interface that SDK adapters must implement
 # and the compliance tests they must pass.
 
-version: "1.1"
+version: "1.2"
 
 # SDK Adapter Interface
 # All adapters must implement these endpoints
@@ -227,6 +227,9 @@ adapter_interface:
         disable_geoip:
           type: boolean
           description: Disable GeoIP lookup for this request
+        force_remote:
+          type: boolean
+          description: Force a remote /flags request even if the SDK can evaluate flags locally
     response:
       type: object
       required: [success]

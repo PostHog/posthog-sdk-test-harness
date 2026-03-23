@@ -36,6 +36,7 @@ class FeatureFlagRequest:
     groups: Optional[Dict[str, Any]] = None
     group_properties: Optional[Dict[str, Any]] = None
     disable_geoip: Optional[bool] = None
+    force_remote: Optional[bool] = None
 
 
 @dataclass

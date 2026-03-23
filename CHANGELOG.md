@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FeatureFlagRequest` type for feature flag evaluation
 - `get_feature_flag` adapter interface method and client implementation
 - New actions: `get_feature_flag`, `assert_flags_request_count`, `assert_flags_request_field` (with dot-notation for nested fields)
+- `force_remote` option for `get_feature_flag` so feature-flag request assertions no longer depend on SDK local-evaluation defaults
 
 ### Changed
 

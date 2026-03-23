@@ -63,10 +63,13 @@ Your adapter is a simple HTTP service that wraps your SDK. It needs these endpoi
 GET  /health    - Return SDK name/version and capabilities
 POST /init      - Initialize SDK with config
 POST /capture   - Capture an event
+POST /get_feature_flag - Evaluate a feature flag
 POST /flush     - Flush pending events
 GET  /state     - Return internal state
 POST /reset     - Reset SDK state
 ```
+
+If your SDK can evaluate flags locally, make `/get_feature_flag` honor `force_remote=true` so the harness can verify remote `/flags` payloads without depending on adapter defaults.
 
 ### Example (Python)
 

@@ -293,6 +293,9 @@ def get_feature_flag() -> Any:
         # Auto-add distinct_id to person_properties (matches real SDK behavior)
         person_properties["distinct_id"] = distinct_id
 
+        # This example adapter always evaluates remotely, so it intentionally ignores
+        # the optional force_remote adapter hint.
+
         payload = {
             "token": state.api_key,
             "distinct_id": distinct_id,

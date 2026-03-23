@@ -180,7 +180,7 @@ Add methods to `src/posthog_test_harness/sdk_adapter/interface.py`:
 
 ```python
 @abstractmethod
-async def get_feature_flag(self, key: str, distinct_id: str) -> dict:
+async def get_feature_flag(self, request: FeatureFlagRequest) -> dict:
     """Get feature flag value."""
     pass
 ```
@@ -190,11 +190,18 @@ async def get_feature_flag(self, key: str, distinct_id: str) -> dict:
 Add to `src/posthog_test_harness/sdk_adapter/client.py`:
 
 ```python
-async def get_feature_flag(self, key: str, distinct_id: str) -> dict:
+async def get_feature_flag(self, request: FeatureFlagRequest) -> dict:
+    payload = {
+        "key": request.key,
+        "distinct_id": request.distinct_id,
+    }
+    if request.force_remote is not None:
+        payload["force_remote"] = request.force_remote
+
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{self.base_url}/get_feature_flag",
-            json={"key": key, "distinct_id": distinct_id},
+            json=payload,
         ) as resp:
             resp.raise_for_status()
             return await resp.json()
@@ -218,8 +225,11 @@ class GetFeatureFlagAction(Action):
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         # Assumes you added this method to the client
         return await ctx.sdk_adapter.get_feature_flag(
-            key=params["key"],
-            distinct_id=params["distinct_id"]
+            FeatureFlagRequest(
+                key=params["key"],
+                distinct_id=params["distinct_id"],
+                force_remote=params.get("force_remote"),
+            )
         )
 ```
 
@@ -245,6 +255,7 @@ test_suites:
                 params:
                   key: my-flag
                   distinct_id: user123
+                  force_remote: true
               - action: assert_flag_value
                 params:
                   expected: true

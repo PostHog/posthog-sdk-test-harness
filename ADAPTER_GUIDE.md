@@ -143,6 +143,36 @@ Get internal SDK state for test assertions.
 - Each retry of the same batch should increment `retry_attempt`
 - See `examples/minimal_adapter/adapter.py` for implementation details
 
+### `POST /get_feature_flag`
+
+Evaluate a feature flag.
+
+**Request:**
+```json
+{
+  "key": "my-flag",
+  "distinct_id": "user123",
+  "person_properties": {"email": "user@example.com"},
+  "groups": {"company": "acme"},
+  "group_properties": {"company": {"plan": "enterprise"}},
+  "disable_geoip": true,
+  "force_remote": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "value": true
+}
+```
+
+**Notes:**
+- All params except `key` and `distinct_id` are optional
+- Omit optional params instead of sending `null`
+- If your SDK supports local evaluation or cached flag definitions, honor `force_remote=true` by bypassing local evaluation and issuing a fresh remote `/flags` request
+
 ### `POST /reset`
 
 Reset SDK state and clear all pending events.

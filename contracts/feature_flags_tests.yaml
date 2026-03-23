@@ -25,6 +25,7 @@
                 groups: {}
                 group_properties: {}
                 disable_geoip: true
+                force_remote: true
 
             - action: assert_flags_request_count
               params:

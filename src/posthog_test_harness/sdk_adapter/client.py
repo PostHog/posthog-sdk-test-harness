@@ -112,6 +112,8 @@ class SDKAdapterClient(SDKAdapterInterface):
             payload["group_properties"] = request.group_properties
         if request.disable_geoip is not None:
             payload["disable_geoip"] = request.disable_geoip
+        if request.force_remote is not None:
+            payload["force_remote"] = request.force_remote
 
         async with aiohttp.ClientSession() as session:
             async with session.post(

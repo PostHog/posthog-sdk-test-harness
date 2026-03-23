@@ -76,6 +76,10 @@
         type: boolean
         optional: true
         description: Disable GeoIP lookup for this request
+      force_remote:
+        type: boolean
+        optional: true
+        description: Force a remote /flags request even if the SDK can evaluate flags locally
 
   flush:
     description: Flush pending events via the adapter
@@ -84,4 +88,3 @@
   reset:
     description: Reset adapter state
     params: {}
-
