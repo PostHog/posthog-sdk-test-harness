@@ -1,4 +1,5 @@
     description: Tests for event capture functionality
+    requires: capture_v0
     categories:
       format_validation:
         description: Validate event format and required fields

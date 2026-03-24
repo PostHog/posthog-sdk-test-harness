@@ -34,6 +34,7 @@ class HealthResponse:
     sdk_version: str
     adapter_version: str
     supports_parallel: bool = False
+    capabilities: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -50,11 +51,17 @@ class StateResponse:
 
 @dataclass
 class MockResponse:
-    """Configured mock server response."""
+    """Configured mock server response.
+
+    When v1_event_statuses is set, the mock server generates a V1 partial
+    batch response (HTTP 200) with per-event {uuid, status} results based
+    on the incoming request's event UUIDs.
+    """
 
     status_code: int = 200
     headers: Dict[str, str] = field(default_factory=dict)
     body: Optional[str] = None
+    v1_event_statuses: Optional[List[int]] = None
 
 
 @dataclass

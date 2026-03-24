@@ -29,6 +29,16 @@ adapter_interface:
           type: boolean
           description: Whether the adapter supports parallel test execution via test_id isolation
           default: false
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: >
+            List of capability strings declaring what the SDK supports.
+            Used to filter which test suites and tests are run.
+            Common values: "capture_v0", "capture_v1", "encoding_gzip",
+            "encoding_zstd", "encoding_br", "encoding_deflate".
+          default: []
 
   # Parallel test execution
   # When supports_parallel is true, the harness may send a `test_id` query
@@ -218,3 +228,5 @@ test_actions: !include contracts/test_actions.yaml
 test_suites:
   # Event capture tests (capture, flush, batching, retries)
   capture: !include contracts/capture_tests.yaml
+  # Capture Analytics V1 tests (new wire protocol)
+  capture_v1: !include contracts/capture_analytics_v1_tests.yaml

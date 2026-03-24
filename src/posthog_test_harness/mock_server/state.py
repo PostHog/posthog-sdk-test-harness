@@ -93,6 +93,24 @@ class MockServerState:
                 else:
                     response_config = self._default_response
 
+            # Handle V1 partial batch response template
+            if response_config.v1_event_statuses is not None and parsed_events:
+                statuses = response_config.v1_event_statuses
+                results = []
+                for i, event in enumerate(parsed_events):
+                    status = statuses[i] if i < len(statuses) else 200
+                    results.append(
+                        {
+                            "uuid": event.get("uuid", ""),
+                            "status": status,
+                        }
+                    )
+                response_config = MockResponse(
+                    status_code=200,
+                    headers=dict(response_config.headers),
+                    body=json.dumps({"results": results}),
+                )
+
             # Create recorded request
             request = RecordedRequest(
                 timestamp_ms=int(time.time() * 1000),

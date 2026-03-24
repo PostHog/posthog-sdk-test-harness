@@ -1,0 +1,1412 @@
+    description: Tests for Capture Analytics V1 wire protocol compliance
+    requires: capture_v1
+    categories:
+      endpoint_and_method:
+        description: SDK targets the correct V1 endpoint
+        tests:
+          - name: targets_v1_endpoint
+            description: V1 SDK sends requests to POST /i/v1/e
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_request_path
+                params:
+                  expected: /i/v1/e
+
+          - name: does_not_use_legacy_endpoints
+            description: V1 SDK does not send requests to legacy capture endpoints
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_no_requests_to_paths
+                params:
+                  paths:
+                    - /batch
+                    - /e
+                    - /capture
+                    - /track
+                    - /i/v0/e
+
+      required_headers:
+        description: All V1-required headers are present and well-formed
+        tests:
+          - name: has_authorization_bearer_header
+            description: Authorization header uses Bearer scheme with API token
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_value_matches
+                params:
+                  header: Authorization
+                  pattern: "^Bearer .+$"
+
+          - name: has_posthog_api_token_header
+            description: PostHog-Api-Token header matches configured token
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: PostHog-Api-Token
+                  expected: phc_test_key
+
+          - name: authorization_and_token_match
+            description: Bearer token and PostHog-Api-Token carry the same value
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_authorization_and_token_match
+
+          - name: has_content_type_json
+            description: Content-Type header is application/json
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_value_matches
+                params:
+                  header: Content-Type
+                  pattern: "^application/json"
+
+          - name: has_posthog_sdk_info_format
+            description: PostHog-Sdk-Info header matches name/version pattern
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_value_matches
+                params:
+                  header: PostHog-Sdk-Info
+                  pattern: "^.+/.+$"
+
+          - name: has_posthog_attempt_header
+            description: PostHog-Attempt header is 1 on first (non-retry) request
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_is_integer
+                params:
+                  header: PostHog-Attempt
+                  expected: 1
+
+          - name: has_posthog_request_id
+            description: PostHog-Request-Id header is a valid UUID
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_is_uuid
+                params:
+                  header: PostHog-Request-Id
+
+          - name: has_posthog_client_timestamp
+            description: PostHog-Client-Timestamp header is valid RFC 3339
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_is_rfc3339
+                params:
+                  header: PostHog-Client-Timestamp
+
+          - name: has_user_agent
+            description: User-Agent header is present and non-empty
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_value_matches
+                params:
+                  header: User-Agent
+                  pattern: "^.+$"
+
+      body_format:
+        description: Request body conforms to the V1 batch schema
+        tests:
+          - name: body_has_created_at
+            description: Root created_at field is present and valid RFC 3339
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_body_format
+
+          - name: body_has_batch_array
+            description: Root batch field is a non-empty array
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_body_format
+
+          - name: no_api_key_in_body
+            description: Body does not contain api_key or token fields (auth is in headers)
+            steps:
+              - action: init
+                params:
+                  api_key: phc_test_key
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_body_field_absent
+                params:
+                  fields:
+                    - api_key
+                    - token
+
+          - name: no_sent_at_in_body
+            description: Body does not contain sent_at field (replaced by header)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_body_field_absent
+                params:
+                  fields:
+                    - sent_at
+
+      event_format:
+        description: Individual events conform to V1 event schema
+        tests:
+          - name: event_has_required_root_fields
+            description: Each event has event, uuid, distinct_id, timestamp at root
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_event_format
+
+          - name: event_uuid_is_valid
+            description: Event uuid is a valid UUID
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_uuid_format
+                params:
+                  field: uuid
+
+          - name: event_timestamp_is_rfc3339
+            description: Event timestamp is a valid RFC 3339 timestamp
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_field_is_rfc3339
+                params:
+                  field: timestamp
+
+          - name: distinct_id_is_string
+            description: Event distinct_id is a string
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user_123
+                  event: test_event
+              - action: flush
+              - action: assert_event_field_is_string
+                params:
+                  field: distinct_id
+
+          - name: distinct_id_at_root_not_properties
+            description: distinct_id is at event root, not in properties
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_field_not_in_properties
+                params:
+                  field: distinct_id
+
+          - name: custom_properties_preserved
+            description: Custom properties in properties object are sent unchanged
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    custom_string: "hello"
+                    custom_number: 42
+                    custom_bool: true
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: custom_string
+                  expected: "hello"
+              - action: assert_event_property
+                params:
+                  property: custom_number
+                  expected: 42
+              - action: assert_event_property
+                params:
+                  property: custom_bool
+                  expected: true
+
+          - name: set_properties_preserved
+            description: $set in properties is sent as an object
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    $set:
+                      name: "Test User"
+                      email: "test@example.com"
+              - action: flush
+              - action: assert_event_property_is_object
+                params:
+                  property: $set
+
+          - name: set_once_properties_preserved
+            description: $set_once in properties is sent as an object
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    $set_once:
+                      initial_referrer: "https://google.com"
+              - action: flush
+              - action: assert_event_property_is_object
+                params:
+                  property: $set_once
+
+          - name: groups_properties_preserved
+            description: $groups in properties is sent as an object
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    $groups:
+                      company: "posthog"
+              - action: flush
+              - action: assert_event_property_is_object
+                params:
+                  property: $groups
+
+          - name: sdk_generates_uuid_if_not_provided
+            description: SDK generates a UUID when caller does not supply one
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_has_field
+                params:
+                  field: uuid
+              - action: assert_uuid_format
+                params:
+                  field: uuid
+
+      batch_behavior:
+        description: Batching logic
+        tests:
+          - name: multiple_events_in_single_batch
+            description: Multiple events sent in one request's batch array
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_events_in_batch_count
+                params:
+                  expected: 5
+
+          - name: flush_with_no_events_sends_nothing
+            description: Flushing with no pending events sends no request
+            steps:
+              - action: init
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 0
+
+          - name: flush_at_triggers_batch
+            description: Reaching flush_at threshold triggers a send
+            steps:
+              - action: init
+                params:
+                  flush_at: 3
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: wait
+                params:
+                  duration_ms: 1000
+              - action: assert_request_count_gte
+                params:
+                  expected: 1
+
+          - name: created_at_reflects_batch_creation_time
+            description: created_at is close to actual wall-clock time (within 5s)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_created_at_recent
+                params:
+                  max_age_seconds: 5
+
+      deduplication:
+        description: UUID uniqueness and preservation
+        tests:
+          - name: generates_unique_uuids
+            description: Multiple events each have a unique UUID
+            steps:
+              - action: init
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_all_uuids_unique
+
+          - name: different_events_same_content_different_uuids
+            description: Events with identical content get different UUIDs
+            steps:
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    key: value
+              - action: flush
+              - action: assert_different_uuids
+
+          - name: preserves_uuid_on_retry
+            description: Same event UUIDs across retry attempts
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_uuid_preserved_on_retry
+
+          - name: preserves_timestamp_on_retry
+            description: Same event timestamps across retry attempts
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_timestamp_preserved_on_retry
+
+          - name: preserves_uuid_and_timestamp_on_batch_retry
+            description: All events in a retried batch keep original UUIDs and timestamps
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_uuid_preserved_on_retry
+              - action: assert_timestamp_preserved_on_retry
+              - action: assert_no_duplicate_events_in_batch
+
+          - name: no_duplicate_events_in_batch
+            description: No duplicate UUIDs within a single batch
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_request_count_gte
+                params:
+                  expected: 1
+              - action: assert_no_duplicate_events_in_batch
+
+      header_behavior_on_retry:
+        description: V1-specific header semantics during retries
+        tests:
+          - name: attempt_header_starts_at_one
+            description: First request has PostHog-Attempt 1
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_is_integer
+                params:
+                  header: PostHog-Attempt
+                  expected: 1
+
+          - name: attempt_header_increments_on_retry
+            description: PostHog-Attempt increments by 1 on each retry (1, 2, 3...)
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 10000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_attempt_header_increments
+
+          - name: request_id_preserved_on_retry
+            description: PostHog-Request-Id is identical across retries of same request
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_request_id_preserved_on_retry
+
+          - name: different_requests_have_different_request_ids
+            description: Two independent flushes produce different PostHog-Request-Id values
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_1
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 1000
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_2
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 1000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_different_request_ids
+
+          - name: client_timestamp_changes_on_retry
+            description: PostHog-Client-Timestamp is updated on each retry attempt
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_client_timestamp_changes_on_retry
+
+      retry_behavior:
+        description: Retry logic for V1 error codes
+        tests:
+          - name: retries_on_500
+            description: SDK retries on 500 Internal Server Error
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 500
+                      body: '{"type":"server_error","code":"internal","detail":"Internal error"}'
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [204]
+
+          - name: retries_on_502
+            description: SDK retries on 502 Bad Gateway
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 502
+                      body: '{"type":"server_error","code":"bad_gateway","detail":"Bad gateway"}'
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [204]
+
+          - name: retries_on_503
+            description: SDK retries on 503 Service Unavailable
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                      body: '{"type":"server_error","code":"unavailable","detail":"Service unavailable"}'
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_final_success
+                params:
+                  success_statuses: [204]
+
+          - name: retries_on_504
+            description: SDK retries on 504 Gateway Timeout
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 504
+                      body: '{"type":"server_error","code":"timeout","detail":"Gateway timeout"}'
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [204]
+
+          - name: does_not_retry_on_400
+            description: No retry on 400 Bad Request
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 400
+                      body: '{"type":"validation_error","code":"bad_request","detail":"Bad request"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_on_401
+            description: No retry on 401 Unauthorized
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 401
+                      body: '{"type":"authentication_error","code":"invalid_api_token","detail":"Unauthorized"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_on_413
+            description: No retry on 413 Payload Too Large
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 413
+                      body: '{"type":"payload_error","code":"payload_too_large","detail":"Too large"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_on_415
+            description: No retry on 415 Unsupported Media Type
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 415
+                      body: '{"type":"payload_error","code":"unsupported_encoding","detail":"Unsupported"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: respects_retry_after_on_429
+            description: Respects Retry-After header on 429
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 429
+                      headers:
+                        Retry-After: "3"
+                      body: '{"type":"rate_limit_error","code":"rate_limited","detail":"Rate limited"}'
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
+          - name: respects_retry_after_on_503
+            description: Respects Retry-After header on 503
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                      headers:
+                        Retry-After: "3"
+                      body: '{"type":"server_error","code":"unavailable","detail":"Unavailable"}'
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
+          - name: implements_backoff
+            description: Exponential backoff with minimum 100ms first delay
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 204
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 15000
+              - action: assert_request_count_gte
+                params:
+                  expected: 3
+              - action: assert_backoff_implemented
+                params:
+                  min_first_delay_ms: 100
+
+          - name: max_retries_respected
+            description: Stops retrying after max_retries attempts
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+              - action: init
+                params:
+                  max_retries: 3
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 15000
+              - action: assert_request_count
+                params:
+                  expected: 4
+
+      partial_batch_handling:
+        description: 200 partial-batch response pattern unique to V1
+        tests:
+          - name: handles_204_full_success
+            description: 204 response means all events persisted, no retry needed
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: handles_200_partial_with_all_success
+            description: 200 response where all events have status 200 means no retry
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 200, 200]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: prunes_persisted_events_on_partial
+            description: After 200 partial, events with status 200 are NOT retried
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_partial_batch_retry_pruning
+
+          - name: prunes_malformed_events_on_partial
+            description: After 200 partial, events with status 400 are NOT retried
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [400, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_partial_batch_retry_pruning
+
+          - name: retries_failed_events_on_partial
+            description: After 200 partial, events with status 500 ARE retried
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+
+          - name: retried_partial_batch_only_contains_failed_events
+            description: The retry request's batch only contains events that had status 500
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 400, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_partial_batch_retry_pruning
+              - action: assert_events_in_batch_count
+                params:
+                  expected: 1
+
+          - name: partial_retry_preserves_uuids
+            description: UUIDs of retried events from partial batch are preserved
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_partial_batch_retry_pruning
+
+          - name: partial_retry_attempt_header_increments
+            description: PostHog-Attempt increments on partial batch retry
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_attempt_header_increments
+
+          - name: partial_retry_request_id_preserved
+            description: PostHog-Request-Id preserved on partial batch retry
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_request_id_preserved_on_retry
+
+          - name: respects_retry_after_on_partial
+            description: Respects Retry-After header on 200 partial batch response
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_statuses: [200, 500]
+                      headers:
+                        Retry-After: "3"
+                    - status_code: 204
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
+      compression:
+        description: Compression support (each test requires specific encoding capability)
+        tests:
+          - name: sends_gzip_content_encoding
+            description: Content-Encoding gzip header when gzip enabled
+            requires: encoding_gzip
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: gzip
+
+          - name: sends_deflate_content_encoding
+            description: Content-Encoding deflate header when deflate enabled
+            requires: encoding_deflate
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: deflate
+
+          - name: sends_br_content_encoding
+            description: Content-Encoding br header when brotli enabled
+            requires: encoding_br
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: br
+
+          - name: sends_zstd_content_encoding
+            description: Content-Encoding zstd header when zstd enabled
+            requires: encoding_zstd
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_has_header
+                params:
+                  header: Content-Encoding
+                  expected: zstd
+
+          - name: no_content_encoding_when_disabled
+            description: No Content-Encoding header when compression disabled
+            steps:
+              - action: init
+                params:
+                  enable_compression: false
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_header_absent
+                params:
+                  header: Content-Encoding
+
+          - name: compressed_body_is_decompressible
+            description: Mock server can decompress and parse the gzip body
+            requires: encoding_gzip
+            steps:
+              - action: init
+                params:
+                  enable_compression: true
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_compressed_body_decompressible
+
+      error_handling:
+        description: Error response handling beyond core retry behavior
+        tests:
+          - name: does_not_retry_on_unknown_4xx
+            description: No retry on 403 (unknown 4xx treated as non-retryable)
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 403
+                      body: '{"type":"authorization_error","code":"forbidden","detail":"Forbidden"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  expected: 1

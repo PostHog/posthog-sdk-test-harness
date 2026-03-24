@@ -241,12 +241,15 @@ async def _run_tests(
 
     # Run tests
     click.echo(f"Running tests for SDK type: {sdk_type}...")
+    if health.capabilities:
+        click.echo(f"Adapter capabilities: {', '.join(health.capabilities)}")
     summary = await run_all_suites(
         ctx,
         suite_names=suite_names if suite_names else None,
         sdk_type=sdk_type,
         concurrency=concurrency,
         supports_parallel=supports_parallel,
+        capabilities=health.capabilities,
     )
 
     # Print results

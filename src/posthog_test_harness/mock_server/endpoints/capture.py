@@ -13,8 +13,12 @@ class CaptureEndpoint(EndpointHandler):
     def routes(self) -> List[Tuple[str, str, Callable]]:
         """Return all capture endpoint routes."""
         handler = self.handle_request
+        v1_handler = self.handle_v1_request
 
         return [
+            # V1 capture endpoint
+            ("/i/v1/e", "POST", v1_handler),
+            ("/i/v1/e/", "POST", v1_handler),
             # Batch endpoint
             ("/batch", "POST", handler),
             ("/batch/", "POST", handler),
@@ -39,15 +43,21 @@ class CaptureEndpoint(EndpointHandler):
 
     def handle_request(self, request: Request) -> Tuple[Dict[str, Any], int, Dict[str, str]]:
         """
-        Handle a capture request.
+        Handle a legacy capture request.
 
         Returns success response with status 1.
         """
-        # Check if this is a beacon request (should return 204)
         is_beacon = request.args.get("beacon") == "1"
 
         if is_beacon:
             return {}, 204, {}
 
-        # Standard capture response
         return {"status": 1}, 200, {}
+
+    def handle_v1_request(self, request: Request) -> Tuple[Dict[str, Any], int, Dict[str, str]]:
+        """
+        Handle a V1 capture request.
+
+        Returns 204 No Content for full batch success.
+        """
+        return {}, 204, {}
