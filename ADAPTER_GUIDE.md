@@ -19,16 +19,30 @@ Your adapter must implement these endpoints. See [CONTRACT.yaml](CONTRACT.yaml) 
 
 ### `GET /health`
 
-Health check endpoint.
+Health check endpoint. The `capabilities` array controls which test suites are run against your adapter.
 
 **Response:**
 ```json
 {
   "sdk_name": "posthog-python",
   "sdk_version": "3.0.0",
-  "adapter_version": "1.0.0"
+  "adapter_version": "1.0.0",
+  "capabilities": ["capture_v0", "capture_v1", "encoding_gzip"]
 }
 ```
+
+**Capabilities:**
+
+| Capability | Description |
+|------------|-------------|
+| `capture_v0` | Original capture protocol (`POST /batch`) |
+| `capture_v1` | Capture Analytics V1 protocol (`POST /i/v1/e`) |
+| `encoding_gzip` | Gzip compression support |
+| `encoding_zstd` | Zstd compression support |
+| `encoding_br` | Brotli compression support |
+| `encoding_deflate` | Deflate compression support |
+
+The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run.
 
 ### `POST /init`
 
