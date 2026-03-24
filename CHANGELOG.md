@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-24
+
+### Added
+
+- Capture Analytics V1 contract test suite (69 tests across 11 categories)
+  - Endpoint and method validation (2 tests)
+  - Required V1 headers: Authorization, PostHog-Api-Token, PostHog-Sdk-Info, PostHog-Attempt, PostHog-Request-Id, PostHog-Client-Timestamp (9 tests)
+  - V1 body format: `{created_at, batch}` with no `api_key` or `sent_at` (4 tests)
+  - V1 event format: root-level `uuid`, `distinct_id`, `timestamp`, `$set`/`$set_once`/`$groups` support (10 tests)
+  - Batch behavior and `created_at` freshness (4 tests)
+  - Deduplication and UUID preservation across retries (6 tests)
+  - V1 header semantics on retry: attempt increment, request-id preservation, client-timestamp update (5 tests)
+  - Retry behavior for V1 status codes (429, 500, 502, 503, 504) with backoff and Retry-After (12 tests)
+  - Partial batch handling: 200 response with per-event statuses, pruning persisted/malformed events (10 tests)
+  - Compression: per-encoding capability filtering (gzip, deflate, br, zstd) (6 tests)
+  - Error handling for non-retryable 4xx (1 test)
+- Capability-based test filtering via adapter `/health` `capabilities` field
+  - Suite-level: `requires: capture_v1`, `requires: capture_v0`
+  - Test-level: `requires: encoding_gzip`, `requires: encoding_zstd`, etc.
+- V1 mock server endpoint (`POST /i/v1/e`) returning 204 on success
+- Partial batch response templates via `v1_event_statuses` on `MockResponse`
+- 23 new assertion action classes (51 total)
+
+### Fixed
+
+- Mock server handler dispatch now uses route-specific handler functions instead of always calling the default handler
+- Response routing correctly handles 204 No Content and distinguishes configured responses from handler defaults
+
 ## [0.2.0] - 2026-03-23
 
 ### Added
