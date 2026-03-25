@@ -93,6 +93,24 @@ class MockServerState:
                 else:
                     response_config = self._default_response
 
+            # Handle V1 partial batch response template
+            if response_config.v1_event_results is not None and parsed_events:
+                result_values = response_config.v1_event_results
+                results = []
+                for i, _event in enumerate(parsed_events):
+                    result = result_values[i] if i < len(result_values) else "ok"
+                    entry: Dict[str, str] = {"result": result}
+                    if result == "retry":
+                        entry["details"] = "not_persisted"
+                    elif result == "drop":
+                        entry["details"] = "invalid_event"
+                    results.append(entry)
+                response_config = MockResponse(
+                    status_code=200,
+                    headers=dict(response_config.headers),
+                    body=json.dumps({"results": results}),
+                )
+
             # Create recorded request
             request = RecordedRequest(
                 timestamp_ms=int(time.time() * 1000),

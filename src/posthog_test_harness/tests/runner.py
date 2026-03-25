@@ -20,6 +20,7 @@ async def run_all_suites(
     sdk_type: str = "server",
     concurrency: int = 1,
     supports_parallel: bool = False,
+    capabilities: Optional[List[str]] = None,
 ) -> TestSummary:
     """Run all test suites from CONTRACT.yaml.
 
@@ -27,6 +28,9 @@ async def run_all_suites(
     tests are dispatched concurrently with an asyncio.Semaphore limiting
     the number of in-flight tests. Otherwise, tests run sequentially
     using the same code path as before.
+
+    Suites and tests that declare ``requires`` are skipped when the
+    adapter's capabilities do not satisfy the requirement.
     """
     start_ms = int(time.time() * 1000)
 
@@ -41,9 +45,22 @@ async def run_all_suites(
     parallel = concurrency > 1 and supports_parallel
 
     if parallel:
-        summary = await _run_parallel(suites_to_run, contract, ctx, sdk_type, concurrency)
+        summary = await _run_parallel(
+            suites_to_run,
+            contract,
+            ctx,
+            sdk_type,
+            concurrency,
+            capabilities,
+        )
     else:
-        summary = await _run_sequential(suites_to_run, contract, ctx, sdk_type)
+        summary = await _run_sequential(
+            suites_to_run,
+            contract,
+            ctx,
+            sdk_type,
+            capabilities,
+        )
 
     summary.duration_ms = int(time.time() * 1000) - start_ms
     return summary
@@ -54,14 +71,18 @@ async def _run_sequential(
     contract: ContractExecutor,
     ctx: TestContext,
     sdk_type: str,
+    capabilities: Optional[List[str]] = None,
 ) -> TestSummary:
     """Run tests sequentially. Identical code path to the original implementation."""
     summary = TestSummary()
 
     for suite_name in suites_to_run:
-        print(f"Running test suite: {suite_name} (SDK type: {sdk_type})")
         suite = ContractTestSuite(suite_name, contract)
-        result = await suite.run(ctx, sdk_type=sdk_type)
+        tests = suite.collect_tests(sdk_type, capabilities)
+        if not tests:
+            continue
+        print(f"Running test suite: {suite_name} (SDK type: {sdk_type})")
+        result = await suite.run(ctx, sdk_type=sdk_type, capabilities=capabilities)
         summary.add_suite(result)
 
     return summary
@@ -73,6 +94,7 @@ async def _run_parallel(
     ctx: TestContext,
     sdk_type: str,
     concurrency: int,
+    capabilities: Optional[List[str]] = None,
 ) -> TestSummary:
     """Run tests in parallel using asyncio.Semaphore + gather.
 
@@ -83,7 +105,7 @@ async def _run_parallel(
     all_tests: List[Tuple[str, str, Dict[str, Any], ContractTestSuite]] = []
     for suite_name in suites_to_run:
         suite = ContractTestSuite(suite_name, contract)
-        for test_name, test_def in suite.collect_tests(sdk_type):
+        for test_name, test_def in suite.collect_tests(sdk_type, capabilities):
             all_tests.append((suite_name, test_name, test_def, suite))
 
     total = len(all_tests)

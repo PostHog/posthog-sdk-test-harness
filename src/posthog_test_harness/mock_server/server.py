@@ -32,8 +32,8 @@ class MockServer:
 
         for handler in handlers:
             for path, method, handler_func in handler.routes():
-                # Wrap handler to record request and handle response
-                def make_handler(h: EndpointHandler) -> Any:
+                # Wrap the route-specific handler to record requests and handle responses
+                def make_handler(h_func: Any) -> Any:
                     def wrapper() -> Response:
                         # Record the request
                         # Normalize headers to lowercase for consistent handling
@@ -46,8 +46,10 @@ class MockServer:
                             body_raw=request.get_data(),
                         )
 
-                        # If response was configured with non-200 status, return error
-                        if recorded.response_status != 200:
+                        # If a custom response was configured, return it directly
+                        if recorded.response_body is not None or recorded.response_status != 200:
+                            if recorded.response_status == 204 and not recorded.response_body:
+                                return Response(status=204, headers=recorded.response_headers)
                             body = (
                                 json.loads(recorded.response_body)
                                 if recorded.response_body
@@ -55,9 +57,11 @@ class MockServer:
                             )
                             return jsonify(body), recorded.response_status, recorded.response_headers
 
-                        # Otherwise, call the handler
-                        body_dict, status_code, headers = h.handle_request(request)
-                        return jsonify(body_dict), status_code, headers
+                        # No custom response — call the route-specific handler
+                        body_dict, status_code, resp_headers = h_func(request)
+                        if not body_dict and status_code == 204:
+                            return Response(status=204, headers=resp_headers)
+                        return jsonify(body_dict), status_code, resp_headers
 
                     return wrapper
 
@@ -65,7 +69,7 @@ class MockServer:
                 self.app.add_url_rule(
                     path,
                     endpoint=f"{path}_{method}",
-                    view_func=make_handler(handler),
+                    view_func=make_handler(handler_func),
                     methods=[method],
                 )
 

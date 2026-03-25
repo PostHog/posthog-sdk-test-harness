@@ -33,6 +33,7 @@ class SDKAdapterClient(SDKAdapterInterface):
                     sdk_version=data["sdk_version"],
                     adapter_version=data["adapter_version"],
                     supports_parallel=data.get("supports_parallel", False),
+                    capabilities=data.get("capabilities", []),
                 )
 
     async def init(self, config: InitRequest) -> Dict[str, bool]:

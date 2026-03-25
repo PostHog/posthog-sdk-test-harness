@@ -17,6 +17,13 @@
             body:
               type: string
               optional: true
+            v1_event_results:
+              type: array
+              optional: true
+              description: >
+                V1 partial batch: per-event result strings ("ok", "retry", "drop")
+                by position. When set, generates a 200 response with
+                {results: [{result, details?}]}.
 
   # Timing actions
   wait:
@@ -109,8 +116,12 @@
 
   # Assertion actions - Retry behavior
   assert_final_success:
-    description: Assert that at least one request succeeded (200 status)
-    params: {}
+    description: Assert that at least one request succeeded
+    params:
+      success_statuses:
+        type: array
+        optional: true
+        description: List of success status codes (default [200])
 
   assert_retry_delay:
     description: Assert that retry delay meets minimum requirement
@@ -152,4 +163,168 @@
         type: boolean
         optional: true
         description: Check for batch array field
+
+  # V1 Path Assertions
+  assert_request_path:
+    description: Assert all requests hit a specific path
+    params:
+      expected:
+        type: string
+        required: true
+        description: Expected request path (e.g. /i/v1/e)
+
+  assert_no_requests_to_paths:
+    description: Assert no requests were made to any of the listed paths
+    params:
+      paths:
+        type: array
+        required: true
+        description: List of forbidden paths
+
+  # V1 Header Assertions
+  assert_header_value_matches:
+    description: Assert a header value matches a regex pattern
+    params:
+      header:
+        type: string
+        required: true
+        description: Header name (case-insensitive)
+      pattern:
+        type: string
+        required: true
+        description: Regex pattern to match against
+      optional:
+        type: boolean
+        optional: true
+        description: If true, pass when header is absent (default false)
+
+  assert_header_is_uuid:
+    description: Assert a header value is a valid UUID
+    params:
+      header:
+        type: string
+        required: true
+
+  assert_header_is_rfc3339:
+    description: Assert a header value is a valid RFC 3339 timestamp
+    params:
+      header:
+        type: string
+        required: true
+
+  assert_header_is_integer:
+    description: Assert a header value is a valid integer
+    params:
+      header:
+        type: string
+        required: true
+      expected:
+        type: integer
+        optional: true
+        description: Expected exact integer value
+
+  assert_authorization_and_token_match:
+    description: >
+      If Authorization header is present, assert it uses Bearer scheme and
+      the token matches PostHog-Api-Token. Passes when Authorization is absent.
+    params: {}
+
+  # V1 Body Assertions
+  assert_v1_body_format:
+    description: Assert V1 body has created_at (RFC 3339) and batch (non-empty array)
+    params: {}
+
+  assert_body_field_absent:
+    description: Assert specific fields are absent from body root
+    params:
+      fields:
+        type: array
+        required: true
+        description: List of field names that must not be present
+
+  assert_v1_created_at_recent:
+    description: Assert V1 body created_at is within max_age_seconds of now
+    params:
+      max_age_seconds:
+        type: integer
+        optional: true
+        description: Maximum age in seconds (default 5)
+
+  # V1 Event Assertions
+  assert_v1_event_format:
+    description: Assert all events have V1 required root fields (event, uuid, distinct_id, timestamp)
+    params: {}
+
+  assert_event_field_is_rfc3339:
+    description: Assert an event field is a valid RFC 3339 timestamp
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_event_field_is_string:
+    description: Assert an event field is a string
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_event_field_not_in_properties:
+    description: Assert a field exists at event root but not inside properties
+    params:
+      field:
+        type: string
+        required: true
+
+  assert_event_property_is_object:
+    description: Assert an event property value is an object
+    params:
+      property:
+        type: string
+        required: true
+
+  assert_events_in_batch_count:
+    description: Assert the number of events in the first batch
+    params:
+      expected:
+        type: integer
+        required: true
+      operator:
+        type: string
+        optional: true
+        description: Comparison operator (eq or gte, default eq)
+
+  # V1 Header Retry Assertions
+  assert_attempt_header_increments:
+    description: Assert PostHog-Attempt increments across retry attempts (1, 2, 3...)
+    params: {}
+
+  assert_request_id_preserved_on_retry:
+    description: Assert PostHog-Request-Id is identical across retry attempts
+    params: {}
+
+  assert_attempt_timestamp_changes_on_retry:
+    description: Assert PostHog-Attempt-Timestamp differs between retry attempts
+    params: {}
+
+  assert_different_request_ids:
+    description: Assert two independent requests have different PostHog-Request-Id values
+    params: {}
+
+  # V1 Partial Batch Assertions
+  assert_partial_batch_retry_pruning:
+    description: Assert retried batch only contains events with result "retry" from partial response
+    params: {}
+
+  # V1 Compression Assertions
+  assert_header_absent:
+    description: Assert a specific header is NOT present in the request
+    params:
+      header:
+        type: string
+        required: true
+
+  assert_compressed_body_decompressible:
+    description: Assert the mock server could decompress the body and parse events
+    params: {}
 
