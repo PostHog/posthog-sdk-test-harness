@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -5,8 +6,10 @@ import pytest
 
 from posthog_test_harness.actions import GetFeatureFlagAction
 from posthog_test_harness.contract import ContractExecutor
+from posthog_test_harness.mock_server.server import MockServer
+from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import ScopedSDKAdapterClient, SDKAdapterClient
-from posthog_test_harness.types import FeatureFlagRequest
+from posthog_test_harness.types import FeatureFlagRequest, MockResponse
 
 
 @pytest.mark.asyncio
@@ -124,6 +127,34 @@ async def test_scoped_sdk_adapter_client_serializes_force_remote(monkeypatch: py
         "distinct_id": "user-123",
         "force_remote": True,
     }
+
+
+def test_mock_server_flags_endpoint_merges_configured_success_body() -> None:
+    state = MockServerState()
+    state.set_response_queue(
+        [
+            MockResponse(
+                body=json.dumps(
+                    {
+                        "featureFlags": {"my-flag": True},
+                        "featureFlagPayloads": {"my-flag": "test-payload"},
+                    }
+                )
+            )
+        ]
+    )
+    client = MockServer(state).app.test_client()
+
+    response = client.post("/flags", json={"distinct_id": "user-123"})
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "featureFlags": {"my-flag": True},
+        "featureFlagPayloads": {"my-flag": "test-payload"},
+        "errorsWhileComputingFlags": False,
+    }
+
+
 def test_feature_flag_contract_keeps_top_level_action_distinct_id_without_requiring_top_level_flags_field() -> None:
     contract = ContractExecutor()
     feature_flag_test = contract.get_test_suites()["feature_flags"]["categories"]["request_payload"]["tests"][0]
