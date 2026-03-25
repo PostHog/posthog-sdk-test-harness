@@ -17,12 +17,13 @@
             body:
               type: string
               optional: true
-            v1_event_statuses:
+            v1_event_results:
               type: array
               optional: true
               description: >
-                V1 partial batch: per-event status codes by position.
-                When set, generates a 200 response with {results: [{uuid, status}]}.
+                V1 partial batch: per-event result strings ("ok", "retry", "drop")
+                by position. When set, generates a 200 response with
+                {results: [{result, details?}]}.
 
   # Timing actions
   wait:
@@ -192,6 +193,10 @@
         type: string
         required: true
         description: Regex pattern to match against
+      optional:
+        type: boolean
+        optional: true
+        description: If true, pass when header is absent (default false)
 
   assert_header_is_uuid:
     description: Assert a header value is a valid UUID
@@ -219,7 +224,9 @@
         description: Expected exact integer value
 
   assert_authorization_and_token_match:
-    description: Assert Authorization bearer value matches PostHog-Api-Token
+    description: >
+      If Authorization header is present, assert it uses Bearer scheme and
+      the token matches PostHog-Api-Token. Passes when Authorization is absent.
     params: {}
 
   # V1 Body Assertions
@@ -296,8 +303,8 @@
     description: Assert PostHog-Request-Id is identical across retry attempts
     params: {}
 
-  assert_client_timestamp_changes_on_retry:
-    description: Assert PostHog-Client-Timestamp differs between retry attempts
+  assert_attempt_timestamp_changes_on_retry:
+    description: Assert PostHog-Attempt-Timestamp differs between retry attempts
     params: {}
 
   assert_different_request_ids:
@@ -306,7 +313,7 @@
 
   # V1 Partial Batch Assertions
   assert_partial_batch_retry_pruning:
-    description: Assert retried batch only contains events with status 500 from partial response
+    description: Assert retried batch only contains events with result "retry" from partial response
     params: {}
 
   # V1 Compression Assertions

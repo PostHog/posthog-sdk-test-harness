@@ -48,8 +48,8 @@
       required_headers:
         description: All V1-required headers are present and well-formed
         tests:
-          - name: has_authorization_bearer_header
-            description: Authorization header uses Bearer scheme with API token
+          - name: has_authorization_bearer_header_if_present
+            description: If Authorization header is present, it uses Bearer scheme
             steps:
               - action: init
                 params:
@@ -64,6 +64,7 @@
                 params:
                   header: Authorization
                   pattern: "^Bearer .+$"
+                  optional: true
 
           - name: has_posthog_api_token_header
             description: PostHog-Api-Token header matches configured token
@@ -82,8 +83,8 @@
                   header: PostHog-Api-Token
                   expected: phc_test_key
 
-          - name: authorization_and_token_match
-            description: Bearer token and PostHog-Api-Token carry the same value
+          - name: authorization_and_token_match_if_present
+            description: If Authorization header is present, Bearer token matches PostHog-Api-Token
             steps:
               - action: init
                 params:
@@ -159,8 +160,8 @@
                 params:
                   header: PostHog-Request-Id
 
-          - name: has_posthog_client_timestamp
-            description: PostHog-Client-Timestamp header is valid RFC 3339
+          - name: has_posthog_attempt_timestamp
+            description: PostHog-Attempt-Timestamp header is valid RFC 3339
             steps:
               - action: init
                 params:
@@ -172,7 +173,7 @@
               - action: flush
               - action: assert_header_is_rfc3339
                 params:
-                  header: PostHog-Client-Timestamp
+                  header: PostHog-Attempt-Timestamp
 
           - name: has_user_agent
             description: User-Agent header is present and non-empty
@@ -538,7 +539,8 @@
                 params:
                   responses:
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -557,7 +559,8 @@
                 params:
                   responses:
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -576,7 +579,8 @@
                 params:
                   responses:
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -642,7 +646,8 @@
                   responses:
                     - status_code: 503
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -664,7 +669,8 @@
                 params:
                   responses:
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -706,14 +712,15 @@
                   expected: 2
               - action: assert_different_request_ids
 
-          - name: client_timestamp_changes_on_retry
-            description: PostHog-Client-Timestamp is updated on each retry attempt
+          - name: attempt_timestamp_changes_on_retry
+            description: PostHog-Attempt-Timestamp is updated on each retry attempt
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -726,7 +733,7 @@
               - action: assert_request_count_gte
                 params:
                   expected: 2
-              - action: assert_client_timestamp_changes_on_retry
+              - action: assert_attempt_timestamp_changes_on_retry
 
       retry_behavior:
         description: Retry logic for V1 error codes
@@ -738,8 +745,9 @@
                 params:
                   responses:
                     - status_code: 500
-                      body: '{"type":"server_error","code":"internal","detail":"Internal error"}'
-                    - status_code: 204
+                      body: '{"error":"internal","error_description":"Internal error","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -754,7 +762,7 @@
                   expected: 2
               - action: assert_final_success
                 params:
-                  success_statuses: [204]
+                  success_statuses: [200]
 
           - name: retries_on_502
             description: SDK retries on 502 Bad Gateway
@@ -763,8 +771,9 @@
                 params:
                   responses:
                     - status_code: 502
-                      body: '{"type":"server_error","code":"bad_gateway","detail":"Bad gateway"}'
-                    - status_code: 204
+                      body: '{"error":"bad_gateway","error_description":"Bad gateway","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -779,7 +788,7 @@
                   expected: 2
               - action: assert_final_success
                 params:
-                  success_statuses: [204]
+                  success_statuses: [200]
 
           - name: retries_on_503
             description: SDK retries on 503 Service Unavailable
@@ -788,9 +797,10 @@
                 params:
                   responses:
                     - status_code: 503
-                      body: '{"type":"server_error","code":"unavailable","detail":"Service unavailable"}'
+                      body: '{"error":"unavailable","error_description":"Service unavailable","error_uri":"https://posthog.com/docs/api"}'
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -805,7 +815,7 @@
                   expected: 3
               - action: assert_final_success
                 params:
-                  success_statuses: [204]
+                  success_statuses: [200]
 
           - name: retries_on_504
             description: SDK retries on 504 Gateway Timeout
@@ -814,8 +824,9 @@
                 params:
                   responses:
                     - status_code: 504
-                      body: '{"type":"server_error","code":"timeout","detail":"Gateway timeout"}'
-                    - status_code: 204
+                      body: '{"error":"timeout","error_description":"Gateway timeout","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -830,7 +841,7 @@
                   expected: 2
               - action: assert_final_success
                 params:
-                  success_statuses: [204]
+                  success_statuses: [200]
 
           - name: does_not_retry_on_400
             description: No retry on 400 Bad Request
@@ -839,7 +850,7 @@
                 params:
                   responses:
                     - status_code: 400
-                      body: '{"type":"validation_error","code":"bad_request","detail":"Bad request"}'
+                      body: '{"error":"bad_request","error_description":"Bad request","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -860,7 +871,7 @@
                 params:
                   responses:
                     - status_code: 401
-                      body: '{"type":"authentication_error","code":"invalid_api_token","detail":"Unauthorized"}'
+                      body: '{"error":"invalid_api_token","error_description":"Unauthorized","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -881,7 +892,7 @@
                 params:
                   responses:
                     - status_code: 413
-                      body: '{"type":"payload_error","code":"payload_too_large","detail":"Too large"}'
+                      body: '{"error":"payload_too_large","error_description":"Too large","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -902,7 +913,7 @@
                 params:
                   responses:
                     - status_code: 415
-                      body: '{"type":"payload_error","code":"unsupported_encoding","detail":"Unsupported"}'
+                      body: '{"error":"unsupported_encoding","error_description":"Unsupported","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -925,35 +936,9 @@
                     - status_code: 429
                       headers:
                         Retry-After: "3"
-                      body: '{"type":"rate_limit_error","code":"rate_limited","detail":"Rate limited"}'
-                    - status_code: 204
-              - action: init
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: wait
-                params:
-                  duration_ms: 5000
-              - action: assert_request_count_gte
-                params:
-                  expected: 2
-              - action: assert_retry_delay
-                params:
-                  min_delay_ms: 2500
-
-          - name: respects_retry_after_on_503
-            description: Respects Retry-After header on 503
-            steps:
-              - action: configure_mock_responses
-                params:
-                  responses:
-                    - status_code: 503
-                      headers:
-                        Retry-After: "3"
-                      body: '{"type":"server_error","code":"unavailable","detail":"Unavailable"}'
-                    - status_code: 204
+                      body: '{"error":"rate_limited","error_description":"Rate limited","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -979,7 +964,8 @@
                     - status_code: 503
                     - status_code: 503
                     - status_code: 503
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -1025,8 +1011,8 @@
       partial_batch_handling:
         description: 200 partial-batch response pattern unique to V1
         tests:
-          - name: handles_204_full_success
-            description: 204 response means all events persisted, no retry needed
+          - name: handles_200_full_success
+            description: 200 with empty results means all events persisted, no retry needed
             steps:
               - action: init
                 params:
@@ -1043,13 +1029,13 @@
                 params:
                   expected: 1
 
-          - name: handles_200_partial_with_all_success
-            description: 200 response where all events have status 200 means no retry
+          - name: handles_200_with_all_ok
+            description: 200 response where all events have result "ok" means no retry
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 200, 200]
+                    - v1_event_results: ["ok", "ok", "ok"]
               - action: init
                 params:
                   flush_at: 10
@@ -1073,8 +1059,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1099,8 +1086,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [400, 500]
-                    - status_code: 204
+                    - v1_event_results: ["drop", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1125,8 +1113,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1150,8 +1139,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 400, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "drop", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1179,8 +1169,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1205,8 +1196,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1231,8 +1223,9 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
-                    - status_code: 204
+                    - v1_event_results: ["ok", "retry"]
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1257,10 +1250,11 @@
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_statuses: [200, 500]
+                    - v1_event_results: ["ok", "retry"]
                       headers:
                         Retry-After: "3"
-                    - status_code: 204
+                    - status_code: 200
+                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1397,7 +1391,7 @@
                 params:
                   responses:
                     - status_code: 403
-                      body: '{"type":"authorization_error","code":"forbidden","detail":"Forbidden"}'
+                      body: '{"error":"forbidden","error_description":"Forbidden","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:

@@ -58,6 +58,6 @@ class CaptureEndpoint(EndpointHandler):
         """
         Handle a V1 capture request.
 
-        Returns 204 No Content for full batch success.
+        Returns 200 with empty results array for full batch success.
         """
-        return {}, 204, {}
+        return {"results": []}, 200, {}

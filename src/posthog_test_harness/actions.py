@@ -202,7 +202,7 @@ class ConfigureMockResponsesAction(Action):
                 status_code=r.get("status_code", 200),
                 headers=r.get("headers", {}),
                 body=r.get("body"),
-                v1_event_statuses=r.get("v1_event_statuses"),
+                v1_event_results=r.get("v1_event_results"),
             )
             for r in params["responses"]
         ]
@@ -821,10 +821,13 @@ class AssertHeaderValueMatchesAction(Action):
 
         header_name = params["header"].lower()
         pattern = params["pattern"]
+        optional = params.get("optional", False)
 
         headers = requests[0].headers
         value = headers.get(header_name)
         if value is None:
+            if optional:
+                return
             raise AssertionError(f"Header '{params['header']}' not found in request")
         if not re.match(pattern, value):
             raise AssertionError(f"Header '{params['header']}' value '{value}' " f"does not match pattern '{pattern}'")
@@ -896,7 +899,11 @@ class AssertHeaderIsIntegerAction(Action):
 
 
 class AssertAuthorizationAndTokenMatchAction(Action):
-    """Assert Authorization bearer value matches PostHog-Api-Token header."""
+    """Assert Authorization bearer value matches PostHog-Api-Token header.
+
+    If Authorization header is absent, the assertion passes (optional header).
+    If present, it must use Bearer scheme and the token must match PostHog-Api-Token.
+    """
 
     @property
     def name(self) -> str:
@@ -908,15 +915,23 @@ class AssertAuthorizationAndTokenMatchAction(Action):
             raise AssertionError("No requests recorded")
 
         headers = requests[0].headers
-        auth = headers.get("authorization", "")
+        auth = headers.get("authorization")
         token_header = headers.get("posthog-api-token")
 
+        if auth is None:
+            return
+
         if not auth.startswith("Bearer "):
-            raise AssertionError(f"Authorization header missing or not Bearer: '{auth}'")
+            raise AssertionError(
+                f"Authorization header present but not Bearer scheme: '{auth}'"
+            )
 
         bearer_value = auth[len("Bearer ") :]
         if bearer_value != token_header:
-            raise AssertionError(f"Bearer token '{bearer_value}' != " f"PostHog-Api-Token '{token_header}'")
+            raise AssertionError(
+                f"Bearer token '{bearer_value}' != "
+                f"PostHog-Api-Token '{token_header}'"
+            )
 
 
 # ============================================================================
@@ -1187,28 +1202,31 @@ class AssertRequestIdPreservedOnRetryAction(Action):
                 raise AssertionError(f"Request {i} PostHog-Request-Id '{rid}' != " f"first request '{first_id}'")
 
 
-class AssertClientTimestampChangesOnRetryAction(Action):
-    """Assert PostHog-Client-Timestamp differs between retry attempts."""
+class AssertAttemptTimestampChangesOnRetryAction(Action):
+    """Assert PostHog-Attempt-Timestamp differs between retry attempts."""
 
     @property
     def name(self) -> str:
-        return "assert_client_timestamp_changes_on_retry"
+        return "assert_attempt_timestamp_changes_on_retry"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
         if len(requests) < 2:
             raise AssertionError("Need at least 2 requests to check retry")
 
-        first_ts = requests[0].headers.get("posthog-client-timestamp")
+        first_ts = requests[0].headers.get("posthog-attempt-timestamp")
         if not first_ts:
-            raise AssertionError("First request missing PostHog-Client-Timestamp")
+            raise AssertionError("First request missing PostHog-Attempt-Timestamp")
 
-        second_ts = requests[1].headers.get("posthog-client-timestamp")
+        second_ts = requests[1].headers.get("posthog-attempt-timestamp")
         if not second_ts:
-            raise AssertionError("Second request missing PostHog-Client-Timestamp")
+            raise AssertionError("Second request missing PostHog-Attempt-Timestamp")
 
         if first_ts == second_ts:
-            raise AssertionError(f"PostHog-Client-Timestamp should change on retry, " f"but both are '{first_ts}'")
+            raise AssertionError(
+                f"PostHog-Attempt-Timestamp should change on retry, "
+                f"but both are '{first_ts}'"
+            )
 
 
 class AssertDifferentRequestIdsAction(Action):
@@ -1278,7 +1296,7 @@ class AssertCompressedBodyDecompressibleAction(Action):
 
 
 class AssertPartialBatchRetryPruningAction(Action):
-    """Assert the retried batch only contains events that had status 500 in the partial response."""
+    """Assert the retried batch only contains events with result "retry" from the partial response."""
 
     @property
     def name(self) -> str:
@@ -1289,7 +1307,7 @@ class AssertPartialBatchRetryPruningAction(Action):
         if len(requests) < 2:
             raise AssertionError("Need at least 2 requests for partial batch retry check")
 
-        # Parse the first response body for per-event statuses
+        # Parse the first response body for per-event results
         first_response_body = requests[0].response_body
         if not first_response_body:
             raise AssertionError("First response has no body (expected partial batch)")
@@ -1303,10 +1321,17 @@ class AssertPartialBatchRetryPruningAction(Action):
         if not results:
             raise AssertionError("First response has no 'results' array")
 
-        # Events that should be retried (status 500)
-        retry_uuids = {r["uuid"] for r in results if r["status"] == 500}
-        # Events that should NOT be retried (status 200 or 400)
-        no_retry_uuids = {r["uuid"] for r in results if r["status"] != 500}
+        # Match results to first request's events by position
+        first_events = requests[0].parsed_events or []
+
+        retry_uuids: set[str] = set()
+        no_retry_uuids: set[str] = set()
+        for i, r in enumerate(results):
+            event_uuid = first_events[i].get("uuid", "") if i < len(first_events) else ""
+            if r.get("result") == "retry":
+                retry_uuids.add(event_uuid)
+            else:
+                no_retry_uuids.add(event_uuid)
 
         # Check the retried batch (second request)
         second_events = requests[1].parsed_events or []
@@ -1315,12 +1340,16 @@ class AssertPartialBatchRetryPruningAction(Action):
         unexpected = second_uuids & no_retry_uuids
         if unexpected:
             raise AssertionError(
-                f"Retried batch contains events that should not be retried " f"(status 200/400): {unexpected}"
+                f"Retried batch contains events that should not be "
+                f"retried (ok/drop): {unexpected}"
             )
 
         missing = retry_uuids - second_uuids
         if missing:
-            raise AssertionError(f"Retried batch is missing events that should be retried " f"(status 500): {missing}")
+            raise AssertionError(
+                f"Retried batch is missing events that should be "
+                f"retried: {missing}"
+            )
 
 
 class AssertEventsInBatchCountAction(Action):
