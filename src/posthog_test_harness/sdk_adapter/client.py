@@ -22,6 +22,26 @@ class SDKAdapterClient(SDKAdapterInterface):
             url = f"{url}?test_id={test_id}"
         return url
 
+    def _feature_flag_payload(self, request: FeatureFlagRequest) -> Dict[str, Any]:
+        """Serialize a feature flag request for the adapter API."""
+        payload: Dict[str, Any] = {
+            "key": request.key,
+            "distinct_id": request.distinct_id,
+        }
+
+        if request.person_properties is not None:
+            payload["person_properties"] = request.person_properties
+        if request.groups is not None:
+            payload["groups"] = request.groups
+        if request.group_properties is not None:
+            payload["group_properties"] = request.group_properties
+        if request.disable_geoip is not None:
+            payload["disable_geoip"] = request.disable_geoip
+        if request.force_remote is not None:
+            payload["force_remote"] = request.force_remote
+
+        return payload
+
     async def health(self) -> HealthResponse:
         """Get SDK adapter health information."""
         async with aiohttp.ClientSession() as session:
@@ -99,26 +119,10 @@ class SDKAdapterClient(SDKAdapterInterface):
 
     async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
         """Evaluate a feature flag."""
-        payload: Dict[str, Any] = {
-            "key": request.key,
-            "distinct_id": request.distinct_id,
-        }
-
-        if request.person_properties is not None:
-            payload["person_properties"] = request.person_properties
-        if request.groups is not None:
-            payload["groups"] = request.groups
-        if request.group_properties is not None:
-            payload["group_properties"] = request.group_properties
-        if request.disable_geoip is not None:
-            payload["disable_geoip"] = request.disable_geoip
-        if request.force_remote is not None:
-            payload["force_remote"] = request.force_remote
-
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{self.base_url}/get_feature_flag",
-                json=payload,
+                json=self._feature_flag_payload(request),
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
@@ -215,6 +219,15 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
                     last_error=data.get("last_error"),
                     requests_made=data.get("requests_made", []),
                 )
+
+    async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                self._client._url("/get_feature_flag", self._test_id),
+                json=self._client._feature_flag_payload(request),
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
 
     async def reset(self) -> Dict[str, bool]:
         async with aiohttp.ClientSession() as session:

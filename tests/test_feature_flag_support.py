@@ -5,7 +5,7 @@ import pytest
 
 from posthog_test_harness.actions import GetFeatureFlagAction
 from posthog_test_harness.contract import ContractExecutor
-from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
+from posthog_test_harness.sdk_adapter.client import ScopedSDKAdapterClient, SDKAdapterClient
 from posthog_test_harness.types import FeatureFlagRequest
 
 
@@ -99,6 +99,31 @@ async def test_sdk_adapter_client_serializes_force_remote(monkeypatch: pytest.Mo
     }
 
 
+@pytest.mark.asyncio
+async def test_scoped_sdk_adapter_client_serializes_force_remote(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+
+    def make_session() -> _FakeSession:
+        return _FakeSession(captured)
+
+    monkeypatch.setattr("posthog_test_harness.sdk_adapter.client.aiohttp.ClientSession", make_session)
+
+    client = ScopedSDKAdapterClient(SDKAdapterClient("http://adapter"), "test-123")
+    result = await client.get_feature_flag(
+        FeatureFlagRequest(
+            key="my-flag",
+            distinct_id="user-123",
+            force_remote=True,
+        )
+    )
+
+    assert result == {"success": True, "value": False}
+    assert captured["url"] == "http://adapter/get_feature_flag?test_id=test-123"
+    assert captured["json"] == {
+        "key": "my-flag",
+        "distinct_id": "user-123",
+        "force_remote": True,
+    }
 def test_feature_flag_contract_keeps_top_level_action_distinct_id_without_requiring_top_level_flags_field() -> None:
     contract = ContractExecutor()
     feature_flag_test = contract.get_test_suites()["feature_flags"]["categories"]["request_payload"]["tests"][0]
