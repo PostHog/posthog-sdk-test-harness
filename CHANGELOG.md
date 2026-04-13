@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-13
+
+### Added
+
+- Feature flag contract test suite for verifying `/flags` request payload structure
+  - Validates `api_key`, `person_properties` (with `$device_id` and auto-injected `distinct_id`), `groups`, `group_properties`, `geoip_disable`, and scoped `flag_keys_to_evaluate`
+- `/get_feature_flag` adapter endpoint in CONTRACT.yaml with `force_remote` support
+- Mock server `/flags` endpoint for intercepting and asserting feature flag requests
+- `assert_flags_request_count` and `assert_flags_request_field` assertion actions
+
 ## [0.3.0] - 2026-03-24
 
 ### Added
