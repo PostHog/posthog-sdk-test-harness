@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict
 
-from ..types import CaptureRequest, HealthResponse, InitRequest, StateResponse
+from ..types import CaptureRequest, FeatureFlagRequest, HealthResponse, InitRequest, StateResponse
 
 
 class SDKAdapterInterface(ABC):
@@ -62,6 +62,19 @@ class SDKAdapterInterface(ABC):
 
         Returns:
             StateResponse with SDK internal state
+        """
+        pass
+
+    @abstractmethod
+    async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
+        """
+        Evaluate a feature flag.
+
+        Args:
+            request: Feature flag evaluation request
+
+        Returns:
+            Dict with feature flag evaluation result
         """
         pass
 

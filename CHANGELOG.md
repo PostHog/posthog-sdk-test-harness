@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-13
+
+### Added
+
+- Feature flag contract test suite for verifying `/flags` request payload structure
+  - Validates `api_key`, `person_properties` (with `$device_id` and auto-injected `distinct_id`), `groups`, `group_properties`, `geoip_disable`, and scoped `flag_keys_to_evaluate`
+- `/get_feature_flag` adapter endpoint in CONTRACT.yaml with `force_remote` support
+- Mock server `/flags` endpoint for intercepting and asserting feature flag requests
+- `assert_flags_request_count` and `assert_flags_request_field` assertion actions
+
 ## [0.3.0] - 2026-03-24
 
 ### Added
@@ -48,6 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI job testing the parallel adapter with concurrency=4
 - `CONCURRENCY` environment variable support for CLI and docker-compose
 - 32 unit tests for partitioned state, scoped wrappers, and parallel runner
+- Feature flag `/flags` request payload contract tests (new `feature_flags` test suite)
+  - `request_with_person_properties_device_id` - Verifies /flags request includes correct token, distinct_id, person_properties (with auto-added distinct_id), groups, group_properties, geoip_disable, and flag_keys_to_evaluate
+- `/flags` endpoint handler in mock server
+- `FeatureFlagRequest` type for feature flag evaluation
+- `get_feature_flag` adapter interface method and client implementation
+- New actions: `get_feature_flag`, `assert_flags_request_count`, `assert_flags_request_field` (with dot-notation for nested fields)
+- `force_remote` option for `get_feature_flag` so feature-flag request assertions no longer depend on SDK local-evaluation defaults
+- Clarified that `distinct_id` remains a top-level `get_feature_flag` adapter parameter; relaxed `/flags` payload contract test to avoid requiring a top-level `distinct_id`
 
 ### Changed
 

@@ -32,7 +32,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict
 
-from .types import CaptureRequest, InitRequest, MockResponse
+from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
 
 
 def _is_rfc3339(value: str) -> bool:
@@ -160,6 +160,27 @@ class CaptureMultipleAction(Action):
             results.append(result)
 
         return results
+
+
+class GetFeatureFlagAction(Action):
+    """Evaluate a feature flag via the adapter."""
+
+    @property
+    def name(self) -> str:
+        return "get_feature_flag"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        return await ctx.sdk_adapter.get_feature_flag(
+            FeatureFlagRequest(
+                key=params["key"],
+                distinct_id=params["distinct_id"],
+                person_properties=params.get("person_properties"),
+                groups=params.get("groups"),
+                group_properties=params.get("group_properties"),
+                disable_geoip=params.get("disable_geoip"),
+                force_remote=params.get("force_remote"),
+            )
+        )
 
 
 class FlushAction(Action):
@@ -689,6 +710,74 @@ class AssertBatchFormatAction(Action):
         if params.get("has_batch_array"):
             if "batch" not in data or not isinstance(data["batch"], list):
                 raise AssertionError("Batch format missing 'batch' array field")
+
+
+# ============================================================================
+# Assertion Actions - Flags (Feature Flags)
+# ============================================================================
+
+
+class AssertFlagsRequestCountAction(Action):
+    """Assert exact number of /flags requests made to mock server."""
+
+    @property
+    def name(self) -> str:
+        return "assert_flags_request_count"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        flags_requests = [r for r in requests if "/flags" in r.path]
+        actual = len(flags_requests)
+        expected = params["expected"]
+        if actual != expected:
+            raise AssertionError(f"Expected {expected} /flags requests, got {actual}")
+
+
+class AssertFlagsRequestFieldAction(Action):
+    """Assert a field value in the /flags request body, with dot notation for nested fields."""
+
+    @property
+    def name(self) -> str:
+        return "assert_flags_request_field"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        flags_requests = [r for r in requests if "/flags" in r.path]
+        if not flags_requests:
+            raise AssertionError("No /flags requests recorded")
+
+        body_str = flags_requests[0].body_decompressed
+        if not body_str:
+            raise AssertionError("No body in /flags request")
+
+        try:
+            body = json.loads(body_str)
+        except json.JSONDecodeError:
+            raise AssertionError("Body of /flags request is not valid JSON")
+
+        field = params["field"]
+        expected = params["expected"]
+
+        # Support dot notation for nested fields (e.g., "person_properties.$device_id")
+        parts = field.split(".")
+        current = body
+        for part in parts:
+            if not isinstance(current, dict):
+                raise AssertionError(
+                    f"Cannot traverse into non-dict at '{part}' in field path '{field}'. "
+                    f"Value is: {current!r}"
+                )
+            if part not in current:
+                raise AssertionError(
+                    f"Field '{part}' not found in /flags request body at path '{field}'. "
+                    f"Available keys: {list(current.keys())}"
+                )
+            current = current[part]
+
+        if current != expected:
+            raise AssertionError(
+                f"Expected {field}={expected!r}, got {current!r}"
+            )
 
 
 # ============================================================================

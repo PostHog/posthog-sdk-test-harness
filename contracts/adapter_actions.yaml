@@ -49,6 +49,40 @@
         required: true
         description: Template for event parameters (can use {index} placeholder)
 
+  get_feature_flag:
+    description: Evaluate a feature flag via the adapter
+    params:
+      key:
+        type: string
+        required: true
+        description: Feature flag key to evaluate
+      distinct_id:
+        type: string
+        required: true
+        description: >
+          Unique identifier for the user. This is always a top-level adapter parameter even
+          if the SDK ultimately sends it only in person_properties.
+      person_properties:
+        type: object
+        optional: true
+        description: Person properties to send with the request
+      groups:
+        type: object
+        optional: true
+        description: Group identifiers
+      group_properties:
+        type: object
+        optional: true
+        description: Group properties
+      disable_geoip:
+        type: boolean
+        optional: true
+        description: Disable GeoIP lookup for this request
+      force_remote:
+        type: boolean
+        optional: true
+        description: Force a remote /flags request even if the SDK can evaluate flags locally
+
   flush:
     description: Flush pending events via the adapter
     params: {}
@@ -56,4 +90,3 @@
   reset:
     description: Reset adapter state
     params: {}
-
