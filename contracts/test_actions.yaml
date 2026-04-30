@@ -159,6 +159,65 @@
         required: true
         description: Expected field value
 
+  assert_flags_request_query_param:
+    description: Assert a query parameter value on the first /flags request
+    params:
+      param:
+        type: string
+        required: true
+        description: Query parameter name (e.g., 'v')
+      expected:
+        type: string
+        required: true
+        description: Expected query parameter value (string, since URL params are always strings)
+
+  assert_event_count_with_name:
+    description: >
+      Assert the number of captured events whose `event` field equals the given name,
+      across all recorded capture-path requests (not just the first batch).
+    params:
+      name:
+        type: string
+        required: true
+        description: Event name to match (e.g., '$feature_flag_called')
+      expected:
+        type: integer
+        required: true
+        description: Expected count
+
+  assert_event_property_in_named_event:
+    description: >
+      Find the first captured event whose `event` field equals event_name and assert
+      a property on it. Searches across all capture-path requests (skipping /flags).
+    params:
+      event_name:
+        type: string
+        required: true
+        description: Event name to find (e.g., '$feature_flag_called')
+      property:
+        type: string
+        required: true
+        description: Property name on the event's `properties` dict
+      expected:
+        type: any
+        required: true
+        description: Expected property value
+
+  assert_action_result:
+    description: >
+      Assert the return value of the most recent non-assertion action (typically the
+      adapter call that immediately preceded this assertion). Optionally extract a
+      single field from a dict result before comparing.
+    params:
+      expected:
+        type: any
+        required: true
+        description: Expected value
+      field:
+        type: string
+        optional: true
+        description: When the result is a dict, compare expected against result[field]
+
   # Assertion actions - Headers and Format
   assert_request_has_header:
     description: Assert that HTTP requests contain a specific header

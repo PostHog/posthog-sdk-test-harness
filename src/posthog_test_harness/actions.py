@@ -780,6 +780,138 @@ class AssertFlagsRequestFieldAction(Action):
             )
 
 
+class AssertFlagsRequestQueryParamAction(Action):
+    """Assert a query parameter value on the first /flags request."""
+
+    @property
+    def name(self) -> str:
+        return "assert_flags_request_query_param"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        flags_requests = [r for r in requests if "/flags" in r.path]
+        if not flags_requests:
+            raise AssertionError("No /flags requests recorded")
+
+        param = params["param"]
+        expected = params["expected"]
+        actual = flags_requests[0].query_params.get(param)
+
+        if actual != expected:
+            raise AssertionError(
+                f"Expected /flags query param {param}={expected!r}, "
+                f"got {actual!r}. All query params: {flags_requests[0].query_params}"
+            )
+
+
+class AssertEventCountWithNameAction(Action):
+    """Assert exact count of captured events whose `event` field equals the given name.
+
+    Iterates across ALL recorded capture-path requests (not just the first
+    batch), useful for de-duplication and side-effect-event tests.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_event_count_with_name"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        name = params["name"]
+        expected = params["expected"]
+
+        count = 0
+        for req in ctx.mock_server.get_requests():
+            if "/flags" in req.path:
+                continue
+            for event in req.parsed_events or []:
+                if event.get("event") == name:
+                    count += 1
+
+        if count != expected:
+            raise AssertionError(
+                f"Expected {expected} events with name {name!r}, got {count}"
+            )
+
+
+class AssertEventPropertyInNamedEventAction(Action):
+    """Find the first captured event with a matching `event` name and assert a property on it.
+
+    Searches across all capture-path requests. Skips /flags requests.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_event_property_in_named_event"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        event_name = params["event_name"]
+        prop_name = params["property"]
+        expected = params["expected"]
+
+        for req in ctx.mock_server.get_requests():
+            if "/flags" in req.path:
+                continue
+            for event in req.parsed_events or []:
+                if event.get("event") != event_name:
+                    continue
+                properties = event.get("properties", {})
+                if not isinstance(properties, dict):
+                    raise AssertionError(
+                        f"Event {event_name!r} has non-dict properties: {properties!r}"
+                    )
+                if prop_name not in properties:
+                    available = list(properties.keys())[:10]
+                    raise AssertionError(
+                        f"Event {event_name!r} missing property {prop_name!r}. "
+                        f"Available: {available}"
+                    )
+                actual = properties[prop_name]
+                if actual != expected:
+                    raise AssertionError(
+                        f"Event {event_name!r} property {prop_name!r}: "
+                        f"expected {expected!r}, got {actual!r}"
+                    )
+                return
+
+        raise AssertionError(f"No captured event with name {event_name!r}")
+
+
+class AssertActionResultAction(Action):
+    """Assert the return value of the most recent (non-assert) adapter action.
+
+    The return value is set by ContractExecutor.execute_action whenever a
+    non-assertion action runs, so this assertion compares against the
+    immediately preceding adapter call (e.g. get_feature_flag).
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_action_result"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        expected = params["expected"]
+        actual = ctx.last_action_result
+
+        if "field" in params:
+            field = params["field"]
+            if not isinstance(actual, dict):
+                raise AssertionError(
+                    f"assert_action_result with field={field!r} requires dict result, "
+                    f"got {type(actual).__name__}: {actual!r}"
+                )
+            if field not in actual:
+                raise AssertionError(
+                    f"Last action result missing field {field!r}. "
+                    f"Keys: {list(actual.keys())}"
+                )
+            actual = actual[field]
+
+        if actual != expected:
+            raise AssertionError(
+                f"Expected last action result {expected!r}, got {actual!r}"
+            )
+
+
 # ============================================================================
 # Client SDK Specific Assertions
 # ============================================================================

@@ -1,6 +1,6 @@
 """Test context for running SDK tests."""
 
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from ..mock_server import MockServerState, ScopedMockServerState
 from ..sdk_adapter import SDKAdapterClient
@@ -27,6 +27,7 @@ class TestContext:
         self.mock_server_url = mock_server_url
         self.api_key = api_key
         self.test_id = test_id
+        self.last_action_result: Any = None
 
         if test_id is not None:
             self.sdk_adapter: Union[SDKAdapterClient, ScopedSDKAdapterClient] = ScopedSDKAdapterClient(
@@ -41,6 +42,7 @@ class TestContext:
 
     async def reset(self) -> None:
         """Reset both SDK adapter and mock server state."""
+        self.last_action_result = None
         self.mock_server.reset()
         await self.sdk_adapter.reset()
 
