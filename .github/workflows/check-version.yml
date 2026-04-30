@@ -3,13 +3,12 @@ name: Check Version Update
 permissions:
   contents: read
 
+# Always run on every PR so this required check reports a status even when
+# no version-affecting paths changed. The substantive checks below are gated
+# on the `relevant` path-filter output and skipped (not failed) when the PR
+# only touches docs / CI / examples.
 on:
   pull_request:
-    paths:
-      - 'src/**'
-      - 'CONTRACT.yaml'
-      - 'pyproject.toml'
-      - 'Dockerfile'
 
 jobs:
   check-version:
@@ -20,17 +19,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout base branch
+      - name: Detect version-affecting changes
+        id: changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch origin ${{ github.base_ref }}
+          git fetch origin "$BASE_REF"
+          if git diff --name-only "origin/$BASE_REF...HEAD" | grep -qE '^(src/|CONTRACT\.yaml$|pyproject\.toml$|Dockerfile$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No version-affecting paths changed; version + CHANGELOG checks not required."
+          fi
 
       - name: Check if version was updated
+        if: steps.changes.outputs.relevant == 'true'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Get version from PR branch
           PR_VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
 
           # Get version from base branch
-          git show origin/${{ github.base_ref }}:pyproject.toml > /tmp/base_pyproject.toml
+          git show "origin/$BASE_REF:pyproject.toml" > /tmp/base_pyproject.toml
           BASE_VERSION=$(grep '^version = ' /tmp/base_pyproject.toml | cut -d'"' -f2)
 
           echo "Base version: $BASE_VERSION"
@@ -54,9 +65,12 @@ jobs:
           echo "✅ Version updated: $BASE_VERSION -> $PR_VERSION"
 
       - name: Check CHANGELOG.md updated
+        if: steps.changes.outputs.relevant == 'true'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Check if CHANGELOG was modified in this PR
-          if ! git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "CHANGELOG.md"; then
+          if ! git diff --name-only "origin/$BASE_REF...HEAD" | grep -q "CHANGELOG.md"; then
             echo "⚠️  Warning: CHANGELOG.md was not updated"
             echo "Please add an entry to CHANGELOG.md documenting your changes."
             exit 1
