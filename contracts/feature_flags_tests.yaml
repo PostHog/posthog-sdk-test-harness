@@ -1,5 +1,6 @@
   # Feature Flag Contract Tests
-  # Tests that verify SDKs send correctly structured /flags requests
+  # Tests that verify SDKs send correctly structured /flags requests and
+  # capture the documented side-effect $feature_flag_called event.
 
   categories:
     request_payload:
@@ -9,8 +10,8 @@
           description: >
             When get_feature_flag is called with a top-level distinct_id and
             person_properties containing $device_id, the /flags request must include the
-            expected fields including auto-added distinct_id in person_properties. SDKs may
-            also include distinct_id at the top level, but that is not required by this test.
+            expected fields including auto-added distinct_id in person_properties and
+            a top-level distinct_id field.
           sdk_types: [server]
           steps:
             - action: init
@@ -36,6 +37,11 @@
               params:
                 field: token
                 expected: phc_test_key
+
+            - action: assert_flags_request_field
+              params:
+                field: distinct_id
+                expected: test_user_123
 
             - action: assert_flags_request_field
               params:
@@ -67,3 +73,324 @@
                 field: flag_keys_to_evaluate
                 expected:
                   - signup-aa-test
+
+        - name: flags_request_uses_v2_query_param
+          description: >
+            The /flags request must include the ?v=2 query param. Both server SDKs
+            send it; locking it down prevents accidental version downgrades.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 1
+            - action: assert_flags_request_query_param
+              params:
+                param: v
+                expected: "2"
+
+        - name: flags_request_hits_flags_path_not_decide
+          description: >
+            Modern server SDKs hit POST /flags, not the legacy /decide endpoint.
+            Lock down the migration so a regression to /decide is caught.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 1
+            - action: assert_no_requests_to_paths
+              params:
+                paths:
+                  - /decide
+                  - /decide/
+
+        - name: flags_request_omits_authorization_header
+          description: >
+            The /flags request authenticates via the api_key in the body, not via
+            an Authorization header. (The Authorization Bearer header is only used
+            for the personal-API-key-protected /flags/definitions endpoint.)
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 1
+            - action: assert_header_absent
+              params:
+                header: Authorization
+
+        - name: token_in_flags_body_matches_init
+          description: >
+            The token field in the /flags body must equal the api_key passed to
+            init — it is not a hardcoded constant inside the SDK.
+          sdk_types: [server]
+          steps:
+            - action: init
+              params:
+                api_key: phc_specific_key_12345
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: token
+                expected: phc_specific_key_12345
+
+        - name: groups_round_trip
+          description: >
+            groups and group_properties round-trip from the adapter call into the
+            /flags request body.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                groups:
+                  company: acme
+                group_properties:
+                  company:
+                    plan: enterprise
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: groups.company
+                expected: acme
+            - action: assert_flags_request_field
+              params:
+                field: group_properties.company.plan
+                expected: enterprise
+
+        - name: groups_default_to_empty_object
+          description: >
+            When the caller does not supply groups / group_properties, both fields
+            are sent as empty objects (not omitted, not null).
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: groups
+                expected: {}
+            - action: assert_flags_request_field
+              params:
+                field: group_properties
+                expected: {}
+
+        - name: person_properties_distinct_id_auto_populated_when_caller_omits_it
+          description: >
+            When the caller passes person_properties without an explicit distinct_id,
+            the SDK auto-injects the top-level distinct_id into person_properties so
+            server-side resolvers always see it.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_xyz
+                person_properties:
+                  email: a@b.com
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: person_properties.distinct_id
+                expected: user_xyz
+            - action: assert_flags_request_field
+              params:
+                field: person_properties.email
+                expected: a@b.com
+
+        - name: disable_geoip_false_propagates_as_geoip_disable_false
+          description: >
+            disable_geoip:false on the adapter call propagates to geoip_disable:false
+            in the /flags body.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                disable_geoip: false
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: geoip_disable
+                expected: false
+
+        - name: disable_geoip_omitted_defaults_to_false
+          description: >
+            When disable_geoip is omitted by the caller, the SDK sends
+            geoip_disable:false (geoip lookups happen on the server by default).
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: geoip_disable
+                expected: false
+
+        - name: flag_keys_to_evaluate_contains_only_requested_key
+          description: >
+            A get_feature_flag call for a single key sends flag_keys_to_evaluate
+            containing exactly that key — not all flags, not the empty list.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: my-specific-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_field
+              params:
+                field: flag_keys_to_evaluate
+                expected:
+                  - my-specific-flag
+
+    request_lifecycle:
+      description: Verify /flags requests only happen at the right times
+      tests:
+        - name: no_flags_request_on_init_alone
+          description: >
+            Initializing the SDK without calling any flag method must not trigger
+            a /flags request.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: assert_flags_request_count
+              params:
+                expected: 0
+
+        - name: no_flags_request_on_normal_capture
+          description: >
+            Capturing a regular event must not trigger a /flags request. Flag
+            requests should only happen when flag APIs are explicitly called
+            (or when send_feature_flags is requested at capture time, which is a
+            separate test).
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: capture
+              params:
+                distinct_id: user_1
+                event: regular_event
+            - action: flush
+            - action: assert_flags_request_count
+              params:
+                expected: 0
+
+        - name: two_flag_calls_produce_two_remote_requests
+          description: >
+            With force_remote (no local evaluation) and no in-process result cache,
+            two consecutive get_feature_flag calls produce two separate /flags
+            requests.
+          sdk_types: [server]
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 2
+
+        - name: mock_response_value_is_returned_to_caller
+          description: >
+            The flag value returned by the mock /flags response must surface as the
+            return value of the SDK's get_feature_flag method. This locks down the
+            response-parsing path end-to-end.
+          sdk_types: [server]
+          steps:
+            - action: configure_mock_responses
+              params:
+                responses:
+                  - status_code: 200
+                    body: '{"featureFlags": {"signup-aa-test": "variant-a"}}'
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: signup-aa-test
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_action_result
+              params:
+                field: value
+                expected: variant-a
+
+    side_effect_events:
+      description: >
+        Verify the documented side-effect that calling get_feature_flag captures a
+        $feature_flag_called event. This category is expected to surface drift
+        between SDKs whose adapters configure the side-effect event differently.
+      tests:
+        - name: get_feature_flag_captures_feature_flag_called_event
+          description: >
+            By default, calling get_feature_flag must result in exactly one
+            $feature_flag_called capture event whose properties carry the flag key
+            and the resolved value.
+          sdk_types: [server]
+          steps:
+            - action: configure_mock_responses
+              params:
+                responses:
+                  - status_code: 200
+                    body: '{"featureFlags": {"my-flag": true}}'
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: my-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: flush
+            - action: assert_event_count_with_name
+              params:
+                name: $feature_flag_called
+                expected: 1
+            - action: assert_event_property_in_named_event
+              params:
+                event_name: $feature_flag_called
+                property: $feature_flag
+                expected: my-flag
+            - action: assert_event_property_in_named_event
+              params:
+                event_name: $feature_flag_called
+                property: $feature_flag_response
+                expected: true

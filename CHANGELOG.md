@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-30
+
+### Added
+
+- Feature flag contract suite expanded with 16 tests across 3 categories (`request_payload`, `request_lifecycle`, `side_effect_events`) locking down externally observable `/flags` request payload, request lifecycle, and the documented `$feature_flag_called` capture side-effect for server SDKs
+- 4 new assertion actions: `assert_flags_request_query_param`, `assert_event_count_with_name`, `assert_event_property_in_named_event`, `assert_action_result`
+- `ContractExecutor` now records the return value of every non-assertion action on `ctx.last_action_result` so `assert_action_result` can verify what the adapter returned
+
+### Changed
+
+- Existing `/flags` request payload contract test now also asserts top-level `distinct_id` on the request body (both server SDKs send it)
+
 ### Fixed
 
 - `/flags` request payload contract test asserts `token` (the field PostHog SDKs send) instead of `api_key`
