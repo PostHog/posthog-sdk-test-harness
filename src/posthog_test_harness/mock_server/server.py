@@ -34,7 +34,7 @@ class MockServer:
         for handler in handlers:
             for path, method, handler_func in handler.routes():
                 # Wrap the route-specific handler to record requests and handle responses
-                def make_handler(h_func: Any) -> Any:
+                def make_handler(h_obj: EndpointHandler, h_func: Any) -> Any:
                     def wrapper() -> Response:
                         # Record the request
                         # Normalize headers to lowercase for consistent handling
@@ -56,6 +56,13 @@ class MockServer:
                                 if recorded.response_body
                                 else {"error": "Server error"}
                             )
+                            # On 2xx success, overlay the configured body on top of the
+                            # endpoint's default so tests only need to spell out the
+                            # fields they care about.
+                            if 200 <= recorded.response_status < 300 and isinstance(body, dict):
+                                default_body = h_obj.default_success_body(request)
+                                if default_body is not None:
+                                    body = {**default_body, **body}
                             return jsonify(body), recorded.response_status, recorded.response_headers
 
                         # No custom response — call the route-specific handler
@@ -70,7 +77,7 @@ class MockServer:
                 self.app.add_url_rule(
                     path,
                     endpoint=f"{path}_{method}",
-                    view_func=make_handler(handler_func),
+                    view_func=make_handler(handler, handler_func),
                     methods=[method],
                 )
 
