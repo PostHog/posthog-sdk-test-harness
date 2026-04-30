@@ -291,6 +291,60 @@ def capture() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/get_feature_flag", methods=["POST"])
+def get_feature_flag() -> Any:
+    """Evaluate a feature flag."""
+    try:
+        instance = get_instance()
+
+        if not instance.api_key or not instance.host:
+            return jsonify({"error": "SDK not initialized"}), 400
+
+        data = request.json or {}
+        key = data.get("key")
+        distinct_id = data.get("distinct_id")
+
+        if not key or not distinct_id:
+            return jsonify({"error": "key and distinct_id are required"}), 400
+
+        person_properties = data.get("person_properties", {})
+        # Auto-add distinct_id to person_properties (matches real SDK behavior)
+        person_properties["distinct_id"] = distinct_id
+
+        # This example adapter always evaluates remotely, so it intentionally ignores
+        # the optional force_remote adapter hint.
+
+        payload = {
+            "token": instance.api_key,
+            "distinct_id": distinct_id,
+            "person_properties": person_properties,
+            "groups": data.get("groups", {}),
+            "group_properties": data.get("group_properties", {}),
+            "geoip_disable": data.get("disable_geoip", False),
+            "flag_keys_to_evaluate": [key],
+        }
+
+        headers = {"Content-Type": "application/json", **instance.extra_headers}
+
+        response = http_requests.post(
+            f"{instance.host}/flags",
+            json=payload,
+            headers=headers,
+            timeout=10,
+        )
+
+        result = response.json()
+        flag_value = result.get("featureFlags", {}).get(key)
+
+        return jsonify({"success": True, "value": flag_value})
+    except Exception as e:
+        import traceback
+
+        print(f"Error in /get_feature_flag: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/flush", methods=["POST"])
 def flush() -> Any:
     """Flush all pending events."""

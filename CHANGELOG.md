@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `/flags` request payload contract test asserts `token` (the field PostHog SDKs send) instead of `api_key`
+- `parallel_adapter` example exposes `/get_feature_flag` so the feature flag suite can run against it
+
 ## [0.4.0] - 2026-04-13
 
 ### Added
 
 - Feature flag contract test suite for verifying `/flags` request payload structure
-  - Validates `api_key`, `person_properties` (with `$device_id` and auto-injected `distinct_id`), `groups`, `group_properties`, `geoip_disable`, and scoped `flag_keys_to_evaluate`
+  - Validates `token`, `person_properties` (with `$device_id` and auto-injected `distinct_id`), `groups`, `group_properties`, `geoip_disable`, and scoped `flag_keys_to_evaluate`
 - `/get_feature_flag` adapter endpoint in CONTRACT.yaml with `force_remote` support
 - Mock server `/flags` endpoint for intercepting and asserting feature flag requests
 - `assert_flags_request_count` and `assert_flags_request_field` assertion actions
