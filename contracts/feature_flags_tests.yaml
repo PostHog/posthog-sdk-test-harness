@@ -34,7 +34,7 @@
 
             - action: assert_flags_request_field
               params:
-                field: api_key
+                field: token
                 expected: phc_test_key
 
             - action: assert_flags_request_field
