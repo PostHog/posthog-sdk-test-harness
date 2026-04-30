@@ -18,7 +18,9 @@ jobs:
     with:
       adapter-dockerfile: "Dockerfile"
       adapter-context: "examples/minimal_adapter"
-      test-harness-version: "latest"
+      # Build the harness from this PR's source so contract/mock changes are
+      # exercised against the example adapters in the same PR.
+      test-harness-context: "."
       report-name: "sdk-compliance-report-minimal"
 
   test-parallel-adapter:
@@ -27,6 +29,6 @@ jobs:
     with:
       adapter-dockerfile: "Dockerfile"
       adapter-context: "examples/parallel_adapter"
-      test-harness-version: "latest"
+      test-harness-context: "."
       concurrency: 4
       report-name: "sdk-compliance-report-parallel"

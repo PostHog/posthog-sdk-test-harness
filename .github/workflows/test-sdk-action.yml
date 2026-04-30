@@ -13,10 +13,15 @@ on:
         type: string
         default: "."
       test-harness-version:
-        description: "Version of the test harness to use (e.g., 'latest', '1.0', '1.0.0')"
+        description: "Version of the test harness to use (e.g., 'latest', '1.0', '1.0.0'). Ignored when test-harness-context is set."
         required: false
         type: string
         default: "latest"
+      test-harness-context:
+        description: "Path inside the checked-out SDK repo to build the test harness Dockerfile from. When set, the harness is built from local source instead of pulled from the registry — used for in-repo self-tests so contract/mock changes get exercised against the example adapters in the same PR."
+        required: false
+        type: string
+        default: ""
       concurrency:
         description: "Number of tests to run in parallel (requires parallel-capable adapter)"
         required: false
@@ -62,10 +67,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull test harness image
+      - name: Set up test harness image
         env:
           HARNESS_VERSION: ${{ inputs.test-harness-version }}
-        run: docker pull "ghcr.io/posthog/sdk-test-harness:${HARNESS_VERSION}"
+          HARNESS_CONTEXT: ${{ inputs.test-harness-context }}
+        run: |
+          if [ -n "$HARNESS_CONTEXT" ]; then
+            docker build -t harness:test "sdk-repo/$HARNESS_CONTEXT"
+          else
+            docker pull "ghcr.io/posthog/sdk-test-harness:$HARNESS_VERSION"
+            docker tag "ghcr.io/posthog/sdk-test-harness:$HARNESS_VERSION" harness:test
+          fi
 
       - name: Build SDK adapter
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
@@ -96,7 +108,6 @@ jobs:
         continue-on-error: true
         env:
           CONCURRENCY: ${{ inputs.concurrency }}
-          HARNESS_VERSION: ${{ inputs.test-harness-version }}
         run: |
           CONCURRENCY_ARG=""
           if [ "${CONCURRENCY}" -gt 1 ]; then
@@ -107,7 +118,7 @@ jobs:
             --name test-harness \
             --network test-network \
             -v "${GITHUB_WORKSPACE}/report:/report" \
-            "ghcr.io/posthog/sdk-test-harness:${HARNESS_VERSION}" \
+            harness:test \
             run \
             --adapter-url http://sdk-adapter:8080 \
             --mock-url http://test-harness:8081 \
