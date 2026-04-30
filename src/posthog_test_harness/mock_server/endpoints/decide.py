@@ -1,6 +1,6 @@
 """Flags endpoint handler for feature flag evaluation."""
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 from flask import Request
 
@@ -19,7 +19,7 @@ class FlagsEndpoint(EndpointHandler):
             ("/flags/", "POST", handler),
         ]
 
-    def default_success_body(self, request: Request) -> Optional[Dict[str, Any]]:
+    def default_success_body(self, request: Request) -> Dict[str, Any]:
         return {
             "featureFlags": {},
             "featureFlagPayloads": {},
@@ -32,6 +32,4 @@ class FlagsEndpoint(EndpointHandler):
 
         Returns a default feature flags response.
         """
-        body = self.default_success_body(request)
-        assert body is not None
-        return body, 200, {}
+        return self.default_success_body(request), 200, {}
