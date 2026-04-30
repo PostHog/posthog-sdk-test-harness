@@ -19,14 +19,17 @@ class FlagsEndpoint(EndpointHandler):
             ("/flags/", "POST", handler),
         ]
 
+    def default_success_body(self, request: Request) -> Dict[str, Any]:
+        return {
+            "featureFlags": {},
+            "featureFlagPayloads": {},
+            "errorsWhileComputingFlags": False,
+        }
+
     def handle_request(self, request: Request) -> Tuple[Dict[str, Any], int, Dict[str, str]]:
         """
         Handle a flags request.
 
         Returns a default feature flags response.
         """
-        return {
-            "featureFlags": {},
-            "featureFlagPayloads": {},
-            "errorsWhileComputingFlags": False,
-        }, 200, {}
+        return self.default_success_body(request), 200, {}
