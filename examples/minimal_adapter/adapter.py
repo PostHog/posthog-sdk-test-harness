@@ -308,6 +308,7 @@ def get_feature_flag() -> Any:
 
         response = requests.post(
             f"{state.host}/flags",
+            params={"v": "2"},
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=10,
@@ -315,6 +316,20 @@ def get_feature_flag() -> Any:
 
         result = response.json()
         flag_value = result.get("featureFlags", {}).get(key)
+
+        # Capture the documented $feature_flag_called side-effect event.
+        state.queue.put(
+            Event(
+                "$feature_flag_called",
+                distinct_id,
+                {
+                    "$feature_flag": key,
+                    "$feature_flag_response": flag_value,
+                },
+            )
+        )
+        with state.lock:
+            state.total_events_captured += 1
 
         return jsonify({"success": True, "value": flag_value})
     except Exception as e:
