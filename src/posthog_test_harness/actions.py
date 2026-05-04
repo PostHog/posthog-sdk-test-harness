@@ -58,7 +58,7 @@ if TYPE_CHECKING:
 
 
 def _capture_events(ctx: "TestContext") -> list[dict]:
-    """Yield events from every recorded request that is not a /flags request.
+    """Return events from every recorded request that is not a /flags request.
 
     Centralised so the skip policy (e.g. excluding /flags or future endpoints)
     only needs to change in one place.
