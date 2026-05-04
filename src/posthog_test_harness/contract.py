@@ -72,10 +72,11 @@ class ContractExecutor:
 
         action = self.actions[action_name]
         result = await action.execute(params, ctx)
-        # Record the result of every non-assertion action so assert_action_result
-        # can read the most recent adapter return value. Assertions return None
-        # and we don't want them to overwrite the prior adapter result.
-        if not action_name.startswith("assert_"):
+        # Only adapter actions that opt in via `records_result` overwrite
+        # `ctx.last_action_result`. Otherwise incidental actions (flush, init,
+        # configure_mock_responses, ...) running between an adapter call and the
+        # following `assert_action_result` would silently clobber the value.
+        if action.records_result:
             ctx.last_action_result = result
         return result
 

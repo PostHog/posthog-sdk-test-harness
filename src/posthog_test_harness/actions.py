@@ -57,8 +57,29 @@ if TYPE_CHECKING:
     from .tests.context import TestContext
 
 
+def _capture_events(ctx: "TestContext") -> list[dict]:
+    """Yield events from every recorded request that is not a /flags request.
+
+    Centralised so the skip policy (e.g. excluding /flags or future endpoints)
+    only needs to change in one place.
+    """
+    return [
+        event
+        for req in ctx.mock_server.get_requests()
+        if "/flags" not in req.path
+        for event in (req.parsed_events or [])
+    ]
+
+
 class Action(ABC):
     """Base class for test actions."""
+
+    # Opt-in: only adapter calls whose return value is meant to be asserted on
+    # via `assert_action_result` should set this to True. The contract executor
+    # uses it to decide whether to overwrite `ctx.last_action_result`, so that
+    # incidental actions (init, flush, configure_mock_responses, ...) cannot
+    # silently clobber a value the next assertion is about to read.
+    records_result: bool = False
 
     @property
     @abstractmethod
@@ -164,6 +185,8 @@ class CaptureMultipleAction(Action):
 
 class GetFeatureFlagAction(Action):
     """Evaluate a feature flag via the adapter."""
+
+    records_result = True
 
     @property
     def name(self) -> str:
@@ -819,13 +842,7 @@ class AssertEventCountWithNameAction(Action):
         name = params["name"]
         expected = params["expected"]
 
-        count = 0
-        for req in ctx.mock_server.get_requests():
-            if "/flags" in req.path:
-                continue
-            for event in req.parsed_events or []:
-                if event.get("event") == name:
-                    count += 1
+        count = sum(1 for event in _capture_events(ctx) if event.get("event") == name)
 
         if count != expected:
             raise AssertionError(
@@ -848,30 +865,27 @@ class AssertEventPropertyInNamedEventAction(Action):
         prop_name = params["property"]
         expected = params["expected"]
 
-        for req in ctx.mock_server.get_requests():
-            if "/flags" in req.path:
+        for event in _capture_events(ctx):
+            if event.get("event") != event_name:
                 continue
-            for event in req.parsed_events or []:
-                if event.get("event") != event_name:
-                    continue
-                properties = event.get("properties", {})
-                if not isinstance(properties, dict):
-                    raise AssertionError(
-                        f"Event {event_name!r} has non-dict properties: {properties!r}"
-                    )
-                if prop_name not in properties:
-                    available = list(properties.keys())[:10]
-                    raise AssertionError(
-                        f"Event {event_name!r} missing property {prop_name!r}. "
-                        f"Available: {available}"
-                    )
-                actual = properties[prop_name]
-                if actual != expected:
-                    raise AssertionError(
-                        f"Event {event_name!r} property {prop_name!r}: "
-                        f"expected {expected!r}, got {actual!r}"
-                    )
-                return
+            properties = event.get("properties", {})
+            if not isinstance(properties, dict):
+                raise AssertionError(
+                    f"Event {event_name!r} has non-dict properties: {properties!r}"
+                )
+            if prop_name not in properties:
+                available = list(properties.keys())[:10]
+                raise AssertionError(
+                    f"Event {event_name!r} missing property {prop_name!r}. "
+                    f"Available: {available}"
+                )
+            actual = properties[prop_name]
+            if actual != expected:
+                raise AssertionError(
+                    f"Event {event_name!r} property {prop_name!r}: "
+                    f"expected {expected!r}, got {actual!r}"
+                )
+            return
 
         raise AssertionError(f"No captured event with name {event_name!r}")
 
