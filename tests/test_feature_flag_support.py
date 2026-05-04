@@ -212,32 +212,33 @@ def _ctx(mock_server, last_action_result=None):
 
 
 @pytest.mark.asyncio
-async def test_assert_flags_request_query_param_passes_when_value_matches() -> None:
-    ctx = _ctx(_FakeMockServer([_make_recorded("/flags/", query_params={"v": "2"})]))
+@pytest.mark.parametrize(
+    "recorded, params, expected_match",
+    [
+        # Passes when value matches
+        ([_make_recorded("/flags/", query_params={"v": "2"})], {"param": "v", "expected": "2"}, None),
+        # Fails when value differs
+        ([_make_recorded("/flags/", query_params={"v": "1"})], {"param": "v", "expected": "2"}, r"v=.*'2'"),
+        # Fails when no /flags request was recorded
+        ([_make_recorded("/batch", query_params={})], {"param": "v", "expected": "2"}, "No /flags requests recorded"),
+    ],
+)
+async def test_assert_flags_request_query_param(recorded, params, expected_match) -> None:
+    ctx = _ctx(_FakeMockServer(recorded))
 
-    await AssertFlagsRequestQueryParamAction().execute({"param": "v", "expected": "2"}, ctx)
+    if expected_match is None:
+        await AssertFlagsRequestQueryParamAction().execute(params, ctx)
+    else:
+        with pytest.raises(AssertionError, match=expected_match):
+            await AssertFlagsRequestQueryParamAction().execute(params, ctx)
 
 
 @pytest.mark.asyncio
-async def test_assert_flags_request_query_param_fails_when_value_differs() -> None:
-    ctx = _ctx(_FakeMockServer([_make_recorded("/flags/", query_params={"v": "1"})]))
-
-    with pytest.raises(AssertionError, match="expected 'v'='2'|v=.*'2'"):
-        await AssertFlagsRequestQueryParamAction().execute({"param": "v", "expected": "2"}, ctx)
-
-
-@pytest.mark.asyncio
-async def test_assert_flags_request_query_param_fails_when_no_flags_request() -> None:
-    ctx = _ctx(_FakeMockServer([_make_recorded("/batch", query_params={})]))
-
-    with pytest.raises(AssertionError, match="No /flags requests recorded"):
-        await AssertFlagsRequestQueryParamAction().execute({"param": "v", "expected": "2"}, ctx)
-
-
-@pytest.mark.asyncio
-async def test_assert_event_count_with_name_counts_across_batches() -> None:
-    ctx = _ctx(
-        _FakeMockServer(
+@pytest.mark.parametrize(
+    "recorded, params, expected_match",
+    [
+        # Counts across batches and ignores /flags requests
+        (
             [
                 _make_recorded(
                     "/batch",
@@ -255,27 +256,26 @@ async def test_assert_event_count_with_name_counts_across_batches() -> None:
                     "/flags/",
                     parsed_events=[{"event": "$feature_flag_called"}],
                 ),
-            ]
-        )
-    )
+            ],
+            {"name": "$feature_flag_called", "expected": 2},
+            None,
+        ),
+        # Fails when count does not match
+        (
+            [_make_recorded("/batch", parsed_events=[{"event": "$feature_flag_called"}])],
+            {"name": "$feature_flag_called", "expected": 2},
+            "Expected 2 events",
+        ),
+    ],
+)
+async def test_assert_event_count_with_name(recorded, params, expected_match) -> None:
+    ctx = _ctx(_FakeMockServer(recorded))
 
-    await AssertEventCountWithNameAction().execute(
-        {"name": "$feature_flag_called", "expected": 2}, ctx
-    )
-
-
-@pytest.mark.asyncio
-async def test_assert_event_count_with_name_fails_on_mismatch() -> None:
-    ctx = _ctx(
-        _FakeMockServer(
-            [_make_recorded("/batch", parsed_events=[{"event": "$feature_flag_called"}])]
-        )
-    )
-
-    with pytest.raises(AssertionError, match="Expected 2 events"):
-        await AssertEventCountWithNameAction().execute(
-            {"name": "$feature_flag_called", "expected": 2}, ctx
-        )
+    if expected_match is None:
+        await AssertEventCountWithNameAction().execute(params, ctx)
+    else:
+        with pytest.raises(AssertionError, match=expected_match):
+            await AssertEventCountWithNameAction().execute(params, ctx)
 
 
 @pytest.mark.asyncio
@@ -327,30 +327,29 @@ async def test_assert_event_property_in_named_event_fails_when_no_match() -> Non
 
 
 @pytest.mark.asyncio
-async def test_assert_action_result_compares_scalar_result() -> None:
-    ctx = _ctx(_FakeMockServer([]), last_action_result="variant-a")
+@pytest.mark.parametrize(
+    "last_action_result, params, expected_match",
+    [
+        # Compares scalar result
+        ("variant-a", {"expected": "variant-a"}, None),
+        # Extracts field from dict result
+        (
+            {"success": True, "value": "variant-a"},
+            {"field": "value", "expected": "variant-a"},
+            None,
+        ),
+        # Fails on mismatch
+        ("other", {"expected": "variant-a"}, "Expected last action result 'variant-a'"),
+    ],
+)
+async def test_assert_action_result(last_action_result, params, expected_match) -> None:
+    ctx = _ctx(_FakeMockServer([]), last_action_result=last_action_result)
 
-    await AssertActionResultAction().execute({"expected": "variant-a"}, ctx)
-
-
-@pytest.mark.asyncio
-async def test_assert_action_result_extracts_field_from_dict_result() -> None:
-    ctx = _ctx(
-        _FakeMockServer([]),
-        last_action_result={"success": True, "value": "variant-a"},
-    )
-
-    await AssertActionResultAction().execute(
-        {"field": "value", "expected": "variant-a"}, ctx
-    )
-
-
-@pytest.mark.asyncio
-async def test_assert_action_result_fails_on_mismatch() -> None:
-    ctx = _ctx(_FakeMockServer([]), last_action_result="other")
-
-    with pytest.raises(AssertionError, match="Expected last action result 'variant-a'"):
-        await AssertActionResultAction().execute({"expected": "variant-a"}, ctx)
+    if expected_match is None:
+        await AssertActionResultAction().execute(params, ctx)
+    else:
+        with pytest.raises(AssertionError, match=expected_match):
+            await AssertActionResultAction().execute(params, ctx)
 
 
 @pytest.mark.asyncio

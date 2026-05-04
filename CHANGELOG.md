@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-04
+
+### Changed
+
+- `ContractExecutor` now records `ctx.last_action_result` only for adapter actions that opt in via `Action.records_result = True` (currently just `get_feature_flag`). Previously every non-`assert_*` action overwrote the value, which let incidental actions (`init`, `flush`, `configure_mock_responses`, ...) silently clobber the value the next `assert_action_result` was about to read.
+
+### Refactored
+
+- Extracted `_capture_events(ctx)` helper used by `assert_event_count_with_name` and `assert_event_property_in_named_event` so the "skip /flags requests" filter lives in one place.
+
 ## [0.5.0] - 2026-05-04
 
 ### Added
