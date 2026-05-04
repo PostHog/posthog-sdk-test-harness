@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-30
+
 ### Fixed
 
+- Mock `/flags` endpoint now overlays a queue-configured `MockResponse` body on top of its default success body, so tests setting only `featureFlags` / `featureFlagPayloads` no longer have to repeat constants like `errorsWhileComputingFlags: False`. Implemented as a generic `EndpointHandler.default_success_body` hook so other endpoints can opt in.
 - `/flags` request payload contract test asserts `token` (the field PostHog SDKs send) instead of `api_key`
 - `parallel_adapter` example exposes `/get_feature_flag` so the feature flag suite can run against it
 
