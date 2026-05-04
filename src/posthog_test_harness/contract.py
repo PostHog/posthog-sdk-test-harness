@@ -71,7 +71,13 @@ class ContractExecutor:
             raise ValueError(f"Unknown action: {action_name}")
 
         action = self.actions[action_name]
-        return await action.execute(params, ctx)
+        result = await action.execute(params, ctx)
+        # Record the result of every non-assertion action so assert_action_result
+        # can read the most recent adapter return value. Assertions return None
+        # and we don't want them to overwrite the prior adapter result.
+        if not action_name.startswith("assert_"):
+            ctx.last_action_result = result
+        return result
 
     async def run_test(self, test_def: Dict[str, Any], ctx: "TestContext") -> None:
         """
