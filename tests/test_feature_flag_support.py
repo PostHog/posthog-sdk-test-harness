@@ -200,6 +200,46 @@ async def test_assert_flags_request_field_accepts_token_aliases(auth_field: str)
     )
 
 
+@pytest.mark.asyncio
+async def test_assert_flags_request_field_requires_token_or_api_key() -> None:
+    ctx = _ctx(
+        _FakeMockServer(
+            [
+                _make_recorded(
+                    "/flags/",
+                    body_decompressed=json.dumps({}),
+                )
+            ]
+        )
+    )
+
+    with pytest.raises(AssertionError, match="Field 'token' not found"):
+        await AssertFlagsRequestFieldAction().execute(
+            {"field": "token", "expected": "phc_test_key"},
+            ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_assert_flags_request_field_rejects_mismatched_api_key_alias() -> None:
+    ctx = _ctx(
+        _FakeMockServer(
+            [
+                _make_recorded(
+                    "/flags/",
+                    body_decompressed=json.dumps({"api_key": "wrong_key"}),
+                )
+            ]
+        )
+    )
+
+    with pytest.raises(AssertionError, match="Expected token='phc_test_key', got 'wrong_key'"):
+        await AssertFlagsRequestFieldAction().execute(
+            {"field": "token", "expected": "phc_test_key"},
+            ctx,
+        )
+
+
 def _make_recorded(
     path: str,
     query_params: dict | None = None,
