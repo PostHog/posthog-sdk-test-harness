@@ -8,6 +8,7 @@ from posthog_test_harness.actions import (
     AssertActionResultAction,
     AssertEventCountWithNameAction,
     AssertEventPropertyInNamedEventAction,
+    AssertFlagsRequestFieldAction,
     AssertFlagsRequestQueryParamAction,
     GetFeatureFlagAction,
 )
@@ -179,10 +180,31 @@ def test_feature_flag_contract_asserts_top_level_distinct_id_on_flags_request() 
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("auth_field", ["token", "api_key"])
+async def test_assert_flags_request_field_accepts_token_aliases(auth_field: str) -> None:
+    ctx = _ctx(
+        _FakeMockServer(
+            [
+                _make_recorded(
+                    "/flags/",
+                    body_decompressed=json.dumps({auth_field: "phc_test_key"}),
+                )
+            ]
+        )
+    )
+
+    await AssertFlagsRequestFieldAction().execute(
+        {"field": "token", "expected": "phc_test_key"},
+        ctx,
+    )
+
+
 def _make_recorded(
     path: str,
     query_params: dict | None = None,
     parsed_events: list | None = None,
+    body_decompressed: str | None = None,
 ) -> RecordedRequest:
     return RecordedRequest(
         timestamp_ms=0,
@@ -191,7 +213,7 @@ def _make_recorded(
         headers={},
         query_params=query_params or {},
         body_raw=b"",
-        body_decompressed=None,
+        body_decompressed=body_decompressed,
         parsed_events=parsed_events,
         response_status=200,
         response_headers={},

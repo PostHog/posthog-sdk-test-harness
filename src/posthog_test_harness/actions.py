@@ -784,13 +784,19 @@ class AssertFlagsRequestFieldAction(Action):
         # Support dot notation for nested fields (e.g., "person_properties.$device_id")
         parts = field.split(".")
         current = body
-        for part in parts:
+        for index, part in enumerate(parts):
             if not isinstance(current, dict):
                 raise AssertionError(
                     f"Cannot traverse into non-dict at '{part}' in field path '{field}'. "
                     f"Value is: {current!r}"
                 )
             if part not in current:
+                # The /flags endpoint accepts api_key as an alias for token.
+                # Keep the contract's default assertion on token while allowing
+                # SDKs that send api_key to satisfy the same check.
+                if index == 0 and part == "token" and "api_key" in current:
+                    current = current["api_key"]
+                    continue
                 raise AssertionError(
                     f"Field '{part}' not found in /flags request body at path '{field}'. "
                     f"Available keys: {list(current.keys())}"
