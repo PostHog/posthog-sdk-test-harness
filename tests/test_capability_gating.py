@@ -4,7 +4,9 @@ Covers the opt-out `incompatible_capabilities` field used to exclude server-only
 tests from mobile SDK adapters without affecting any other adapter.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+import pytest
 
 from posthog_test_harness.tests.suites import ContractTestSuite
 
@@ -37,21 +39,23 @@ SERVER_ONLY = {
 }
 
 
-def test_incompatible_capability_skips_test_when_adapter_declares_it() -> None:
+@pytest.mark.parametrize(
+    "capabilities,expected_names",
+    [
+        # Adapter declares the incompatible capability → server-only test is skipped.
+        (["capture_v0", "mobile_flag_eval"], ["request_payload.universal"]),
+        # Backwards compatibility: adapter without the capability still runs the test.
+        (["capture_v0"], ["request_payload.universal", "request_payload.server_only"]),
+        # No capabilities declared at all → test still runs (backwards compatible).
+        (None, ["request_payload.universal", "request_payload.server_only"]),
+    ],
+)
+def test_incompatible_capability_gating(
+    capabilities: Optional[List[str]],
+    expected_names: List[str],
+) -> None:
     suite = _suite([UNIVERSAL, SERVER_ONLY])
-    names = _names(suite, sdk_type="server", capabilities=["capture_v0", "mobile_flag_eval"])
-    assert names == ["request_payload.universal"]
-
-
-def test_incompatible_capability_runs_test_when_adapter_does_not_declare_it() -> None:
-    # Backwards compatibility: an adapter that doesn't declare the capability
-    # (e.g. every existing server SDK) still runs the test.
-    suite = _suite([UNIVERSAL, SERVER_ONLY])
-    names = _names(suite, sdk_type="server", capabilities=["capture_v0"])
-    assert names == ["request_payload.universal", "request_payload.server_only"]
-
-
-def test_incompatible_capability_runs_test_when_no_capabilities_declared() -> None:
-    suite = _suite([UNIVERSAL, SERVER_ONLY])
-    names = _names(suite, sdk_type="server")
-    assert names == ["request_payload.universal", "request_payload.server_only"]
+    kwargs: Dict[str, Any] = {"sdk_type": "server"}
+    if capabilities is not None:
+        kwargs["capabilities"] = capabilities
+    assert _names(suite, **kwargs) == expected_names
