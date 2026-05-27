@@ -67,14 +67,15 @@ class MockResponse:
     """Configured mock server response.
 
     When v1_event_results is set, the mock server generates a V1 partial
-    batch response (HTTP 200) with per-event results based on the incoming
-    request's event order. Each entry is "ok", "retry", or "drop".
+    batch response (HTTP 200) with per-event results keyed by event UUID.
+    Each entry can be a string shorthand ("ok", "retry", "drop", "limited")
+    or a dict with explicit ``result`` and optional ``details`` keys.
     """
 
     status_code: int = 200
     headers: Dict[str, str] = field(default_factory=dict)
     body: Optional[str] = None
-    v1_event_results: Optional[List[str]] = None
+    v1_event_results: Optional[List[Any]] = None
 
 
 @dataclass

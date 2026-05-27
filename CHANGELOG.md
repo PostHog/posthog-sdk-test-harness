@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed `error_response_has_structured_body` and `error_response_has_correct_tag` tests from `response_format_validation` -- these tested mock fidelity, not SDK behavior
+- Clarified in `test_actions.yaml` that `assert_v1_error_response_format`, `assert_v1_error_tag`, and `assert_v1_per_event_result` are infrastructure for integration tests, not used in the base SDK compliance suite
+
+### Added
+
+- `unknown_result_treated_as_terminal` test: SDK does not retry events with unrecognized per-event result strings (forward compatibility)
+- `respects_retry_after_on_retryable_error` test: SDK honors `Retry-After` header on 503 error responses
+
+## [0.6.0] - 2026-05-26
+
+### Changed
+
+- **Breaking**: V1 capture endpoint path updated from `/i/v1/e` to `/i/v1/events/analytics` throughout mock server and test suite
+- **Breaking**: V1 response format changed from array-based `{"results": [...]}` to UUID-keyed map `{"results": {"<uuid>": {"result": "...", "details": "..."}}}` matching the Rust capture service
+- `v1_event_results` in `MockResponse` now accepts dicts with explicit `result`/`details` in addition to string shorthands
+- Renamed `assert_attempt_timestamp_changes_on_retry` to `assert_request_timestamp_changes_on_retry` (header was renamed from `PostHog-Attempt-Timestamp` to `PostHog-Request-Timestamp`)
+- Replaced `assert_authorization_and_token_match` (which referenced phantom `PostHog-Api-Token` header) with `assert_authorization_bearer_token` matching V1 auth spec
+
+### Added
+
+- Mock server now auto-generates structured V1 error bodies `{"error", "error_description", "error_uri"}` for non-200 responses on the V1 capture path
+- Mock server now echoes `PostHog-Request-Id` and adds `Date` header on V1 capture responses
+- Mock server adds `Retry-After: 1` on retryable status codes (408, 500, 503, 504) and on 200 responses with `result: retry` events
+- 11 new assertion actions for V1 response validation: `assert_v1_error_response_format`, `assert_v1_error_tag`, `assert_v1_per_event_result`, `assert_v1_all_events_result`, `assert_v1_retry_after_present`, `assert_v1_retry_after_absent`, `assert_v1_response_echoes_request_id`, `assert_sdk_did_not_retry`, `assert_v1_response_has_results_map`, `assert_v1_response_results_count`, `assert_v1_response_status`
+- V1 test suite covering the full `/i/v1/events/analytics` contract:
+  - Response format validation: UUID-keyed results, Retry-After semantics, request-id echo
+  - Retryable vs non-retryable status codes: 408/500/503/504 trigger retry; 400/401/402/413/415 do not
+  - Partial batch handling with per-event `ok`/`drop`/`limited`/`retry` result pruning
+
+### Fixed
+
+- `assert_partial_batch_retry_pruning` now supports UUID-keyed results (V1) in addition to legacy array results
+- Removed tests asserting phantom `PostHog-Api-Token` header that does not exist in V1 spec
+- Fixed header name `PostHog-Attempt-Timestamp` to `PostHog-Request-Timestamp` in tests and assertions
+- Removed 502/429 retry tests that do not correspond to V1 capture service error types
+
 ## [0.5.2] - 2026-05-22
 
 ### Fixed
