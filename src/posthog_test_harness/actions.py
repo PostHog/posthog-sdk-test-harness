@@ -234,7 +234,12 @@ class ResetAction(Action):
 
 
 class ConfigureMockResponsesAction(Action):
-    """Configure mock server to return specific responses."""
+    """Configure mock server to return specific responses.
+
+    ``v1_event_results`` accepts a list of per-event results. Each entry
+    can be a string shorthand (``"ok"``, ``"retry"``, ``"drop"``,
+    ``"limited"``) or a dict with ``result`` and optional ``details``.
+    """
 
     @property
     def name(self) -> str:
@@ -1139,16 +1144,17 @@ class AssertHeaderIsIntegerAction(Action):
             raise AssertionError(f"Header '{params['header']}' = {int_val}, " f"expected {params['expected']}")
 
 
-class AssertAuthorizationAndTokenMatchAction(Action):
-    """Assert Authorization bearer value matches PostHog-Api-Token header.
+class AssertAuthorizationBearerTokenAction(Action):
+    """Assert Authorization header uses Bearer scheme with the expected token.
 
-    If Authorization header is absent, the assertion passes (optional header).
-    If present, it must use Bearer scheme and the token must match PostHog-Api-Token.
+    V1 capture uses ``Authorization: Bearer <project-api-key>`` only. The
+    Bearer prefix is case-insensitive and the token is whitespace-trimmed,
+    matching the Rust service behaviour.
     """
 
     @property
     def name(self) -> str:
-        return "assert_authorization_and_token_match"
+        return "assert_authorization_bearer_token"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
@@ -1157,21 +1163,19 @@ class AssertAuthorizationAndTokenMatchAction(Action):
 
         headers = requests[0].headers
         auth = headers.get("authorization")
-        token_header = headers.get("posthog-api-token")
-
         if auth is None:
-            return
+            raise AssertionError("Authorization header is missing")
 
-        if not auth.startswith("Bearer "):
+        if not auth.lower().startswith("bearer "):
             raise AssertionError(
-                f"Authorization header present but not Bearer scheme: '{auth}'"
+                f"Authorization header not using Bearer scheme: '{auth}'"
             )
 
-        bearer_value = auth[len("Bearer ") :]
-        if bearer_value != token_header:
+        bearer_value = auth.split(None, 1)[1].strip()
+        expected = params.get("expected")
+        if expected is not None and bearer_value != expected:
             raise AssertionError(
-                f"Bearer token '{bearer_value}' != "
-                f"PostHog-Api-Token '{token_header}'"
+                f"Bearer token '{bearer_value}' != expected '{expected}'"
             )
 
 
@@ -1443,29 +1447,29 @@ class AssertRequestIdPreservedOnRetryAction(Action):
                 raise AssertionError(f"Request {i} PostHog-Request-Id '{rid}' != " f"first request '{first_id}'")
 
 
-class AssertAttemptTimestampChangesOnRetryAction(Action):
-    """Assert PostHog-Attempt-Timestamp differs between retry attempts."""
+class AssertRequestTimestampChangesOnRetryAction(Action):
+    """Assert PostHog-Request-Timestamp differs between retry attempts."""
 
     @property
     def name(self) -> str:
-        return "assert_attempt_timestamp_changes_on_retry"
+        return "assert_request_timestamp_changes_on_retry"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
         if len(requests) < 2:
             raise AssertionError("Need at least 2 requests to check retry")
 
-        first_ts = requests[0].headers.get("posthog-attempt-timestamp")
+        first_ts = requests[0].headers.get("posthog-request-timestamp")
         if not first_ts:
-            raise AssertionError("First request missing PostHog-Attempt-Timestamp")
+            raise AssertionError("First request missing PostHog-Request-Timestamp")
 
-        second_ts = requests[1].headers.get("posthog-attempt-timestamp")
+        second_ts = requests[1].headers.get("posthog-request-timestamp")
         if not second_ts:
-            raise AssertionError("Second request missing PostHog-Attempt-Timestamp")
+            raise AssertionError("Second request missing PostHog-Request-Timestamp")
 
         if first_ts == second_ts:
             raise AssertionError(
-                f"PostHog-Attempt-Timestamp should change on retry, "
+                f"PostHog-Request-Timestamp should change on retry, "
                 f"but both are '{first_ts}'"
             )
 
@@ -1537,7 +1541,12 @@ class AssertCompressedBodyDecompressibleAction(Action):
 
 
 class AssertPartialBatchRetryPruningAction(Action):
-    """Assert the retried batch only contains events with result "retry" from the partial response."""
+    """Assert the retried batch only contains events whose first response had ``result: retry``.
+
+    Supports both UUID-keyed results (v1: ``{"results": {"uuid": {...}}}``)
+    and legacy array results (``{"results": [...]}``) for backward
+    compatibility.
+    """
 
     @property
     def name(self) -> str:
@@ -1548,7 +1557,6 @@ class AssertPartialBatchRetryPruningAction(Action):
         if len(requests) < 2:
             raise AssertionError("Need at least 2 requests for partial batch retry check")
 
-        # Parse the first response body for per-event results
         first_response_body = requests[0].response_body
         if not first_response_body:
             raise AssertionError("First response has no body (expected partial batch)")
@@ -1558,23 +1566,28 @@ class AssertPartialBatchRetryPruningAction(Action):
         except json.JSONDecodeError as exc:
             raise AssertionError("First response body is not valid JSON") from exc
 
-        results = partial.get("results", [])
+        results = partial.get("results")
         if not results:
-            raise AssertionError("First response has no 'results' array")
-
-        # Match results to first request's events by position
-        first_events = requests[0].parsed_events or []
+            raise AssertionError("First response has no 'results'")
 
         retry_uuids: set[str] = set()
         no_retry_uuids: set[str] = set()
-        for i, r in enumerate(results):
-            event_uuid = first_events[i].get("uuid", "") if i < len(first_events) else ""
-            if r.get("result") == "retry":
-                retry_uuids.add(event_uuid)
-            else:
-                no_retry_uuids.add(event_uuid)
 
-        # Check the retried batch (second request)
+        if isinstance(results, dict):
+            for uuid, status in results.items():
+                if isinstance(status, dict) and status.get("result") == "retry":
+                    retry_uuids.add(uuid)
+                else:
+                    no_retry_uuids.add(uuid)
+        elif isinstance(results, list):
+            first_events = requests[0].parsed_events or []
+            for i, r in enumerate(results):
+                event_uuid = first_events[i].get("uuid", "") if i < len(first_events) else ""
+                if r.get("result") == "retry":
+                    retry_uuids.add(event_uuid)
+                else:
+                    no_retry_uuids.add(event_uuid)
+
         second_events = requests[1].parsed_events or []
         second_uuids = {e.get("uuid") for e in second_events}
 
@@ -1614,6 +1627,326 @@ class AssertEventsInBatchCountAction(Action):
                 raise AssertionError(f"Expected >= {expected} events in batch, " f"got {len(events)}")
         elif len(events) != expected:
             raise AssertionError(f"Expected {expected} events in batch, " f"got {len(events)}")
+
+
+# ============================================================================
+# V1 Response Assertions
+# ============================================================================
+
+
+class AssertV1ErrorResponseFormatAction(Action):
+    """Assert a non-200 V1 response body has the structured error shape.
+
+    Expected shape: ``{"error": str, "error_description": str, "error_uri": str}``
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_error_response_format"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        try:
+            body = json.loads(body_str)
+        except json.JSONDecodeError as exc:
+            raise AssertionError("Response body is not valid JSON") from exc
+
+        for field in ("error", "error_description", "error_uri"):
+            if field not in body:
+                raise AssertionError(
+                    f"V1 error response missing '{field}'. "
+                    f"Body keys: {list(body.keys())}"
+                )
+            if not isinstance(body[field], str):
+                raise AssertionError(
+                    f"V1 error response '{field}' should be string, "
+                    f"got {type(body[field]).__name__}"
+                )
+
+
+class AssertV1ErrorTagAction(Action):
+    """Assert the ``error`` field in a V1 error response matches an expected tag."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_error_tag"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        body = json.loads(body_str)
+        actual = body.get("error")
+        expected = params["expected"]
+        if actual != expected:
+            raise AssertionError(
+                f"V1 error tag: expected '{expected}', got '{actual}'"
+            )
+
+
+class AssertV1PerEventResultAction(Action):
+    """Assert a per-event result in a V1 200 response.
+
+    Looks up the event by ``uuid`` in the UUID-keyed results map and
+    checks ``result`` and optionally ``details``.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_per_event_result"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        body = json.loads(body_str)
+        results = body.get("results")
+        if not isinstance(results, dict):
+            raise AssertionError(
+                f"Expected 'results' dict, got {type(results).__name__}"
+            )
+
+        uuid = params["uuid"]
+        if uuid not in results:
+            raise AssertionError(
+                f"UUID '{uuid}' not in results. "
+                f"Available: {list(results.keys())}"
+            )
+
+        entry = results[uuid]
+        expected_result = params["expected_result"]
+        actual_result = entry.get("result")
+        if actual_result != expected_result:
+            raise AssertionError(
+                f"UUID '{uuid}' result: expected '{expected_result}', "
+                f"got '{actual_result}'"
+            )
+
+        if "expected_details" in params:
+            expected_details = params["expected_details"]
+            actual_details = entry.get("details")
+            if actual_details != expected_details:
+                raise AssertionError(
+                    f"UUID '{uuid}' details: expected '{expected_details}', "
+                    f"got '{actual_details}'"
+                )
+
+
+class AssertV1AllEventsResultAction(Action):
+    """Assert every event in the V1 results map has the expected result value."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_all_events_result"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        body = json.loads(body_str)
+        results = body.get("results")
+        if not isinstance(results, dict):
+            raise AssertionError(
+                f"Expected 'results' dict, got {type(results).__name__}"
+            )
+
+        expected_result = params["expected_result"]
+        for uuid, entry in results.items():
+            actual = entry.get("result") if isinstance(entry, dict) else entry
+            if actual != expected_result:
+                raise AssertionError(
+                    f"UUID '{uuid}' result: expected '{expected_result}', "
+                    f"got '{actual}'"
+                )
+
+
+class AssertV1RetryAfterPresentAction(Action):
+    """Assert the first response includes a ``Retry-After`` header."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_retry_after_present"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        headers = requests[0].response_headers
+        val = headers.get("Retry-After") or headers.get("retry-after")
+        if val is None:
+            raise AssertionError(
+                "Response missing Retry-After header. "
+                f"Response headers: {list(headers.keys())}"
+            )
+
+
+class AssertV1RetryAfterAbsentAction(Action):
+    """Assert the first response does NOT include a ``Retry-After`` header."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_retry_after_absent"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        headers = requests[0].response_headers
+        val = headers.get("Retry-After") or headers.get("retry-after")
+        if val is not None:
+            raise AssertionError(
+                f"Response should not have Retry-After header, "
+                f"but has value '{val}'"
+            )
+
+
+class AssertV1ResponseEchoesRequestIdAction(Action):
+    """Assert the response ``PostHog-Request-Id`` matches the request header."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_response_echoes_request_id"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        req = requests[0]
+        sent_id = req.headers.get("posthog-request-id")
+        if not sent_id:
+            raise AssertionError("Request missing PostHog-Request-Id header")
+
+        resp_id = (
+            req.response_headers.get("PostHog-Request-Id")
+            or req.response_headers.get("posthog-request-id")
+        )
+        if resp_id is None:
+            raise AssertionError(
+                "Response missing PostHog-Request-Id header"
+            )
+
+        if resp_id != sent_id:
+            raise AssertionError(
+                f"Response PostHog-Request-Id '{resp_id}' != "
+                f"request '{sent_id}'"
+            )
+
+
+class AssertSdkDidNotRetryAction(Action):
+    """Assert exactly one request was made (SDK did not retry)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_sdk_did_not_retry"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        capture_requests = [
+            r for r in requests if "/flags" not in r.path
+        ]
+        if len(capture_requests) != 1:
+            raise AssertionError(
+                f"Expected exactly 1 capture request (no retry), "
+                f"got {len(capture_requests)}"
+            )
+
+
+class AssertV1ResponseHasResultsMapAction(Action):
+    """Assert a V1 200 response body has a ``results`` key whose value is a dict."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_response_has_results_map"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        body = json.loads(body_str)
+        results = body.get("results")
+        if results is None:
+            raise AssertionError("Response body missing 'results' key")
+        if not isinstance(results, dict):
+            raise AssertionError(
+                f"Expected 'results' to be a dict (UUID-keyed map), "
+                f"got {type(results).__name__}"
+            )
+
+
+class AssertV1ResponseResultsCountAction(Action):
+    """Assert the number of entries in the V1 results map."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_response_results_count"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        body_str = requests[0].response_body
+        if not body_str:
+            raise AssertionError("Response has no body")
+
+        body = json.loads(body_str)
+        results = body.get("results", {})
+        expected = params["expected"]
+        actual = len(results)
+        if actual != expected:
+            raise AssertionError(
+                f"Expected {expected} results entries, got {actual}"
+            )
+
+
+class AssertV1ResponseStatusAction(Action):
+    """Assert the HTTP status code recorded for the first capture request."""
+
+    @property
+    def name(self) -> str:
+        return "assert_v1_response_status"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+
+        expected = params["expected"]
+        actual = requests[0].response_status
+        if actual != expected:
+            raise AssertionError(
+                f"Expected response status {expected}, got {actual}"
+            )
 
 
 # ============================================================================

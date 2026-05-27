@@ -36,7 +36,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | Capability | Description |
 |------------|-------------|
 | `capture_v0` | Original capture protocol (`POST /batch`) |
-| `capture_v1` | Capture Analytics V1 protocol (`POST /i/v1/e`) |
+| `capture_v1` | Capture Analytics V1 protocol (`POST /i/v1/analytics/events`) |
 | `encoding_gzip` | Gzip compression support |
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |

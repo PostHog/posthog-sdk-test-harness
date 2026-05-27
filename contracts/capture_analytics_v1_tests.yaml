@@ -1,11 +1,11 @@
-    description: Tests for Capture Analytics V1 wire protocol compliance
+    description: Tests for Capture Analytics V1 wire protocol compliance (POST /i/v1/analytics/events)
     requires: capture_v1
     categories:
       endpoint_and_method:
         description: SDK targets the correct V1 endpoint
         tests:
           - name: targets_v1_endpoint
-            description: V1 SDK sends requests to POST /i/v1/e
+            description: V1 SDK sends requests to POST /i/v1/analytics/events
             steps:
               - action: init
                 params:
@@ -20,7 +20,7 @@
                   expected: 1
               - action: assert_request_path
                 params:
-                  expected: /i/v1/e
+                  expected: /i/v1/analytics/events
 
           - name: does_not_use_legacy_endpoints
             description: V1 SDK does not send requests to legacy capture endpoints
@@ -48,8 +48,8 @@
       required_headers:
         description: All V1-required headers are present and well-formed
         tests:
-          - name: has_authorization_bearer_header_if_present
-            description: If Authorization header is present, it uses Bearer scheme
+          - name: has_authorization_bearer_header
+            description: Authorization header uses Bearer scheme with the configured API key
             steps:
               - action: init
                 params:
@@ -60,42 +60,9 @@
                   distinct_id: test_user
                   event: test_event
               - action: flush
-              - action: assert_header_value_matches
+              - action: assert_authorization_bearer_token
                 params:
-                  header: Authorization
-                  pattern: "^Bearer .+$"
-                  optional: true
-
-          - name: has_posthog_api_token_header
-            description: PostHog-Api-Token header matches configured token
-            steps:
-              - action: init
-                params:
-                  api_key: phc_test_key
-                  flush_at: 1
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: assert_request_has_header
-                params:
-                  header: PostHog-Api-Token
                   expected: phc_test_key
-
-          - name: authorization_and_token_match_if_present
-            description: If Authorization header is present, Bearer token matches PostHog-Api-Token
-            steps:
-              - action: init
-                params:
-                  api_key: phc_test_key
-                  flush_at: 1
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: assert_authorization_and_token_match
 
           - name: has_content_type_json
             description: Content-Type header is application/json
@@ -160,8 +127,8 @@
                 params:
                   header: PostHog-Request-Id
 
-          - name: has_posthog_attempt_timestamp
-            description: PostHog-Attempt-Timestamp header is valid RFC 3339
+          - name: has_posthog_request_timestamp
+            description: PostHog-Request-Timestamp header is valid RFC 3339
             steps:
               - action: init
                 params:
@@ -173,7 +140,7 @@
               - action: flush
               - action: assert_header_is_rfc3339
                 params:
-                  header: PostHog-Attempt-Timestamp
+                  header: PostHog-Request-Timestamp
 
           - name: has_user_agent
             description: User-Agent header is present and non-empty
@@ -194,21 +161,8 @@
       body_format:
         description: Request body conforms to the V1 batch schema
         tests:
-          - name: body_has_created_at
-            description: Root created_at field is present and valid RFC 3339
-            steps:
-              - action: init
-                params:
-                  flush_at: 1
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: test_event
-              - action: flush
-              - action: assert_v1_body_format
-
-          - name: body_has_batch_array
-            description: Root batch field is a non-empty array
+          - name: body_has_created_at_and_batch
+            description: Root created_at field is valid RFC 3339 and batch is a non-empty array
             steps:
               - action: init
                 params:
@@ -221,7 +175,7 @@
               - action: assert_v1_body_format
 
           - name: no_api_key_in_body
-            description: Body does not contain api_key or token fields (auth is in headers)
+            description: Body does not contain api_key or token fields (auth is in headers only)
             steps:
               - action: init
                 params:
@@ -239,7 +193,7 @@
                     - token
 
           - name: no_sent_at_in_body
-            description: Body does not contain sent_at field (replaced by header)
+            description: Body does not contain sent_at field (replaced by PostHog-Request-Timestamp header)
             steps:
               - action: init
                 params:
@@ -540,7 +494,6 @@
                   responses:
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -560,7 +513,6 @@
                   responses:
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -580,7 +532,6 @@
                   responses:
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -647,7 +598,6 @@
                     - status_code: 503
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -670,7 +620,6 @@
                   responses:
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -712,15 +661,14 @@
                   expected: 2
               - action: assert_different_request_ids
 
-          - name: attempt_timestamp_changes_on_retry
-            description: PostHog-Attempt-Timestamp is updated on each retry attempt
+          - name: request_timestamp_changes_on_retry
+            description: PostHog-Request-Timestamp is updated on each retry attempt
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -733,21 +681,130 @@
               - action: assert_request_count_gte
                 params:
                   expected: 2
-              - action: assert_attempt_timestamp_changes_on_retry
+              - action: assert_request_timestamp_changes_on_retry
 
-      retry_behavior:
-        description: Retry logic for V1 error codes
+      response_format_validation:
+        description: V1 200 and error response format validation
         tests:
-          - name: retries_on_500
-            description: SDK retries on 500 Internal Server Error
+          - name: success_response_has_uuid_keyed_results
+            description: 200 response body has results as a UUID-keyed map
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_response_status
+                params:
+                  expected: 200
+              - action: assert_v1_response_has_results_map
+
+          - name: success_response_has_ok_for_each_event
+            description: Each event UUID in the results map has result "ok"
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 3
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_v1_response_has_results_map
+              - action: assert_v1_all_events_result
+                params:
+                  expected_result: ok
+              - action: assert_v1_response_results_count
+                params:
+                  expected: 3
+
+          - name: success_no_retry_after_when_all_ok
+            description: Retry-After header is absent when all events have result "ok"
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - status_code: 500
-                      body: '{"error":"internal","error_description":"Internal error","error_uri":"https://posthog.com/docs/api"}'
+                    - v1_event_results: ["ok", "ok"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_v1_retry_after_absent
+
+          - name: success_retry_after_present_when_retry_events
+            description: Retry-After header is present when any event has result "retry"
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["ok", "retry"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_v1_retry_after_present
+
+          - name: success_no_retry_after_when_drop_only
+            description: Retry-After header is absent when events only have result "ok" or "drop"
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["ok", "drop"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: assert_v1_retry_after_absent
+
+          - name: response_echoes_request_id
+            description: Response PostHog-Request-Id echoes the request header
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_v1_response_echoes_request_id
+
+      retry_behavior:
+        description: Retry logic for V1 error codes
+        tests:
+          - name: retries_on_408
+            description: SDK retries on 408 Request Timeout (retryable, has Retry-After)
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 408
+                      body: '{"error":"body_read_timeout","error_description":"Body read timeout","error_uri":"https://posthog.com/docs/api"}'
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -764,16 +821,15 @@
                 params:
                   success_statuses: [200]
 
-          - name: retries_on_502
-            description: SDK retries on 502 Bad Gateway
+          - name: retries_on_500
+            description: SDK retries on 500 Internal Server Error (retryable, has Retry-After)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - status_code: 502
-                      body: '{"error":"bad_gateway","error_description":"Bad gateway","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 500
+                      body: '{"error":"internal_error","error_description":"Internal error","error_uri":"https://posthog.com/docs/api"}'
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -791,16 +847,15 @@
                   success_statuses: [200]
 
           - name: retries_on_503
-            description: SDK retries on 503 Service Unavailable
+            description: SDK retries on 503 Service Unavailable (retryable, has Retry-After)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 503
-                      body: '{"error":"unavailable","error_description":"Service unavailable","error_uri":"https://posthog.com/docs/api"}'
+                      body: '{"error":"service_unavailable","error_description":"Service unavailable","error_uri":"https://posthog.com/docs/api"}'
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -818,15 +873,14 @@
                   success_statuses: [200]
 
           - name: retries_on_504
-            description: SDK retries on 504 Gateway Timeout
+            description: SDK retries on 504 Gateway Timeout (retryable, has Retry-After)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 504
-                      body: '{"error":"timeout","error_description":"Gateway timeout","error_uri":"https://posthog.com/docs/api"}'
+                      body: '{"error":"gateway_timeout","error_description":"Gateway timeout","error_uri":"https://posthog.com/docs/api"}'
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -843,14 +897,58 @@
                 params:
                   success_statuses: [200]
 
+          - name: retryable_errors_have_retry_after
+            description: Mock confirms 408/500/503/504 responses include Retry-After header
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_v1_retry_after_present
+
+          - name: respects_retry_after_on_retryable_error
+            description: SDK honors Retry-After header on 503 error response
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                      headers:
+                        Retry-After: "3"
+                    - status_code: 200
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 8000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_retry_delay
+                params:
+                  min_delay_ms: 2500
+
           - name: does_not_retry_on_400
-            description: No retry on 400 Bad Request
+            description: No retry on 400 Bad Request (non-retryable)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 400
-                      body: '{"error":"bad_request","error_description":"Bad request","error_uri":"https://posthog.com/docs/api"}'
+                      body: '{"error":"missing_required_headers","error_description":"Missing headers","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -860,18 +958,16 @@
               - action: wait
                 params:
                   duration_ms: 2000
-              - action: assert_request_count
-                params:
-                  expected: 1
+              - action: assert_sdk_did_not_retry
 
           - name: does_not_retry_on_401
-            description: No retry on 401 Unauthorized
+            description: No retry on 401 Unauthorized (non-retryable)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 401
-                      body: '{"error":"invalid_api_token","error_description":"Unauthorized","error_uri":"https://posthog.com/docs/api"}'
+                      body: '{"error":"missing_authorization","error_description":"Unauthorized","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -881,12 +977,29 @@
               - action: wait
                 params:
                   duration_ms: 2000
-              - action: assert_request_count
+              - action: assert_sdk_did_not_retry
+
+          - name: does_not_retry_on_402
+            description: No retry on 402 Billing Limit Exceeded (non-retryable, no Retry-After)
+            steps:
+              - action: configure_mock_responses
                 params:
-                  expected: 1
+                  responses:
+                    - status_code: 402
+                      body: '{"error":"billing_limit_exceeded","error_description":"Billing limit exceeded","error_uri":"https://posthog.com/docs/billing/limits"}'
+              - action: init
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_sdk_did_not_retry
 
           - name: does_not_retry_on_413
-            description: No retry on 413 Payload Too Large
+            description: No retry on 413 Payload Too Large (non-retryable)
             steps:
               - action: configure_mock_responses
                 params:
@@ -902,18 +1015,16 @@
               - action: wait
                 params:
                   duration_ms: 2000
-              - action: assert_request_count
-                params:
-                  expected: 1
+              - action: assert_sdk_did_not_retry
 
           - name: does_not_retry_on_415
-            description: No retry on 415 Unsupported Media Type
+            description: No retry on 415 Unsupported Media Type (non-retryable)
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - status_code: 415
-                      body: '{"error":"unsupported_encoding","error_description":"Unsupported","error_uri":"https://posthog.com/docs/api"}'
+                      body: '{"error":"unsupported_content_type","error_description":"Unsupported","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -923,22 +1034,16 @@
               - action: wait
                 params:
                   duration_ms: 2000
-              - action: assert_request_count
-                params:
-                  expected: 1
+              - action: assert_sdk_did_not_retry
 
-          - name: respects_retry_after_on_429
-            description: Respects Retry-After header on 429
+          - name: non_retryable_errors_have_no_retry_after
+            description: 400/401/402/413/415 responses do not include Retry-After header
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - status_code: 429
-                      headers:
-                        Retry-After: "3"
-                      body: '{"error":"rate_limited","error_description":"Rate limited","error_uri":"https://posthog.com/docs/api"}'
-                    - status_code: 200
-                      body: '{"results": []}'
+                    - status_code: 401
+                      body: '{"error":"missing_authorization","error_description":"Unauthorized","error_uri":"https://posthog.com/docs/api"}'
               - action: init
               - action: capture
                 params:
@@ -947,13 +1052,8 @@
               - action: flush
               - action: wait
                 params:
-                  duration_ms: 5000
-              - action: assert_request_count_gte
-                params:
-                  expected: 2
-              - action: assert_retry_delay
-                params:
-                  min_delay_ms: 2500
+                  duration_ms: 2000
+              - action: assert_v1_retry_after_absent
 
           - name: implements_backoff
             description: Exponential backoff with minimum 100ms first delay
@@ -965,7 +1065,6 @@
                     - status_code: 503
                     - status_code: 503
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
               - action: capture
                 params:
@@ -1012,7 +1111,7 @@
         description: 200 partial-batch response pattern unique to V1
         tests:
           - name: handles_200_full_success
-            description: 200 with empty results means all events persisted, no retry needed
+            description: 200 with all events "ok" means no retry needed
             steps:
               - action: init
                 params:
@@ -1053,15 +1152,62 @@
                 params:
                   expected: 1
 
-          - name: prunes_persisted_events_on_partial
-            description: After 200 partial, events with status 200 are NOT retried
+          - name: does_not_retry_dropped_events
+            description: Events with result "drop" are NOT retried
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["drop", "drop"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: does_not_retry_limited_events
+            description: Events with result "limited" are NOT retried
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["ok", "limited"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: prunes_ok_events_on_partial_retry
+            description: After 200 partial, events with result "ok" are NOT retried
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - v1_event_results: ["ok", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1080,15 +1226,14 @@
                   expected: 2
               - action: assert_partial_batch_retry_pruning
 
-          - name: prunes_malformed_events_on_partial
-            description: After 200 partial, events with status 400 are NOT retried
+          - name: prunes_dropped_events_on_partial_retry
+            description: After 200 partial, events with result "drop" are NOT retried
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - v1_event_results: ["drop", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1107,41 +1252,14 @@
                   expected: 2
               - action: assert_partial_batch_retry_pruning
 
-          - name: retries_failed_events_on_partial
-            description: After 200 partial, events with status 500 ARE retried
-            steps:
-              - action: configure_mock_responses
-                params:
-                  responses:
-                    - v1_event_results: ["ok", "retry"]
-                    - status_code: 200
-                      body: '{"results": []}'
-              - action: init
-                params:
-                  flush_at: 10
-              - action: capture_multiple
-                params:
-                  count: 2
-                  params:
-                    distinct_id: test_user
-                    event: test_event_{index}
-              - action: flush
-              - action: wait
-                params:
-                  duration_ms: 5000
-              - action: assert_request_count_gte
-                params:
-                  expected: 2
-
-          - name: retried_partial_batch_only_contains_failed_events
-            description: The retry request's batch only contains events that had status 500
+          - name: retries_only_retry_events_from_partial
+            description: Retried batch only contains events that had result "retry"
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
                     - v1_event_results: ["ok", "drop", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1171,7 +1289,6 @@
                   responses:
                     - v1_event_results: ["ok", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1198,7 +1315,6 @@
                   responses:
                     - v1_event_results: ["ok", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1225,7 +1341,6 @@
                   responses:
                     - v1_event_results: ["ok", "retry"]
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1254,7 +1369,6 @@
                       headers:
                         Retry-After: "3"
                     - status_code: 200
-                      body: '{"results": []}'
               - action: init
                 params:
                   flush_at: 10
@@ -1274,6 +1388,56 @@
               - action: assert_retry_delay
                 params:
                   min_delay_ms: 2500
+
+          - name: unknown_result_treated_as_terminal
+            description: Unrecognized per-event result is not retried (forward compatibility)
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results:
+                        - "ok"
+                        - {"result": "unknown_future_result", "details": "some_new_detail"}
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 2
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  expected: 1
+
+          - name: mixed_ok_drop_limited_no_retry
+            description: Batch with only ok, drop, limited results does not trigger retry
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["ok", "drop", "limited", "ok"]
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 4
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  expected: 1
 
       compression:
         description: Compression support (each test requires specific encoding capability)
@@ -1401,6 +1565,5 @@
               - action: wait
                 params:
                   duration_ms: 2000
-              - action: assert_request_count
-                params:
-                  expected: 1
+              - action: assert_sdk_did_not_retry
+
