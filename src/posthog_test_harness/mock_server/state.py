@@ -165,6 +165,12 @@ class MockServerState:
                         "error_description": f"Mock server returned {status}",
                         "error_uri": "https://posthog.com/docs/api",
                     })
+                elif v1_body is None and status == 200 and response_config.v1_event_results is None and parsed_events:
+                    default_results: Dict[str, Any] = {}
+                    for i, ev in enumerate(parsed_events):
+                        uuid = ev.get("uuid", f"unknown-{i}")
+                        default_results[uuid] = {"result": "ok"}
+                    v1_body = json.dumps({"results": default_results})
 
                 response_config = MockResponse(
                     status_code=status,
