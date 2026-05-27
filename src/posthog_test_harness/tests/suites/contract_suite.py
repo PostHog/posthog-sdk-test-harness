@@ -64,6 +64,14 @@ class ContractTestSuite(TestSuite):
                 test_requires = test_def.get("requires")
                 if test_requires and not _requirements_met(test_requires, cap_set):
                     continue
+                # Check test-level incompatible_capabilities (opt-out): skip a test
+                # when the adapter declares any capability that makes it inapplicable
+                # (e.g. a mobile SDK declaring `mobile_flag_eval` skips the server-only
+                # /flags payload tests). Unlike `requires`, this is backwards
+                # compatible: adapters that don't declare the capability are unaffected.
+                test_incompatible = test_def.get("incompatible_capabilities")
+                if test_incompatible and (set(test_incompatible) & cap_set):
+                    continue
                 test_name = f"{category_name}.{test_def['name']}"
                 tests.append((test_name, test_def))
         return tests

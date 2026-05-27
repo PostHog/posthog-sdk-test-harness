@@ -41,8 +41,11 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |
 | `encoding_deflate` | Deflate compression support |
+| `mobile_flag_eval` | Mobile-style flag evaluation (loads all flags in one cached `/flags` request, no per-key/server-only payload fields). Opts the adapter **out** of the server-only feature-flag payload tests. |
 
 The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run.
+
+A test may also declare `incompatible_capabilities`: the harness **skips** that test when the adapter declares any of the listed capabilities. This is the opt-out counterpart to `requires` and is backwards compatible — adapters that don't declare the capability run the test as before. It's used to exclude server-only assertions from mobile SDKs (which run as `--sdk-type server` for the capture format but have mobile flag semantics) via the `mobile_flag_eval` capability.
 
 ### `POST /init`
 

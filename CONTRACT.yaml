@@ -3,7 +3,7 @@
 # This contract defines the interface that SDK adapters must implement
 # and the compliance tests they must pass.
 
-version: "1.2"
+version: "1.3"
 
 # SDK Adapter Interface
 # All adapters must implement these endpoints
@@ -35,9 +35,11 @@ adapter_interface:
             type: string
           description: >
             List of capability strings declaring what the SDK supports.
-            Used to filter which test suites and tests are run.
+            Used to filter which test suites and tests are run. A test's
+            `requires` must be a subset of these (opt-in); a test is skipped if
+            it lists any of these in `incompatible_capabilities` (opt-out).
             Common values: "capture_v0", "capture_v1", "encoding_gzip",
-            "encoding_zstd", "encoding_br", "encoding_deflate".
+            "encoding_zstd", "encoding_br", "encoding_deflate", "mobile_flag_eval".
           default: []
 
   # Parallel test execution

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `incompatible_capabilities` test field: a backwards-compatible opt-out counterpart to `requires` — a test is skipped when the adapter declares any listed capability. Tagged the 6 server-only `feature_flags` payload tests with `incompatible_capabilities: [mobile_flag_eval]` so mobile SDKs (which run as `--sdk-type server` for the capture format but load all flags at once) can opt out without false failures. Existing server adapters are unaffected. Fixes #21.
 - `unknown_result_treated_as_terminal` test: SDK does not retry events with unrecognized per-event result strings (forward compatibility)
 - `respects_retry_after_on_retryable_error` test: SDK honors `Retry-After` header on 503 error responses
 

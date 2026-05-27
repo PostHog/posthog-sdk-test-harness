@@ -7,6 +7,8 @@
       description: Verify feature flag request payload structure
       tests:
         - name: request_with_person_properties_device_id
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When get_feature_flag is called with a top-level distinct_id and
             person_properties containing $device_id, the /flags request must include the
@@ -181,6 +183,8 @@
                 expected: enterprise
 
         - name: groups_default_to_empty_object
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When the caller does not supply groups / group_properties, both fields
             are sent as empty objects (not omitted, not null).
@@ -202,6 +206,8 @@
                 expected: {}
 
         - name: person_properties_distinct_id_auto_populated_when_caller_omits_it
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When the caller passes person_properties without an explicit distinct_id,
             the SDK auto-injects the top-level distinct_id into person_properties so
@@ -226,6 +232,8 @@
                 expected: a@b.com
 
         - name: disable_geoip_false_propagates_as_geoip_disable_false
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             disable_geoip:false on the adapter call propagates to geoip_disable:false
             in the /flags body.
@@ -244,6 +252,8 @@
                 expected: false
 
         - name: disable_geoip_omitted_defaults_to_false
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When disable_geoip is omitted by the caller, the SDK sends
             geoip_disable:false (geoip lookups happen on the server by default).
@@ -261,6 +271,8 @@
                 expected: false
 
         - name: flag_keys_to_evaluate_contains_only_requested_key
+          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
+          incompatible_capabilities: [mobile_flag_eval]
           description: >
             A get_feature_flag call for a single key sends flag_keys_to_evaluate
             containing exactly that key — not all flags, not the empty list.
