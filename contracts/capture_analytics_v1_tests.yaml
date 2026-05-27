@@ -1,11 +1,11 @@
-    description: Tests for Capture Analytics V1 wire protocol compliance (POST /i/v1/events/analytics)
+    description: Tests for Capture Analytics V1 wire protocol compliance (POST /i/v1/analytics/events)
     requires: capture_v1
     categories:
       endpoint_and_method:
         description: SDK targets the correct V1 endpoint
         tests:
           - name: targets_v1_endpoint
-            description: V1 SDK sends requests to POST /i/v1/events/analytics
+            description: V1 SDK sends requests to POST /i/v1/analytics/events
             steps:
               - action: init
                 params:
@@ -20,7 +20,7 @@
                   expected: 1
               - action: assert_request_path
                 params:
-                  expected: /i/v1/events/analytics
+                  expected: /i/v1/analytics/events
 
           - name: does_not_use_legacy_endpoints
             description: V1 SDK does not send requests to legacy capture endpoints

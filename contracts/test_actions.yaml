@@ -253,7 +253,7 @@
       expected:
         type: string
         required: true
-        description: Expected request path (e.g. /i/v1/events/analytics)
+        description: Expected request path (e.g. /i/v1/analytics/events)
 
   assert_no_requests_to_paths:
     description: Assert no requests were made to any of the listed paths

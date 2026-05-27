@@ -6,7 +6,7 @@ from flask import Request
 
 from .base import EndpointHandler
 
-V1_CAPTURE_PATH = "/i/v1/events/analytics"
+V1_CAPTURE_PATH = "/i/v1/analytics/events"
 V1_CAPTURE_PATHS = {V1_CAPTURE_PATH, f"{V1_CAPTURE_PATH}/"}
 
 
