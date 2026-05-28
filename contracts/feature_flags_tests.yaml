@@ -7,8 +7,6 @@
       description: Verify feature flag request payload structure
       tests:
         - name: request_with_person_properties_device_id
-          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
-          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When get_feature_flag is called with a top-level distinct_id and
             person_properties containing $device_id, the /flags request must include the
@@ -183,8 +181,6 @@
                 expected: enterprise
 
         - name: groups_default_to_empty_object
-          # Server-only flag-payload semantics; mobile SDKs load all flags at once.
-          incompatible_capabilities: [mobile_flag_eval]
           description: >
             When the caller does not supply groups / group_properties, both fields
             are sent as empty objects (not omitted, not null).
