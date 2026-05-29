@@ -20,6 +20,14 @@
       enable_compression:
         type: boolean
         optional: true
+      disable_geoip:
+        type: boolean
+        optional: true
+        description: Disable GeoIP enrichment (SDK injects $geoip_disable on captured events)
+      historical_migration:
+        type: boolean
+        optional: true
+        description: Mark batches as historical migration (V1 sets historical_migration in the request body)
 
   capture:
     description: Capture a single event via the adapter
@@ -36,6 +44,10 @@
       timestamp:
         type: string
         optional: true
+      options:
+        type: object
+        optional: true
+        description: V1 EventOptions overrides (cookieless_mode, disable_skew_correction, process_person_profile, product_tour_id)
 
   capture_multiple:
     description: Capture multiple events

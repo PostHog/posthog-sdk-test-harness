@@ -328,6 +328,21 @@
         required: true
         description: List of field names that must not be present
 
+  assert_body_field:
+    description: Assert a root-level request body field is present (and optionally equals a value)
+    params:
+      field:
+        type: string
+        required: true
+      expected:
+        type: any
+        optional: true
+        description: Expected value for the field (presence-only check if omitted)
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0)
+
   assert_v1_created_at_recent:
     description: Assert V1 body created_at is within max_age_seconds of now
     params:
@@ -369,8 +384,31 @@
         type: string
         required: true
 
+  assert_event_option:
+    description: Assert a value (or absence) inside an event's V1 options object
+    params:
+      option:
+        type: string
+        required: true
+      expected:
+        type: any
+        optional: true
+        description: Expected value for the option
+      exists:
+        type: boolean
+        optional: true
+        description: Assert the option key is present
+      absent:
+        type: boolean
+        optional: true
+        description: Assert the option key is absent
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0)
+
   assert_events_in_batch_count:
-    description: Assert the number of events in the first batch
+    description: Assert the number of events in a chosen request's batch
     params:
       expected:
         type: integer
@@ -379,6 +417,10 @@
         type: string
         optional: true
         description: Comparison operator (eq or gte, default eq)
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0, the first request; supports negative indexing e.g. -1 for last)
 
   # V1 Header Retry Assertions
   assert_attempt_header_increments:

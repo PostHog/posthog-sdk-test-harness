@@ -11,11 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `error_response_has_structured_body` and `error_response_has_correct_tag` tests from `response_format_validation` -- these tested mock fidelity, not SDK behavior
 - Clarified in `test_actions.yaml` that `assert_v1_error_response_format`, `assert_v1_error_tag`, and `assert_v1_per_event_result` are infrastructure for integration tests, not used in the base SDK compliance suite
+- `assert_events_in_batch_count` now accepts a `request_index` param (default `-1`, the most recent request) so partial-batch retry tests can inspect the retried batch instead of the original. Fixes `retries_only_retry_events_from_partial`, which previously asserted against the original 3-event batch rather than the 1-event retry
 
 ### Added
 
 - `unknown_result_treated_as_terminal` test: SDK does not retry events with unrecognized per-event result strings (forward compatibility)
 - `respects_retry_after_on_retryable_error` test: SDK honors `Retry-After` header on 503 error responses
+- `capture` action now accepts an `options` object so the V1 suite can exercise EventOptions overrides (`cookieless_mode`, `disable_skew_correction`, `process_person_profile`, `product_tour_id`), threaded through `CaptureRequest` and the adapter `/capture` payload
+- `init` action now accepts `disable_geoip` and `historical_migration` (V1), threaded through `InitRequest` and the adapter `/init` payload
+- New assertion actions: `assert_event_option` (inspect a per-event V1 `options` value/absence) and `assert_body_field` (assert a root-level request body field's presence/value)
+- New V1 `event_options` category: per-option override tests (single + multi-event batch) plus an `unset_options_omitted` test verifying unset options are dropped from the wire payload
+- New V1 `geoip_and_historical_migration` category: `$geoip_disable` property injection via `disable_geoip`, and `historical_migration` request-body flag (set when enabled, absent by default)
+- Multi-event batch variants for every `event_format` test, plus a `batch_envelope_smoke` test verifying request-level invariants (auth header, body format) hold under batching
 
 ## [0.6.0] - 2026-05-26
 
