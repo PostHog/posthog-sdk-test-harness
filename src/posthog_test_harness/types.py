@@ -14,6 +14,8 @@ class InitRequest:
     flush_interval_ms: Optional[int] = None
     max_retries: Optional[int] = None
     enable_compression: Optional[bool] = None
+    disable_geoip: Optional[bool] = None
+    historical_migration: Optional[bool] = None
 
 
 @dataclass
@@ -24,6 +26,7 @@ class CaptureRequest:
     event: str
     properties: Optional[Dict[str, Any]] = None
     timestamp: Optional[str] = None
+    options: Optional[Dict[str, Any]] = None
 
 
 @dataclass

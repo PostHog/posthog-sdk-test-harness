@@ -127,6 +127,8 @@ class InitAction(Action):
                 flush_interval_ms=params.get("flush_interval_ms"),
                 max_retries=params.get("max_retries"),
                 enable_compression=params.get("enable_compression"),
+                disable_geoip=params.get("disable_geoip"),
+                historical_migration=params.get("historical_migration"),
             )
         )
 
@@ -145,6 +147,7 @@ class CaptureAction(Action):
                 event=params["event"],
                 properties=params.get("properties"),
                 timestamp=params.get("timestamp"),
+                options=params.get("options"),
             )
         )
 
@@ -176,6 +179,7 @@ class CaptureMultipleAction(Action):
                     event=event_params["event"],
                     properties=event_params.get("properties"),
                     timestamp=event_params.get("timestamp"),
+                    options=event_params.get("options"),
                 )
             )
             results.append(result)
@@ -389,6 +393,60 @@ class AssertEventPropertyAction(Action):
                 available_props = list(properties.keys())[:10]
                 raise AssertionError(
                     f"Expected {prop_name}='{expected}', got '{actual}'. Available properties: {available_props}"
+                )
+
+
+class AssertEventOptionAction(Action):
+    """Assert a value (or absence) inside an event's V1 ``options`` object.
+
+    The V1 wire format carries control-plane EventOptions (cookieless_mode,
+    disable_skew_correction, process_person_profile, product_tour_id) in a
+    per-event ``options`` object distinct from ``properties``.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_event_option"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        index = params.get("request_index", 0)
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+        try:
+            target = requests[index]
+        except IndexError as exc:
+            raise AssertionError(
+                f"request_index {index} out of range ({len(requests)} requests recorded)"
+            ) from exc
+        if not target.parsed_events:
+            raise AssertionError("No events found")
+
+        event = target.parsed_events[0]
+        options = event.get("options") or {}
+        option_name = params["option"]
+
+        if params.get("absent"):
+            if option_name in options:
+                raise AssertionError(
+                    f"Event option '{option_name}' should be absent, "
+                    f"but options={options}"
+                )
+            return
+
+        if params.get("exists"):
+            if option_name not in options:
+                raise AssertionError(
+                    f"Event missing '{option_name}' option. Present options: {list(options.keys())}"
+                )
+
+        if "expected" in params:
+            actual = options.get(option_name)
+            expected = params["expected"]
+            if actual != expected:
+                raise AssertionError(
+                    f"Expected option {option_name}='{expected}', got '{actual}'. "
+                    f"Present options: {list(options.keys())}"
                 )
 
 
@@ -1245,6 +1303,48 @@ class AssertBodyFieldAbsentAction(Action):
                 raise AssertionError(f"Body should not contain '{field}' field")
 
 
+class AssertBodyFieldAction(Action):
+    """Assert a root-level request body field is present (and optionally equals a value)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_body_field"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        index = params.get("request_index", 0)
+        requests = ctx.mock_server.get_requests()
+        if not requests:
+            raise AssertionError("No requests recorded")
+        try:
+            target = requests[index]
+        except IndexError as exc:
+            raise AssertionError(
+                f"request_index {index} out of range ({len(requests)} requests recorded)"
+            ) from exc
+
+        body = target.body_decompressed
+        if not body:
+            raise AssertionError("No body in request")
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise AssertionError("Request body is not valid JSON") from exc
+
+        field = params["field"]
+        if field not in data:
+            raise AssertionError(
+                f"Body missing '{field}' field. Body keys: {list(data.keys())}"
+            )
+
+        if "expected" in params:
+            actual = data.get(field)
+            expected = params["expected"]
+            if actual != expected:
+                raise AssertionError(
+                    f"Expected body {field}='{expected}', got '{actual}'"
+                )
+
+
 class AssertV1CreatedAtRecentAction(Action):
     """Assert V1 body created_at is within max_age_seconds of current time."""
 
@@ -1607,7 +1707,13 @@ class AssertPartialBatchRetryPruningAction(Action):
 
 
 class AssertEventsInBatchCountAction(Action):
-    """Assert the number of events in the first request's batch."""
+    """Assert the number of events in a chosen request's batch.
+
+    ``request_index`` selects which recorded request to inspect and defaults to
+    ``-1`` (the most recent request). This matters for partial-batch retry
+    tests: the retried batch is the *last* request, not the original one. The
+    parameter supports negative indexing.
+    """
 
     @property
     def name(self) -> str:
@@ -1618,7 +1724,15 @@ class AssertEventsInBatchCountAction(Action):
         if not requests:
             raise AssertionError("No requests recorded")
 
-        events = requests[0].parsed_events or []
+        index = params.get("request_index", -1)
+        try:
+            target = requests[index]
+        except IndexError as exc:
+            raise AssertionError(
+                f"request_index {index} out of range ({len(requests)} requests recorded)"
+            ) from exc
+
+        events = target.parsed_events or []
         expected = params["expected"]
         operator = params.get("operator", "eq")
 
