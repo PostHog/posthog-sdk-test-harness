@@ -420,7 +420,7 @@
       request_index:
         type: integer
         optional: true
-        description: Which recorded request to inspect (default -1, the most recent; supports negative indexing)
+        description: Which recorded request to inspect (default 0, the first request; supports negative indexing e.g. -1 for last)
 
   # V1 Header Retry Assertions
   assert_attempt_header_increments:

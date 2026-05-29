@@ -23,10 +23,16 @@ def _req(parsed_events=None, body=None):
 
 class TestAssertEventsInBatchCount:
     @pytest.mark.asyncio
-    async def test_defaults_to_last_request(self):
-        # Original batch had 3 events; retried batch (last) had 1.
+    async def test_defaults_to_first_request(self):
         requests = [_req(parsed_events=[{}, {}, {}]), _req(parsed_events=[{}])]
-        await AssertEventsInBatchCountAction().execute({"expected": 1}, _ctx(requests))
+        await AssertEventsInBatchCountAction().execute({"expected": 3}, _ctx(requests))
+
+    @pytest.mark.asyncio
+    async def test_negative_index_targets_last(self):
+        requests = [_req(parsed_events=[{}, {}, {}]), _req(parsed_events=[{}])]
+        await AssertEventsInBatchCountAction().execute(
+            {"expected": 1, "request_index": -1}, _ctx(requests)
+        )
 
     @pytest.mark.asyncio
     async def test_explicit_request_index(self):

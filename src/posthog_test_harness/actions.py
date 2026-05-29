@@ -402,6 +402,9 @@ class AssertEventOptionAction(Action):
     The V1 wire format carries control-plane EventOptions (cookieless_mode,
     disable_skew_correction, process_person_profile, product_tour_id) in a
     per-event ``options`` object distinct from ``properties``.
+
+    ``request_index`` defaults to ``0`` (the first request). Supports negative
+    indexing.
     """
 
     @property
@@ -1304,7 +1307,11 @@ class AssertBodyFieldAbsentAction(Action):
 
 
 class AssertBodyFieldAction(Action):
-    """Assert a root-level request body field is present (and optionally equals a value)."""
+    """Assert a root-level request body field is present (and optionally equals a value).
+
+    ``request_index`` defaults to ``0`` (the first request). Supports negative
+    indexing.
+    """
 
     @property
     def name(self) -> str:
@@ -1709,10 +1716,9 @@ class AssertPartialBatchRetryPruningAction(Action):
 class AssertEventsInBatchCountAction(Action):
     """Assert the number of events in a chosen request's batch.
 
-    ``request_index`` selects which recorded request to inspect and defaults to
-    ``-1`` (the most recent request). This matters for partial-batch retry
-    tests: the retried batch is the *last* request, not the original one. The
-    parameter supports negative indexing.
+    ``request_index`` defaults to ``0`` (the first request), matching the
+    convention used by the other per-event/body assertions. Supports negative
+    indexing (e.g. ``-1`` for the most recent / retried batch).
     """
 
     @property
@@ -1724,7 +1730,7 @@ class AssertEventsInBatchCountAction(Action):
         if not requests:
             raise AssertionError("No requests recorded")
 
-        index = params.get("request_index", -1)
+        index = params.get("request_index", 0)
         try:
             target = requests[index]
         except IndexError as exc:
