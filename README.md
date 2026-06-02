@@ -201,24 +201,31 @@ uv run pytest
 
 ### Contributing
 
-When making changes to the test harness:
+When making changes to the test harness, add a [Sampo](https://github.com/bruits/sampo) changeset describing the release before opening your PR:
 
-1. **Update version** in `pyproject.toml` following [semantic versioning](https://semver.org/):
-   - Patch (0.1.0 → 0.1.1): Bug fixes, documentation
-   - Minor (0.1.0 → 0.2.0): New tests, new actions (backward compatible)
-   - Major (0.1.0 → 1.0.0): Breaking changes to CONTRACT.yaml or adapter interface
+```bash
+sampo add
+```
 
-2. **Update CHANGELOG.md** with your changes
+This prompts for the bump type and a release note, and writes a file under `.sampo/changesets/`. Commit that file with your PR.
 
-3. CI will fail if you modify code without updating the version
+- **patch** — bug fixes, documentation, internal refactors
+- **minor** — new tests, new actions (backwards compatible)
+- **major** — breaking changes to `CONTRACT.yaml` or the adapter interface
+
+CI will fail (`Changeset hygiene` check) if you change releasable code without including a changeset.
+
+The actual version bump, changelog entry, tag, and Docker image publish happen in a single gated workflow after a maintainer approves the release in Slack. See [RELEASING.md](RELEASING.md) for the full flow.
 
 ## Versioning
 
 Docker images are published with semantic versioning:
-- `latest` - Latest release from main branch
-- `1` - Latest v1.x.x release
-- `1.0` - Latest v1.0.x release
-- `1.0.0` - Specific version
+- `latest` — most recently approved release
+- `1` — latest `v1.x.x` release (only published once the major is non-zero)
+- `1.0` — latest `v1.0.x` release
+- `1.0.0` — specific version
+
+All tags only move when a maintainer approves a release through the gated workflow — there is no automatic publish on every push to `main`.
 
 Pin to a specific version in your CI for stability:
 ```yaml
