@@ -1,0 +1,105 @@
+name: Validate versioning
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: validate-versioning-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check for changeset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Detect version-affecting changes and changeset presence
+        id: check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF"
+
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(src/|CONTRACT\.yaml$|pyproject\.toml$|Dockerfile$)'; then
+            echo "version_affecting=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_affecting=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          changeset=$(git diff --name-only --diff-filter=A "origin/${BASE_REF}...HEAD" | grep -E '^\.sampo/changesets/.+\.md$' || true)
+          if [ -n "$changeset" ]; then
+            echo "has_changeset=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changeset=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upsert or delete sticky PR comment
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          VERSION_AFFECTING: ${{ steps.check.outputs.version_affecting }}
+          HAS_CHANGESET: ${{ steps.check.outputs.has_changeset }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const marker = '<!-- validate-versioning -->';
+            const needsComment =
+              process.env.VERSION_AFFECTING === 'true' &&
+              process.env.HAS_CHANGESET === 'false';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(
+              (c) => c.user.type === 'Bot' && c.body.includes(marker),
+            );
+
+            if (!needsComment) {
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                });
+              }
+              return;
+            }
+
+            const body = `${marker}
+            ## 📝 No changeset found
+
+            This PR modifies version-affecting paths (\`src/\`, \`CONTRACT.yaml\`, \`pyproject.toml\`, or \`Dockerfile\`) but doesn't include a changeset.
+
+            If this change should trigger a release, run:
+            \`\`\`bash
+            sampo add
+            \`\`\`
+            and commit the generated file in \`.sampo/changesets/\` with this PR.
+
+            If this change is not user-facing (refactor, CI, internal tooling), no action needed — this comment is informational only.`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
