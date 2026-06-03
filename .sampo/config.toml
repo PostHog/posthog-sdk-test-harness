@@ -3,7 +3,7 @@ version = 1
 
 [git]
 default_branch = "main"
-short_tags = "posthog-sdk-test-harness"  # Tag with v1.2.3 rather than posthog-sdk-test-harness-v1.2.3
+short_tags = "posthog-sdk-test-harness"  # Tag with 1.2.3 rather than posthog-sdk-test-harness-1.2.3
 
 [github]
 repository = "posthog/posthog-sdk-test-harness"
