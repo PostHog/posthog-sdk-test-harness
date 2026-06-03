@@ -1,5 +1,5 @@
 ---
-"posthog-sdk-test-harness": patch
+pypi/posthog-sdk-test-harness: patch
 ---
 
 - Removed `error_response_has_structured_body` and `error_response_has_correct_tag` from `response_format_validation` — these tested mock fidelity, not SDK behavior

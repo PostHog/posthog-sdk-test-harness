@@ -1,5 +1,5 @@
 ---
-"posthog-sdk-test-harness": minor
+pypi/posthog-sdk-test-harness: minor
 ---
 
 - New tests: `unknown_result_treated_as_terminal` (forward compatibility), `respects_retry_after_on_retryable_error`
