@@ -111,7 +111,7 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | Suite | Requires | Protocol |
 |-------|----------|----------|
 | `capture` | `capture_v0` | `POST /batch` |
-| `capture_v1` | `capture_v1` | `POST /i/v1/e` |
+| `capture_v1` | `capture_v1` | `POST /i/v1/analytics/events` |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`).
 

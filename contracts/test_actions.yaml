@@ -21,9 +21,12 @@
               type: array
               optional: true
               description: >
-                V1 partial batch: per-event result strings ("ok", "retry", "drop")
-                by position. When set, generates a 200 response with
-                {results: [{result, details?}]}.
+                V1 partial batch: per-event results by position. Each entry
+                is a string shorthand ("ok", "retry", "drop", "limited") or
+                a dict with explicit "result" and optional "details". Generates
+                a 200 response with UUID-keyed results map
+                {"results": {"<uuid>": {"result": "...", "details": "..."}}}.
+                Retry-After header is auto-added when any result is "retry".
 
   # Timing actions
   wait:
@@ -250,7 +253,7 @@
       expected:
         type: string
         required: true
-        description: Expected request path (e.g. /i/v1/e)
+        description: Expected request path (e.g. /i/v1/analytics/events)
 
   assert_no_requests_to_paths:
     description: Assert no requests were made to any of the listed paths
@@ -302,11 +305,15 @@
         optional: true
         description: Expected exact integer value
 
-  assert_authorization_and_token_match:
+  assert_authorization_bearer_token:
     description: >
-      If Authorization header is present, assert it uses Bearer scheme and
-      the token matches PostHog-Api-Token. Passes when Authorization is absent.
-    params: {}
+      Assert Authorization header uses Bearer scheme with the expected token.
+      V1 capture uses Authorization: Bearer <project-api-key> only.
+    params:
+      expected:
+        type: string
+        optional: true
+        description: Expected bearer token value (if omitted, just checks Bearer scheme)
 
   # V1 Body Assertions
   assert_v1_body_format:
@@ -320,6 +327,21 @@
         type: array
         required: true
         description: List of field names that must not be present
+
+  assert_body_field:
+    description: Assert a root-level request body field is present (and optionally equals a value)
+    params:
+      field:
+        type: string
+        required: true
+      expected:
+        type: any
+        optional: true
+        description: Expected value for the field (presence-only check if omitted)
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0)
 
   assert_v1_created_at_recent:
     description: Assert V1 body created_at is within max_age_seconds of now
@@ -362,8 +384,31 @@
         type: string
         required: true
 
+  assert_event_option:
+    description: Assert a value (or absence) inside an event's V1 options object
+    params:
+      option:
+        type: string
+        required: true
+      expected:
+        type: any
+        optional: true
+        description: Expected value for the option
+      exists:
+        type: boolean
+        optional: true
+        description: Assert the option key is present
+      absent:
+        type: boolean
+        optional: true
+        description: Assert the option key is absent
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0)
+
   assert_events_in_batch_count:
-    description: Assert the number of events in the first batch
+    description: Assert the number of events in a chosen request's batch
     params:
       expected:
         type: integer
@@ -372,6 +417,10 @@
         type: string
         optional: true
         description: Comparison operator (eq or gte, default eq)
+      request_index:
+        type: integer
+        optional: true
+        description: Which recorded request to inspect (default 0, the first request; supports negative indexing e.g. -1 for last)
 
   # V1 Header Retry Assertions
   assert_attempt_header_increments:
@@ -382,8 +431,8 @@
     description: Assert PostHog-Request-Id is identical across retry attempts
     params: {}
 
-  assert_attempt_timestamp_changes_on_retry:
-    description: Assert PostHog-Attempt-Timestamp differs between retry attempts
+  assert_request_timestamp_changes_on_retry:
+    description: Assert PostHog-Request-Timestamp differs between retry attempts
     params: {}
 
   assert_different_request_ids:
@@ -406,4 +455,90 @@
   assert_compressed_body_decompressible:
     description: Assert the mock server could decompress the body and parse events
     params: {}
+
+  # V1 Response Assertions
+  #
+  # Note: assert_v1_error_response_format, assert_v1_error_tag, and
+  # assert_v1_per_event_result are available as infrastructure but are NOT
+  # used in the base SDK compliance suite. They test mock/server response
+  # fidelity, not SDK behavior. The SDK compliance tests verify behavioral
+  # reactions (retry vs. don't retry) rather than response body contents.
+
+  assert_v1_error_response_format:
+    description: >
+      Assert a non-200 V1 response body has the structured error shape
+      {"error", "error_description", "error_uri"}, all strings.
+      Not used in base SDK compliance tests (tests mock fidelity, not SDK behavior).
+    params: {}
+
+  assert_v1_error_tag:
+    description: >
+      Assert the "error" field in a V1 error response matches an expected tag.
+      Not used in base SDK compliance tests (tests mock fidelity, not SDK behavior).
+    params:
+      expected:
+        type: string
+        required: true
+        description: Expected error tag value
+
+  assert_v1_per_event_result:
+    description: >
+      Assert a per-event result in a V1 200 response. Looks up the event by UUID
+      in the UUID-keyed results map and checks result and optionally details.
+      Not used in base SDK compliance tests (tests mock fidelity, not SDK behavior).
+    params:
+      uuid:
+        type: string
+        required: true
+        description: Event UUID to look up
+      expected_result:
+        type: string
+        required: true
+        description: Expected result value (ok, drop, limited, retry)
+      expected_details:
+        type: string
+        optional: true
+        description: Expected details value
+
+  assert_v1_all_events_result:
+    description: Assert every event in the V1 results map has the expected result value
+    params:
+      expected_result:
+        type: string
+        required: true
+        description: Expected result value for all events
+
+  assert_v1_retry_after_present:
+    description: Assert the first response includes a Retry-After header
+    params: {}
+
+  assert_v1_retry_after_absent:
+    description: Assert the first response does NOT include a Retry-After header
+    params: {}
+
+  assert_v1_response_echoes_request_id:
+    description: Assert the response PostHog-Request-Id matches the request header
+    params: {}
+
+  assert_sdk_did_not_retry:
+    description: Assert exactly one capture request was made (SDK did not retry)
+    params: {}
+
+  assert_v1_response_has_results_map:
+    description: Assert a V1 200 response body has a "results" key whose value is a dict
+    params: {}
+
+  assert_v1_response_results_count:
+    description: Assert the number of entries in the V1 results map
+    params:
+      expected:
+        type: integer
+        required: true
+
+  assert_v1_response_status:
+    description: Assert the HTTP status code recorded for the first capture request
+    params:
+      expected:
+        type: integer
+        required: true
 

@@ -71,6 +71,10 @@ class SDKAdapterClient(SDKAdapterInterface):
             payload["max_retries"] = config.max_retries
         if config.enable_compression is not None:
             payload["enable_compression"] = config.enable_compression
+        if config.disable_geoip is not None:
+            payload["disable_geoip"] = config.disable_geoip
+        if config.historical_migration is not None:
+            payload["historical_migration"] = config.historical_migration
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -82,15 +86,19 @@ class SDKAdapterClient(SDKAdapterInterface):
 
     async def capture(self, event: CaptureRequest) -> Dict[str, Any]:
         """Capture an event."""
+        payload: Dict[str, Any] = {
+            "distinct_id": event.distinct_id,
+            "event": event.event,
+            "properties": event.properties,
+            "timestamp": event.timestamp,
+        }
+        if event.options is not None:
+            payload["options"] = event.options
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 f"{self.base_url}/capture",
-                json={
-                    "distinct_id": event.distinct_id,
-                    "event": event.event,
-                    "properties": event.properties,
-                    "timestamp": event.timestamp,
-                },
+                json=payload,
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
@@ -177,6 +185,10 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             payload["max_retries"] = config.max_retries
         if config.enable_compression is not None:
             payload["enable_compression"] = config.enable_compression
+        if config.disable_geoip is not None:
+            payload["disable_geoip"] = config.disable_geoip
+        if config.historical_migration is not None:
+            payload["historical_migration"] = config.historical_migration
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -187,15 +199,19 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
                 return await resp.json()
 
     async def capture(self, event: CaptureRequest) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "distinct_id": event.distinct_id,
+            "event": event.event,
+            "properties": event.properties,
+            "timestamp": event.timestamp,
+        }
+        if event.options is not None:
+            payload["options"] = event.options
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 self._client._url("/capture", self._test_id),
-                json={
-                    "distinct_id": event.distinct_id,
-                    "event": event.event,
-                    "properties": event.properties,
-                    "timestamp": event.timestamp,
-                },
+                json=payload,
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()

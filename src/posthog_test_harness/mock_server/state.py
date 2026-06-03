@@ -6,13 +6,29 @@ import logging
 import threading
 import time
 from collections import deque
-from typing import Deque, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Deque, Dict, List, Optional
 
 from ..types import MockResponse, RecordedRequest
+from .endpoints.capture import is_v1_capture_path
 
 logger = logging.getLogger(__name__)
 
 TEST_ID_HEADER = "x-test-id"
+
+_V1_RETRYABLE_STATUSES = {408, 500, 503, 504}
+
+_V1_ERROR_TAGS: Dict[int, str] = {
+    400: "request_parsing_error",
+    401: "missing_authorization",
+    402: "billing_limit_exceeded",
+    408: "body_read_timeout",
+    413: "payload_too_large",
+    415: "unsupported_content_type",
+    500: "internal_error",
+    503: "service_unavailable",
+    504: "gateway_timeout",
+}
 
 
 class MockServerState:
@@ -96,19 +112,71 @@ class MockServerState:
             # Handle V1 partial batch response template
             if response_config.v1_event_results is not None and parsed_events:
                 result_values = response_config.v1_event_results
-                results = []
-                for i, _event in enumerate(parsed_events):
-                    result = result_values[i] if i < len(result_values) else "ok"
-                    entry: Dict[str, str] = {"result": result}
-                    if result == "retry":
-                        entry["details"] = "not_persisted"
-                    elif result == "drop":
-                        entry["details"] = "invalid_event"
-                    results.append(entry)
+                results: Dict[str, Any] = {}
+                has_retry = False
+                for i, ev in enumerate(parsed_events):
+                    uuid = ev.get("uuid", f"unknown-{i}")
+                    raw = result_values[i] if i < len(result_values) else "ok"
+                    if isinstance(raw, dict):
+                        entry = dict(raw)
+                    else:
+                        entry = {"result": raw}
+                        if raw == "retry":
+                            entry.setdefault("details", "not_persisted")
+                        elif raw == "drop":
+                            entry.setdefault("details", "invalid_event")
+                        elif raw == "limited":
+                            entry.setdefault("details", "person_processing_disabled")
+                    if entry.get("result") == "retry":
+                        has_retry = True
+                    results[uuid] = entry
+                resp_headers = dict(response_config.headers)
+                if has_retry:
+                    resp_headers.setdefault("Retry-After", "1")
                 response_config = MockResponse(
                     status_code=200,
-                    headers=dict(response_config.headers),
+                    headers=resp_headers,
                     body=json.dumps({"results": results}),
+                )
+
+            # Add V1-specific response headers and error bodies for
+            # configured non-200 responses on the v1 capture path.
+            if is_v1_capture_path(path):
+                v1_headers = dict(response_config.headers)
+                v1_headers.setdefault(
+                    "Date",
+                    datetime.now(timezone.utc).strftime(
+                        "%a, %d %b %Y %H:%M:%S GMT"
+                    ),
+                )
+                req_id = headers.get("posthog-request-id")
+                if req_id:
+                    v1_headers.setdefault("PostHog-Request-Id", req_id)
+
+                status = response_config.status_code
+                if status in _V1_RETRYABLE_STATUSES:
+                    v1_headers.setdefault("Retry-After", "1")
+
+                v1_body = response_config.body
+                if v1_body is None and status >= 400:
+                    tag = _V1_ERROR_TAGS.get(status, "server_error")
+                    v1_body = json.dumps({
+                        "error": tag,
+                        "error_description": f"Mock server returned {status}",
+                        "error_uri": "https://posthog.com/docs/api",
+                    })
+                elif v1_body is None and status == 200 and response_config.v1_event_results is None and parsed_events:
+                    default_results: Dict[str, Any] = {}
+                    for i, ev in enumerate(parsed_events):
+                        uuid = ev.get("uuid", f"unknown-{i}")
+                        default_results[uuid] = {"result": "ok"}
+                    v1_body = json.dumps({"results": default_results})
+
+                response_config = MockResponse(
+                    status_code=status,
+                    headers=v1_headers,
+                    body=v1_body,
+                    v1_event_results=response_config.v1_event_results,
                 )
 
             # Create recorded request

@@ -14,6 +14,8 @@ class InitRequest:
     flush_interval_ms: Optional[int] = None
     max_retries: Optional[int] = None
     enable_compression: Optional[bool] = None
+    disable_geoip: Optional[bool] = None
+    historical_migration: Optional[bool] = None
 
 
 @dataclass
@@ -24,6 +26,7 @@ class CaptureRequest:
     event: str
     properties: Optional[Dict[str, Any]] = None
     timestamp: Optional[str] = None
+    options: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -67,14 +70,15 @@ class MockResponse:
     """Configured mock server response.
 
     When v1_event_results is set, the mock server generates a V1 partial
-    batch response (HTTP 200) with per-event results based on the incoming
-    request's event order. Each entry is "ok", "retry", or "drop".
+    batch response (HTTP 200) with per-event results keyed by event UUID.
+    Each entry can be a string shorthand ("ok", "retry", "drop", "limited")
+    or a dict with explicit ``result`` and optional ``details`` keys.
     """
 
     status_code: int = 200
     headers: Dict[str, str] = field(default_factory=dict)
     body: Optional[str] = None
-    v1_event_results: Optional[List[str]] = None
+    v1_event_results: Optional[List[Any]] = None
 
 
 @dataclass
