@@ -14,7 +14,7 @@ sampo add
 
 This prompts you to pick a version bump (`patch`, `minor`, or `major`) and write a short release note. Commit the generated file in `.sampo/changesets/` with your PR.
 
-The `Changeset hygiene` CI check enforces that PRs touching releasable code include a changeset.
+If you skip this step, the release workflow simply won't fire after merge — there's nothing to release.
 
 ### 2. Open and merge the PR
 
@@ -61,7 +61,7 @@ The `Release` GitHub environment requires explicit approval from a maintainer be
 
 ### Workflow didn't fire after merge
 
-The push-to-main trigger is path-filtered on `.sampo/changesets/*.md`. If your merged PR didn't include a new changeset, the workflow never fires. Add a changeset in a follow-up PR (the `Changeset hygiene` check would normally catch this on the original PR).
+The push-to-main trigger is path-filtered on `.sampo/changesets/*.md`. If your merged PR didn't include a new changeset, the workflow never fires. Add a changeset in a follow-up PR.
 
 ### Approval timed out
 
