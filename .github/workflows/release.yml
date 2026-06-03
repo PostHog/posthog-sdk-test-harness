@@ -112,11 +112,11 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cargo/bin/sampo
-          key: sampo-${{ runner.os }}-${{ runner.arch }}
+          key: sampo-0.17.4-${{ runner.os }}-${{ runner.arch }}
 
       - name: Install Sampo CLI
         if: steps.cache-sampo.outputs.cache-hit != 'true'
-        run: cargo install sampo
+        run: cargo install sampo@0.17.4
 
       - name: Prepare release with Sampo
         id: sampo-release
