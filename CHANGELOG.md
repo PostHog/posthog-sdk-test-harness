@@ -1,5 +1,23 @@
 # posthog-sdk-test-harness
 
+## 0.7.0 - 2026-05-29
+
+### Added
+
+- New tests: `unknown_result_treated_as_terminal` (forward compatibility), `respects_retry_after_on_retryable_error`
+- `capture` action now accepts an `options` object (`cookieless_mode`, `disable_skew_correction`, `process_person_profile`, `product_tour_id`)
+- `init` action now accepts `disable_geoip` and `historical_migration`
+- New assertion actions: `assert_event_option`, `assert_body_field`
+- New V1 `event_options` category: per-option override tests plus `unset_options_omitted`
+- New V1 `geoip_and_historical_migration` category
+- Multi-event batch variants for every `event_format` test, plus `batch_envelope_smoke`
+
+### Changed
+
+- Removed `error_response_has_structured_body` and `error_response_has_correct_tag` from `response_format_validation` — these tested mock fidelity, not SDK behavior
+- Clarified in `test_actions.yaml` that `assert_v1_error_response_format`, `assert_v1_error_tag`, and `assert_v1_per_event_result` are infrastructure for integration tests, not used in the base SDK compliance suite
+- `assert_events_in_batch_count` now accepts a `request_index` param (default `-1`, the most recent request) so partial-batch retry tests can inspect the retried batch instead of the original
+
 ## 0.6.0 - 2026-05-26
 
 ### Changed
