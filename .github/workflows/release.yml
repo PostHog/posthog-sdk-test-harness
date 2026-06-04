@@ -179,7 +179,15 @@ jobs:
           NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
         run: |
           CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md | sed '/[^[:space:]]/,$!d' | tac | sed '/[^[:space:]]/,$!d' | tac)
-          gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY"
+          # Mark 0.x.y versions as pre-releases (we are not yet committing to a
+          # stable API). Mirrors the previous workflow's
+          # `prerelease: ${{ startsWith(version, '0.') }}`. Drops automatically
+          # once we tag 1.0.0+.
+          PRERELEASE_FLAG=""
+          case "$NEW_VERSION" in
+            0.*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY" $PRERELEASE_FLAG
 
       # ---------------------------------------------------------------------
       # Docker image publish. This block is copy-pasted from the previous
