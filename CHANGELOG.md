@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 0.8.0 — 2026-06-04
+
+### Minor changes
+
+- [baad3c3](https://github.com/posthog/posthog-sdk-test-harness/commit/baad3c396c1b7946aabd20b78f8825a0a720d22a) Switch the release flow to Sampo with a gated `Release` GitHub environment. Docker image publishes now require explicit human approval via Slack before they go out, addressing the supply-chain concern that any merge to `main` could push a new image consumed by every PostHog SDK. Contributors now write `sampo add` changesets instead of editing `pyproject.toml` and `CHANGELOG.md` by hand. — Thanks @ioannisj!
+
 ## 0.7.0 - 2026-05-29
 
 ### Changed
