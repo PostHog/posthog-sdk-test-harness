@@ -1,11 +1,6 @@
-# Changelog
+# posthog-sdk-test-harness
 
-All notable changes to the PostHog SDK Test Harness will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
+## 0.7.0 - 2026-05-29
 
 ### Changed
 
@@ -24,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New V1 `geoip_and_historical_migration` category: `$geoip_disable` property injection via `disable_geoip`, and `historical_migration` request-body flag (set when enabled, absent by default)
 - Multi-event batch variants for every `event_format` test, plus a `batch_envelope_smoke` test verifying request-level invariants (auth header, body format) hold under batching
 
-## [0.6.0] - 2026-05-26
+## 0.6.0 - 2026-05-26
 
 ### Changed
 
@@ -52,13 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed header name `PostHog-Attempt-Timestamp` to `PostHog-Request-Timestamp` in tests and assertions
 - Removed 502/429 retry tests that do not correspond to V1 capture service error types
 
-## [0.5.2] - 2026-05-22
+## 0.5.2 - 2026-05-22
 
 ### Fixed
 
 - `/flags` request field assertions now accept `api_key` as an alias for `token`, matching the endpoint's accepted authentication fields.
 
-## [0.5.1] - 2026-05-04
+## 0.5.1 - 2026-05-04
 
 ### Changed
 
@@ -68,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Extracted `_capture_events(ctx)` helper used by `assert_event_count_with_name` and `assert_event_property_in_named_event` so the "skip /flags requests" filter lives in one place.
 
-## [0.5.0] - 2026-05-04
+## 0.5.0 - 2026-05-04
 
 ### Added
 
@@ -81,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Existing `/flags` request payload contract test now also asserts top-level `distinct_id` on the request body (both server SDKs send it)
 - `minimal_adapter` and `parallel_adapter` examples now send `?v=2` on `/flags` requests and capture the `$feature_flag_called` side-effect event so they pass the expanded feature-flag suite
 
-## [0.4.1] - 2026-04-30
+## 0.4.1 - 2026-04-30
 
 ### Fixed
 
@@ -89,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/flags` request payload contract test asserts `token` (the field PostHog SDKs send) instead of `api_key`
 - `parallel_adapter` example exposes `/get_feature_flag` so the feature flag suite can run against it
 
-## [0.4.0] - 2026-04-13
+## 0.4.0 - 2026-04-13
 
 ### Added
 
@@ -99,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mock server `/flags` endpoint for intercepting and asserting feature flag requests
 - `assert_flags_request_count` and `assert_flags_request_field` assertion actions
 
-## [0.3.0] - 2026-03-24
+## 0.3.0 - 2026-03-24
 
 ### Added
 
@@ -127,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mock server handler dispatch now uses route-specific handler functions instead of always calling the default handler
 - Response routing correctly handles 204 No Content and distinguishes configured responses from handler defaults
 
-## [0.2.0] - 2026-03-23
+## 0.2.0 - 2026-03-23
 
 ### Added
 
@@ -155,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docker-compose.yml` supports `ADAPTER_DIR` and `CONCURRENCY` env vars for adapter selection and parallel execution
 - `bin/test` and `bin/test-adapter` support `--adapter` and `--concurrency` flags
 
-## [0.1.5] - 2026-01-27
+## 0.1.5 - 2026-01-27
 
 ### Added
 
@@ -165,7 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `no_duplicate_events_in_batch` - No duplicate events within a single batch request
 - New actions: `assert_timestamp_preserved_on_retry`, `assert_no_duplicate_events_in_batch`
 
-## [0.1.4] - 2026-01-26
+## 0.1.4 - 2026-01-26
 
 ### Added
 
@@ -179,12 +174,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed duplicate `compression` category definition in capture_tests.yaml
 
-## [0.1.3] - 2025-01-21
+## 0.1.3 - 2025-01-21
 
 ### Fixed
 - Report header now includes SDK name (e.g., `# posthog-js Compliance Report`) to match the extraction pattern in the GitHub Action, fixing SDK-specific PR comment markers
 
-## [0.1.2] - 2025-12-30
+## 0.1.2 - 2025-12-30
 
 ### Fixed
 - Mock server now normalizes HTTP headers to lowercase for case-insensitive matching
@@ -218,7 +213,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Handles `{data: [...]}` (fallback gformat)
 - `assert_event_property` action now includes debug output showing available properties
 
-## [0.1.1] - 2025-12-30
+## 0.1.1 - 2025-12-30
 
 ### Added
 - Modular contract structure (split into adapter_actions, test_actions, and test suites)
@@ -231,7 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separated adapter_actions from test_actions for clarity
 - Updated documentation to reflect modular structure
 
-## [0.1.0] - 2025-12-30
+## 0.1.0 - 2025-12-30
 
 ### Added
 - Contract-based SDK test harness

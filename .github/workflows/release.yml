@@ -1,64 +1,336 @@
-name: Auto Release
-
-permissions:
-  contents: write
+name: "Release"
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - 'pyproject.toml'
+      - '.sampo/changesets/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Concurrency control: only one release process can run at a time
+# This prevents race conditions if multiple releasable changesets merge simultaneously
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: posthog/sdk-test-harness
 
 jobs:
-  check-and-tag:
+  check-changesets:
+    name: Check for changesets
     runs-on: ubuntu-latest
+    outputs:
+      has-changesets: ${{ steps.check.outputs.has-changesets }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: main
           fetch-depth: 0
 
-      - name: Get version from pyproject.toml
-        id: version
+      - name: Check for changesets
+        id: check
         run: |
-          VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Check if tag exists
-        id: check-tag
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if git ls-remote --tags origin | grep -q "refs/tags/v${VERSION}$"; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag v${VERSION} already exists"
+          changeset_count=$(find .sampo/changesets -name '*.md' 2>/dev/null | wc -l)
+          if [ "$changeset_count" -gt 0 ]; then
+            echo "has-changesets=true" >> "$GITHUB_OUTPUT"
+            echo "Found $changeset_count changeset(s), ready to release"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag v${VERSION} does not exist, will create"
+            echo "has-changesets=false" >> "$GITHUB_OUTPUT"
+            echo "No changesets to release"
           fi
 
-      - name: Create and push tag
-        if: steps.check-tag.outputs.exists == 'false'
-        env:
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
+  notify-approval-needed:
+    name: Notify Slack - Approval Needed
+    needs: check-changesets
+    if: needs.check-changesets.outputs.has-changesets == 'true'
+    uses: PostHog/.github/.github/workflows/notify-approval-needed.yml@5fc4680761e8ac29a61b212756230eba0e276d8c
+    with:
+      slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+      slack_user_group_id: ${{ vars.GROUP_CLIENT_LIBRARIES_SLACK_GROUP_ID }}
+    secrets:
+      slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+      posthog_project_api_key: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
+
+  release:
+    name: Release and publish
+    needs: [check-changesets, notify-approval-needed]
+    runs-on: ubuntu-latest
+    # Use `always()` to ensure the job runs even if the Slack notification fails
+    # but still depend on it to be able to use `needs.notify-approval-needed.outputs.slack_ts`
+    if: always() && needs.check-changesets.outputs.has-changesets == 'true'
+    environment: "Release"  # Requires human approval; approvers are pinged in Slack above.
+    permissions:
+      contents: write
+      packages: write       # ghcr.io push
+      id-token: write
+    outputs:
+      new-version: ${{ steps.sampo-release.outputs.new_version }}
+    steps:
+      - name: Notify Slack - Approved
+        if: needs.notify-approval-needed.outputs.slack_ts != ''
+        uses: PostHog/.github/.github/actions/slack-thread-reply@5fc4680761e8ac29a61b212756230eba0e276d8c
+        with:
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: "✅ Release approved! Version bump in progress..."
+          emoji_reaction: "white_check_mark"
+
+      - name: Get GitHub App token
+        id: releaser
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.GH_APP_POSTHOG_SDK_TEST_HARNESS_RELEASER_APP_ID }}
+          private-key: ${{ secrets.GH_APP_POSTHOG_SDK_TEST_HARNESS_RELEASER_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.releaser.outputs.token }}
+
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $VERSION"
-          git push origin "$TAG"
-          echo "✅ Created tag $TAG"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: 1.91.1
+          components: cargo
+
+      - name: Cache Sampo CLI
+        id: cache-sampo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cargo/bin/sampo
+          key: sampo-0.17.4-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install Sampo CLI
+        if: steps.cache-sampo.outputs.cache-hit != 'true'
+        run: cargo install sampo@0.17.4
+
+      - name: Prepare release with Sampo
+        id: sampo-release
+        env:
+          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
+        run: |
+          sampo release
+          new_version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Sync version to __init__.py
+        env:
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+        run: |
+          sed -i "s/^__version__ = .*/__version__ = \"$NEW_VERSION\"/" src/posthog_test_harness/__init__.py
+
+      - name: Commit release changes
+        id: commit-release
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde # v0.2.20
+        with:
+          commit_message: "chore: Release v${{ steps.sampo-release.outputs.new_version }} [skip ci]"
+          repo: ${{ github.repository }}
+          branch: main
+        env:
+          GITHUB_TOKEN: ${{ steps.releaser.outputs.token }}
+
+      # ghcommit-action commits via the API without touching the local workspace,
+      # so reset the checkout to the new commit before tagging / building Docker —
+      # otherwise later steps operate on the pre-bump tree.
+      - name: Sync checkout to release commit
+        if: steps.commit-release.outputs.commit-hash != ''
+        env:
+          COMMIT_HASH: ${{ steps.commit-release.outputs.commit-hash }}
+        run: |
+          git fetch origin main
+          git reset --hard "$COMMIT_HASH"
+
+      # We create the tag ourselves rather than via `sampo publish` (we don't
+      # publish to a package registry — the release artifact is a Docker image).
+      #
+      # Tags are BARE (`0.8.0`, no `v` prefix) to match the Sampo siblings
+      # (posthog-python, posthog-elixir). NOTE: this repo's pre-Sampo tags were
+      # `v`-prefixed (…v0.7.0), so the series is intentionally discontinuous from
+      # this version onward (v0.7.0 → 0.8.0).
+      - name: Tag release
+        if: steps.commit-release.outputs.commit-hash != ''
+        env:
+          GH_TOKEN: ${{ steps.releaser.outputs.token }}
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+          COMMIT_HASH: ${{ steps.commit-release.outputs.commit-hash }}
+        run: |
+          gh api "repos/${{ github.repository }}/git/refs" \
+            -f "ref=refs/tags/${NEW_VERSION}" \
+            -f "sha=${COMMIT_HASH}"
 
       - name: Create GitHub Release
-        if: steps.check-tag.outputs.exists == 'false'
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        if: steps.commit-release.outputs.commit-hash != ''
+        env:
+          GH_TOKEN: ${{ steps.releaser.outputs.token }}
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+        run: |
+          CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md | sed '/[^[:space:]]/,$!d' | tac | sed '/[^[:space:]]/,$!d' | tac)
+          gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY"
+
+      # ---------------------------------------------------------------------
+      # Docker image publish. This block is copy-pasted from the previous
+      # publish.yml workflow with one difference: it now runs only inside
+      # this gated `Release` environment job. The `latest` and SHA tags that
+      # publish.yml previously pushed on every commit to main are gone — all
+      # Docker tags now only move via this approved-release path.
+      # ---------------------------------------------------------------------
+      - name: Set up Docker Buildx
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to Container Registry
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.version }}
-          body: |
-            See [CHANGELOG.md](https://github.com/PostHog/posthog-sdk-test-harness/blob/main/CHANGELOG.md) for details.
-          draft: false
-          prerelease: ${{ startsWith(steps.version.outputs.version, '0.') }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Docker tags
+        if: steps.commit-release.outputs.commit-hash != ''
+        id: docker-tags
+        env:
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+        run: |
+          MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+          {
+            echo "exact=$NEW_VERSION"
+            echo "major_minor=${MAJOR}.${MINOR}"
+            echo "major=$MAJOR"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata
+        if: steps.commit-release.outputs.commit-hash != ''
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # docker/metadata-action's `type=semver` only fires on `refs/tags/v*`
+          # pushes; our trigger is push-to-main with a sampo-derived version, so
+          # we feed in the precomputed values as `type=raw`. Tag set matches the
+          # previous publish.yml: exact version, major.minor, and latest. A
+          # major-only tag (e.g. `1`) is added once we're past v0.x — mirrors
+          # publish.yml's previous `!startsWith(ref, 'refs/tags/v0.')` gate.
+          #
+          # `latest` is kept deliberately: most SDK compliance workflows pin
+          # `test-harness-version: "latest"`, and the README quick-start runs
+          # `sdk-test-harness:latest`. The security fix was gating *when* latest
+          # moves (now only inside this approved Release job), not removing it.
+          # Longer term, all harness consumers should move to digest-pinned
+          # images (like posthog-python's `main-<sha>@sha256:...`) so a moving
+          # `latest` can't silently change what their CI runs; once they have,
+          # we can revisit dropping `latest` here.
+          tags: |
+            type=raw,value=${{ steps.docker-tags.outputs.exact }}
+            type=raw,value=${{ steps.docker-tags.outputs.major_minor }}
+            type=raw,value=${{ steps.docker-tags.outputs.major }},enable=${{ steps.docker-tags.outputs.major != '0' }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Send failure event to PostHog
+        if: ${{ failure() }}
+        uses: PostHog/posthog-github-action@58dea254b598fb5d469c0699c98af8288a7f7650 # v1.2.0
+        with:
+          posthog-token: "${{ secrets.POSTHOG_PROJECT_API_KEY }}"
+          event: "posthog-sdk-test-harness-github-release-workflow-failure"
+          properties: >-
+            {
+              "commitSha": "${{ github.sha }}",
+              "jobStatus": "${{ job.status }}",
+              "ref": "${{ github.ref }}",
+              "version": "${{ steps.sampo-release.outputs.new_version }}"
+            }
+
+      - name: Notify Slack - Failed
+        if: ${{ failure() && needs.notify-approval-needed.outputs.slack_ts != '' }}
+        uses: PostHog/.github/.github/actions/slack-thread-reply@5fc4680761e8ac29a61b212756230eba0e276d8c
+        with:
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: "❌ Failed to release `posthog-sdk-test-harness@${{ steps.sampo-release.outputs.new_version }}`! <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"
+          emoji_reaction: "x"
+
+  notify-rejected:
+    name: Notify Slack - Rejected
+    needs: [check-changesets, notify-approval-needed, release]
+    runs-on: ubuntu-latest
+    if: always() && needs.release.result == 'failure' && needs.notify-approval-needed.outputs.slack_ts != ''
+    steps:
+      - name: Check for rejection
+        id: check-rejection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          RESPONSE=$(gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/approvals")
+          REJECTED=$(echo "$RESPONSE" | jq '[.[] | select(.state == "rejected")] | length')
+          if [ "$REJECTED" -gt 0 ]; then
+            echo "was_rejected=true" >> "$GITHUB_OUTPUT"
+            COMMENT=$(echo "$RESPONSE" | jq -r '.[] | select(.state == "rejected") | .comment // empty' | head -1)
+            if [ -n "$COMMENT" ]; then
+              {
+                echo 'message<<EOF'
+                echo "🚫 Release was rejected: $COMMENT"
+                echo 'EOF'
+              } >> "$GITHUB_OUTPUT"
+            else
+              echo "message=🚫 Release was rejected." >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "was_rejected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Slack - Rejected
+        if: steps.check-rejection.outputs.was_rejected == 'true'
+        continue-on-error: true
+        uses: PostHog/.github/.github/actions/slack-thread-reply@5fc4680761e8ac29a61b212756230eba0e276d8c
+        with:
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: '${{ steps.check-rejection.outputs.message }}'
+          emoji_reaction: 'no_entry_sign'
+
+  notify-released:
+    name: Notify Slack - Released
+    needs: [check-changesets, notify-approval-needed, release]
+    runs-on: ubuntu-latest
+    if: always() && needs.release.result == 'success' && needs.notify-approval-needed.outputs.slack_ts != ''
+    steps:
+      - name: Notify Slack - Released
+        uses: PostHog/.github/.github/actions/slack-thread-reply@5fc4680761e8ac29a61b212756230eba0e276d8c
+        with:
+          slack_bot_token: ${{ secrets.SLACK_CLIENT_LIBRARIES_BOT_TOKEN }}
+          slack_channel_id: ${{ vars.SLACK_APPROVALS_CLIENT_LIBRARIES_CHANNEL_ID }}
+          thread_ts: ${{ needs.notify-approval-needed.outputs.slack_ts }}
+          message: "🚀 posthog-sdk-test-harness v${{ needs.release.outputs.new-version }} released successfully!"
+          emoji_reaction: "rocket"
