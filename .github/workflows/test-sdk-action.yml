@@ -27,6 +27,21 @@ on:
         required: false
         type: number
         default: 1
+      sdk-type:
+        description: "SDK type to test (e.g., server, client)"
+        required: false
+        type: string
+        default: "server"
+      suite:
+        description: "Test suite(s) to run: capture, capture_v1, feature_flags. Omit to run all suites allowed by sdk-type and adapter capabilities. Accepts comma, space, or newline separated values"
+        required: false
+        type: string
+        default: ""
+      continue-on-error:
+        description: "Whether SDK compliance test failures should be non-blocking"
+        required: false
+        type: boolean
+        default: true
       report-name:
         description: "Name for the test report artifact"
         required: false
@@ -105,13 +120,24 @@ jobs:
 
       - name: Run tests
         id: run-tests
-        continue-on-error: true
+        continue-on-error: ${{ inputs.continue-on-error }}
         env:
           CONCURRENCY: ${{ inputs.concurrency }}
+          SDK_TYPE: ${{ inputs.sdk-type }}
+          SUITE: ${{ inputs.suite }}
         run: |
-          CONCURRENCY_ARG=""
+          CONCURRENCY_ARGS=()
           if [ "${CONCURRENCY}" -gt 1 ]; then
-            CONCURRENCY_ARG="--concurrency ${CONCURRENCY}"
+            CONCURRENCY_ARGS=(--concurrency "${CONCURRENCY}")
+          fi
+
+          SUITE_ARGS=()
+          if [ -n "${SUITE}" ]; then
+            while IFS= read -r suite || [ -n "${suite}" ]; do
+              if [ -n "${suite}" ]; then
+                SUITE_ARGS+=(--suite "${suite}")
+              fi
+            done < <(printf '%s' "${SUITE}" | tr ',[:space:]' '\n')
           fi
 
           docker run --rm \
@@ -124,7 +150,9 @@ jobs:
             --mock-url http://test-harness:8081 \
             --output text \
             --report /report/sdk-compliance-report.md \
-            $CONCURRENCY_ARG
+            --sdk-type "${SDK_TYPE}" \
+            "${SUITE_ARGS[@]}" \
+            "${CONCURRENCY_ARGS[@]}"
 
       - name: Upload test report
         if: always()
@@ -206,7 +234,7 @@ jobs:
           docker network rm test-network || true
 
       - name: Warn if tests failed
-        if: steps.run-tests.outcome != 'success'
+        if: always() && steps.run-tests.outcome != 'success'
         run: echo "::warning::SDK compliance tests failed. See the test report for details."
 
       # TODO: Uncomment when SDK compliance tests are stable and should block PRs
