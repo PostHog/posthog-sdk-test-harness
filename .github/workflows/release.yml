@@ -180,9 +180,9 @@ jobs:
         run: |
           CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md | sed '/[^[:space:]]/,$!d' | tac | sed '/[^[:space:]]/,$!d' | tac)
           # Mark 0.x.y versions as pre-releases (we are not yet committing to a
-          # stable API). Mirrors the previous workflow's
-          # `prerelease: ${{ startsWith(version, '0.') }}`. Drops automatically
-          # once we tag 1.0.0+.
+          # stable API). Mirrors the previous workflow's pre-release behavior
+          # for versions starting with 0., and drops automatically once we tag
+          # 1.0.0+.
           PRERELEASE_FLAG=""
           case "$NEW_VERSION" in
             0.*) PRERELEASE_FLAG="--prerelease" ;;
