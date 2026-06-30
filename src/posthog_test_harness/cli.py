@@ -145,7 +145,10 @@ def mock_server(port: int, debug: bool) -> None:
     "--sdk-type",
     type=click.Choice(["client", "server"]),
     default="server",
-    help="SDK type for test filtering (client for browser/mobile, server for backend)",
+    help=(
+        "Capture wire format for test filtering: client for /e/ event payloads, "
+        "server for /batch {api_key,batch}; not frontend/backend or mobile/server"
+    ),
 )
 @click.option(
     "--concurrency",

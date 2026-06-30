@@ -44,6 +44,23 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 
 The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run.
 
+## Choosing `sdk-type`
+
+The harness `sdk-type` option selects tests based on the SDK's capture wire format. It is **not** a product/platform classification such as frontend vs backend, mobile vs server, or browser vs native.
+
+Choose the mode by inspecting what the SDK sends to the mock PostHog server:
+
+| `sdk-type` | Use when the SDK sends | Typical assertions |
+|------------|------------------------|--------------------|
+| `client` | Client-style capture requests to `/e/`, where event data such as `token` and `distinct_id` lives in the event/properties payload | Client event shape, token/distinct ID in event properties |
+| `server` | Server-style capture requests to `/batch`, with a body shaped like `{ "api_key": "...", "batch": [...] }` | Server batch envelope, root event fields, `Content-Encoding` compression |
+
+Examples:
+
+- Browser SDKs that post to `/e/` usually use `client`.
+- Backend SDKs that post `{ "api_key": "...", "batch": [...] }` to `/batch` use `server`.
+- Mobile/native SDKs can still use `server` if their wire format is `/batch` with the server batch envelope.
+
 ### `POST /init`
 
 Initialize the SDK with configuration.

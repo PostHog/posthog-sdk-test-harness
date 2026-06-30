@@ -28,7 +28,7 @@ on:
         type: number
         default: 1
       sdk-type:
-        description: "SDK type to test (e.g., server, client)"
+        description: "Capture wire format to test: server for /batch {api_key,batch}; client for /e/ client event payloads. Not a frontend/backend or mobile/server classification."
         required: false
         type: string
         default: "server"

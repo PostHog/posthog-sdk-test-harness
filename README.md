@@ -39,6 +39,15 @@ jobs:
 
 The action will run tests, generate reports, and comment on PRs with results.
 
+### Choosing `sdk-type`
+
+`sdk-type` describes the SDK's capture wire format, not where the SDK runs. Do **not** choose it based on frontend/backend, mobile/server, or browser/native labels alone.
+
+- Use `client` for SDKs that send client-style capture payloads to `/e/`, with event data such as `token` and `distinct_id` carried in the event/properties payload.
+- Use `server` for SDKs that send server-style capture payloads to `/batch`, with a body shaped like `{ "api_key": "...", "batch": [...] }`.
+
+For example, a mobile SDK that posts `{ "api_key": "...", "batch": [...] }` to `/batch` should use `sdk-type: "server"` for harness filtering.
+
 ## Architecture
 
 ```
