@@ -32,6 +32,9 @@ jobs:
     with:
       adapter-dockerfile: "tests/adapter/Dockerfile"
       adapter-context: "."
+      sdk-type: "server"        # or "client"
+      suite: "capture"          # optional; comma/space/newline separated values are supported
+      continue-on-error: true    # set false when compliance should block CI
 ```
 
 The action will run tests, generate reports, and comment on PRs with results.
