@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 0.9.0 — 2026-06-30
+
+### Minor changes
+
+- [829b49b](https://github.com/posthog/posthog-sdk-test-harness/commit/829b49be3744cf898a353bd6b54d04e8f85b648b) Add SDK compliance workflow options for suite selection, SDK type, and blocking failures — Thanks @marandaneto!
+
 ## 0.8.0 — 2026-06-04
 
 ### Minor changes
