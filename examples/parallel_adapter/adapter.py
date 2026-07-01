@@ -308,8 +308,6 @@ def get_feature_flag() -> Any:
             return jsonify({"error": "key and distinct_id are required"}), 400
 
         person_properties = data.get("person_properties", {})
-        # Auto-add distinct_id to person_properties (matches real SDK behavior)
-        person_properties["distinct_id"] = distinct_id
 
         # This example adapter always evaluates remotely, so it intentionally ignores
         # the optional force_remote adapter hint.
