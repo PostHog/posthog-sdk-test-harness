@@ -325,6 +325,61 @@
                 field: value
                 expected: variant-a
 
+    retry_behavior:
+      description: Verify /flags retry behavior for transient HTTP errors
+      tests:
+        - name: retries_flags_on_502
+          description: >
+            A transient 502 Bad Gateway response from /flags must be retried, and
+            the successful retry response must be returned to the caller.
+          sdk_types: [server]
+          steps:
+            - action: configure_mock_responses
+              params:
+                responses:
+                  - status_code: 502
+                  - status_code: 200
+                    body: '{"featureFlags": {"transient-502-flag": true}}'
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: transient-502-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 2
+            - action: assert_action_result
+              params:
+                field: value
+                expected: true
+
+        - name: retries_flags_on_504
+          description: >
+            A transient 504 Gateway Timeout response from /flags must be retried,
+            and the successful retry response must be returned to the caller.
+          sdk_types: [server]
+          steps:
+            - action: configure_mock_responses
+              params:
+                responses:
+                  - status_code: 504
+                  - status_code: 200
+                    body: '{"featureFlags": {"transient-504-flag": true}}'
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: transient-504-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 2
+            - action: assert_action_result
+              params:
+                field: value
+                expected: true
+
     side_effect_events:
       description: >
         Verify the documented side-effect that calling get_feature_flag captures a
