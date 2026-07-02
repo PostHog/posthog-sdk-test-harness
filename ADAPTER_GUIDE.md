@@ -190,6 +190,7 @@ Evaluate a feature flag.
 - Omit optional params instead of sending `null`
 - `distinct_id` is always a top-level adapter parameter, even for SDKs that only mirror it into `person_properties.distinct_id` in the eventual `/flags` request
 - If your SDK supports local evaluation or cached flag definitions, honor `force_remote=true` by bypassing local evaluation and issuing a fresh remote `/flags` request
+- Remote `/flags` requests should retry transient HTTP failures such as 502 Bad Gateway and 504 Gateway Timeout; the feature flag contract asserts that a `502 -> 200` or `504 -> 200` response sequence produces two `/flags` requests and returns the successful retry value
 
 ### `POST /reset`
 

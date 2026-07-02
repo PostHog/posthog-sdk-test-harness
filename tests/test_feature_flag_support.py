@@ -180,6 +180,30 @@ def test_feature_flag_contract_asserts_top_level_distinct_id_on_flags_request() 
     )
 
 
+def test_feature_flag_contract_asserts_transient_flags_retries() -> None:
+    contract = ContractExecutor()
+    retry_tests = {
+        test["name"]: test
+        for test in contract.get_test_suites()["feature_flags"]["categories"]["retry_behavior"]["tests"]
+    }
+
+    for status_code in (502, 504):
+        test = retry_tests[f"retries_flags_on_{status_code}"]
+        configured_responses = test["steps"][0]["params"]["responses"]
+        assert configured_responses[0]["status_code"] == status_code
+        assert configured_responses[1]["status_code"] == 200
+        assert any(
+            step["action"] == "assert_flags_request_count"
+            and step["params"] == {"expected": 2}
+            for step in test["steps"]
+        )
+        assert any(
+            step["action"] == "assert_action_result"
+            and step["params"] == {"field": "value", "expected": True}
+            for step in test["steps"]
+        )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("auth_field", ["token", "api_key"])
 async def test_assert_flags_request_field_accepts_token_aliases(auth_field: str) -> None:

@@ -306,13 +306,18 @@ def get_feature_flag() -> Any:
             "flag_keys_to_evaluate": [key],
         }
 
-        response = requests.post(
-            f"{state.host}/flags",
-            params={"v": "2"},
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=10,
-        )
+        retryable_statuses = {502, 504}
+        for attempt in range(state.max_retries + 1):
+            response = requests.post(
+                f"{state.host}/flags",
+                params={"v": "2"},
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            if response.status_code not in retryable_statuses or attempt >= state.max_retries:
+                break
+            time.sleep(2**attempt)
 
         result = response.json()
         flag_value = result.get("featureFlags", {}).get(key)
