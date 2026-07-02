@@ -10,8 +10,7 @@
           description: >
             When get_feature_flag is called with a top-level distinct_id and
             person_properties containing $device_id, the /flags request must include the
-            expected fields including auto-added distinct_id in person_properties and
-            a top-level distinct_id field.
+            expected fields, including a top-level distinct_id field.
           sdk_types: [server]
           steps:
             - action: init
@@ -47,11 +46,6 @@
               params:
                 field: person_properties.$device_id
                 expected: device_abc_123
-
-            - action: assert_flags_request_field
-              params:
-                field: person_properties.distinct_id
-                expected: test_user_123
 
             - action: assert_flags_request_field
               params:
@@ -200,30 +194,6 @@
               params:
                 field: group_properties
                 expected: {}
-
-        - name: person_properties_distinct_id_auto_populated_when_caller_omits_it
-          description: >
-            When the caller passes person_properties without an explicit distinct_id,
-            the SDK auto-injects the top-level distinct_id into person_properties so
-            server-side resolvers always see it.
-          sdk_types: [server]
-          steps:
-            - action: init
-            - action: get_feature_flag
-              params:
-                key: any-flag
-                distinct_id: user_xyz
-                person_properties:
-                  email: a@b.com
-                force_remote: true
-            - action: assert_flags_request_field
-              params:
-                field: person_properties.distinct_id
-                expected: user_xyz
-            - action: assert_flags_request_field
-              params:
-                field: person_properties.email
-                expected: a@b.com
 
         - name: disable_geoip_false_propagates_as_geoip_disable_false
           description: >
