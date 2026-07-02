@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 0.10.0 — 2026-07-02
+
+### Minor changes
+
+- [1b7b345](https://github.com/posthog/posthog-sdk-test-harness/commit/1b7b345630bec6da0cc0f9bab17ce795419f818d) Add /flags retry contract tests for transient 502 and 504 responses — Thanks @marandaneto!
+
 ## 0.9.1 — 2026-07-02
 
 ### Patch changes
