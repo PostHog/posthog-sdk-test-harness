@@ -163,9 +163,7 @@ def test_mock_server_flags_endpoint_merges_configured_success_body() -> None:
 
 
 def test_feature_flag_contract_asserts_top_level_distinct_id_on_flags_request() -> None:
-    """Both posthog-python and @posthog/node send distinct_id at the top level of
-    the /flags body. The scaffolding test must lock that down so a regression to
-    person_properties-only is caught."""
+    """The /flags payload contract includes distinct_id at the top level."""
     contract = ContractExecutor()
     feature_flag_test = contract.get_test_suites()["feature_flags"]["categories"]["request_payload"]["tests"][0]
 

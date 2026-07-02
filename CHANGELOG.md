@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 0.9.1 — 2026-07-02
+
+### Patch changes
+
+- [2216d8c](https://github.com/posthog/posthog-sdk-test-harness/commit/2216d8c8b26d60bf2a21e911821e2f05dbb9e896) Relax the /flags distinct_id contract. — Thanks @marandaneto!
+
 ## 0.9.0 — 2026-06-30
 
 ### Minor changes
