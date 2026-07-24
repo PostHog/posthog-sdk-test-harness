@@ -126,11 +126,6 @@ jobs:
           SDK_TYPE: ${{ inputs.sdk-type }}
           SUITE: ${{ inputs.suite }}
         run: |
-          CONCURRENCY_ARGS=()
-          if [ "${CONCURRENCY}" -gt 1 ]; then
-            CONCURRENCY_ARGS=(--concurrency "${CONCURRENCY}")
-          fi
-
           SUITE_ARGS=()
           if [ -n "${SUITE}" ]; then
             while IFS= read -r suite || [ -n "${suite}" ]; do
@@ -151,8 +146,8 @@ jobs:
             --output text \
             --report /report/sdk-compliance-report.md \
             --sdk-type "${SDK_TYPE}" \
-            "${SUITE_ARGS[@]}" \
-            "${CONCURRENCY_ARGS[@]}"
+            --concurrency "${CONCURRENCY}" \
+            "${SUITE_ARGS[@]}"
 
       - name: Upload test report
         if: always()
