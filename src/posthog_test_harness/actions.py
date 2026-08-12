@@ -152,6 +152,26 @@ class CaptureAction(Action):
         )
 
 
+class CaptureAiAction(Action):
+    """Capture a single event on the dedicated AI capture endpoint via the adapter."""
+
+    @property
+    def name(self) -> str:
+        return "capture_ai"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        return await ctx.sdk_adapter.capture_ai(
+            CaptureRequest(
+                distinct_id=params["distinct_id"],
+                event=params["event"],
+                properties=params.get("properties"),
+                timestamp=params.get("timestamp"),
+                options=params.get("options"),
+                uuid=params.get("uuid"),
+            )
+        )
+
+
 class CaptureMultipleAction(Action):
     """Capture multiple events."""
 

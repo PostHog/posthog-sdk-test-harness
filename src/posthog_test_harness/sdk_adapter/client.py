@@ -103,6 +103,27 @@ class SDKAdapterClient(SDKAdapterInterface):
                 resp.raise_for_status()
                 return await resp.json()
 
+    async def capture_ai(self, event: CaptureRequest) -> Dict[str, Any]:
+        """Capture an event on the dedicated AI capture endpoint."""
+        payload: Dict[str, Any] = {
+            "distinct_id": event.distinct_id,
+            "event": event.event,
+            "properties": event.properties,
+            "timestamp": event.timestamp,
+        }
+        if event.options is not None:
+            payload["options"] = event.options
+        if event.uuid is not None:
+            payload["uuid"] = event.uuid
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.base_url}/capture_ai",
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
     async def flush(self) -> Dict[str, Any]:
         """Flush all pending events."""
         async with aiohttp.ClientSession() as session:
@@ -211,6 +232,26 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 self._client._url("/capture", self._test_id),
+                json=payload,
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
+    async def capture_ai(self, event: CaptureRequest) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "distinct_id": event.distinct_id,
+            "event": event.event,
+            "properties": event.properties,
+            "timestamp": event.timestamp,
+        }
+        if event.options is not None:
+            payload["options"] = event.options
+        if event.uuid is not None:
+            payload["uuid"] = event.uuid
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                self._client._url("/capture_ai", self._test_id),
                 json=payload,
             ) as resp:
                 resp.raise_for_status()

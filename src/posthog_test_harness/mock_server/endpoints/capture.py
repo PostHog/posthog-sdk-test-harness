@@ -29,6 +29,8 @@ class CaptureEndpoint(EndpointHandler):
             # Batch endpoint
             ("/batch", "POST", handler),
             ("/batch/", "POST", handler),
+            # Dedicated AI capture endpoint
+            ("/i/v0/ai/batch/", "POST", handler),
             # Event endpoints
             ("/i/v0/e", "POST", handler),
             ("/i/v0/e/", "POST", handler),

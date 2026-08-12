@@ -27,7 +27,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
   "sdk_name": "posthog-python",
   "sdk_version": "3.0.0",
   "adapter_version": "1.0.0",
-  "capabilities": ["capture_v0", "capture_v1", "encoding_gzip"]
+  "capabilities": ["capture_v0", "capture_v1", "capture_ai_v0", "encoding_gzip"]
 }
 ```
 
@@ -37,6 +37,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 |------------|-------------|
 | `capture_v0` | Original capture protocol (`POST /batch`) |
 | `capture_v1` | Capture Analytics V1 protocol (`POST /i/v1/analytics/events`) |
+| `capture_ai_v0` | Dedicated AI capture endpoint (`POST /i/v0/ai/batch/`) |
 | `encoding_gzip` | Gzip compression support |
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |

@@ -46,6 +46,19 @@ class SDKAdapterInterface(ABC):
         pass
 
     @abstractmethod
+    async def capture_ai(self, event: CaptureRequest) -> Dict[str, any]:
+        """
+        Capture an event on the dedicated AI capture endpoint.
+
+        Args:
+            event: Event to capture
+
+        Returns:
+            Dict with {"success": True, "uuid": "..."} on success
+        """
+        pass
+
+    @abstractmethod
     async def flush(self) -> Dict[str, any]:
         """
         Flush all pending events.

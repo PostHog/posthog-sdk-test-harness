@@ -49,6 +49,30 @@
         optional: true
         description: V1 EventOptions overrides (cookieless_mode, disable_skew_correction, process_person_profile, product_tour_id)
 
+  capture_ai:
+    description: Call the SDK's capture_ai / captureAi method (dedicated AI capture endpoint)
+    params:
+      distinct_id:
+        type: string
+        required: true
+      event:
+        type: string
+        required: true
+      properties:
+        type: object
+        optional: true
+      timestamp:
+        type: string
+        optional: true
+      options:
+        type: object
+        optional: true
+        description: V1 EventOptions overrides (cookieless_mode, disable_skew_correction, process_person_profile, product_tour_id)
+      uuid:
+        type: string
+        optional: true
+        description: Caller-supplied event UUID; when provided, it must be preserved on the wire
+
   capture_multiple:
     description: Capture multiple events
     params:
