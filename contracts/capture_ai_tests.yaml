@@ -42,6 +42,9 @@
               - action: assert_request_count
                 params:
                   expected: 1
+              - action: assert_request_path
+                params:
+                  expected: /batch
               - action: assert_no_requests_to_paths
                 params:
                   paths:
@@ -61,6 +64,10 @@
                 params:
                   distinct_id: test_user
                   event: $ai_generation
+              - action: assert_action_result
+                params:
+                  field: success
+                  expected: true
               - action: flush
               - action: assert_event_has_field
                 params:
@@ -68,6 +75,7 @@
               - action: assert_uuid_format
                 params:
                   field: uuid
+              - action: assert_action_result_uuid_matches_event
 
           - name: capture_ai_keeps_supplied_uuid
             description: A caller-supplied UUID is preserved on the wire
@@ -81,8 +89,17 @@
                   distinct_id: test_user
                   event: $ai_generation
                   uuid: 0198c0de-0000-7000-8000-000000000abc
+              - action: assert_action_result
+                params:
+                  field: success
+                  expected: true
+              - action: assert_action_result
+                params:
+                  field: uuid
+                  expected: 0198c0de-0000-7000-8000-000000000abc
               - action: flush
               - action: assert_event_field
                 params:
                   field: uuid
                   expected: 0198c0de-0000-7000-8000-000000000abc
+              - action: assert_action_result_uuid_matches_event

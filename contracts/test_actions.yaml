@@ -96,6 +96,12 @@
         type: string
         required: true
 
+  assert_action_result_uuid_matches_event:
+    description: >
+      Assert the last action result's uuid field equals the uuid on the wire event
+      (e.g. capture_ai's returned uuid must match the captured event's uuid)
+    params: {}
+
   assert_all_uuids_unique:
     description: Assert all captured events have unique UUIDs
     params: {}
