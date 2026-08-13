@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 0.11.0 — 2026-08-13
+
+### Minor changes
+
+- [c8c78d3](https://github.com/posthog/posthog-sdk-test-harness/commit/c8c78d376bdf60cac105cffc883f25db0db4535d) Add capture_ai test suite for the dedicated AI capture endpoint — Thanks @carlos-marchal-ph for your first contribution 🎉!
+
 ## 0.10.0 — 2026-07-02
 
 ### Minor changes
