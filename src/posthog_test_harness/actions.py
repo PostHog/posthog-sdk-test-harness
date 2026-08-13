@@ -152,6 +152,28 @@ class CaptureAction(Action):
         )
 
 
+class CaptureAiAction(Action):
+    """Capture a single event on the dedicated AI capture endpoint via the adapter."""
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "capture_ai"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        return await ctx.sdk_adapter.capture_ai(
+            CaptureRequest(
+                distinct_id=params["distinct_id"],
+                event=params["event"],
+                properties=params.get("properties"),
+                timestamp=params.get("timestamp"),
+                options=params.get("options"),
+                uuid=params.get("uuid"),
+            )
+        )
+
+
 class CaptureMultipleAction(Action):
     """Capture multiple events."""
 
@@ -477,9 +499,44 @@ class AssertUuidFormatAction(Action):
         if not uuid_val:
             raise AssertionError(f"Event missing '{field}' field")
 
-        # Basic UUID format check: 36 chars with 4 dashes
-        if len(uuid_val) != 36 or uuid_val.count("-") != 4:
+        if not _is_valid_uuid(uuid_val):
             raise AssertionError(f"Invalid UUID format: {uuid_val}")
+
+
+class AssertActionResultUuidMatchesEventAction(Action):
+    """Assert the last action result's uuid field equals the uuid on the wire event.
+
+    Confirms the adapter response is not just well-formed but reports the same
+    identity as the event the mock server actually received (e.g. capture_ai's
+    returned uuid must match the uuid in the captured event).
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_action_result_uuid_matches_event"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        actual = ctx.last_action_result
+        if not isinstance(actual, dict):
+            raise AssertionError(
+                f"assert_action_result_uuid_matches_event requires dict result, "
+                f"got {type(actual).__name__}: {actual!r}"
+            )
+        if "uuid" not in actual:
+            raise AssertionError(f"Last action result missing 'uuid' field. Keys: {list(actual.keys())}")
+        result_uuid = actual["uuid"]
+
+        requests = ctx.mock_server.get_requests()
+        if not requests or not requests[0].parsed_events:
+            raise AssertionError("No events found")
+        event_uuid = requests[0].parsed_events[0].get("uuid")
+        if not event_uuid:
+            raise AssertionError("Event missing 'uuid' field")
+
+        if result_uuid != event_uuid:
+            raise AssertionError(
+                f"Action result uuid '{result_uuid}' != event uuid on the wire '{event_uuid}'"
+            )
 
 
 class AssertAllUuidsUniqueAction(Action):

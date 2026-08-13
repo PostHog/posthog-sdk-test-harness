@@ -6,15 +6,20 @@ from types import SimpleNamespace
 import pytest
 
 from posthog_test_harness.actions import (
+    AssertActionResultUuidMatchesEventAction,
     AssertBodyFieldAction,
     AssertEventOptionAction,
     AssertEventsInBatchCountAction,
+    AssertUuidFormatAction,
 )
 
 
-def _ctx(requests):
+def _ctx(requests, last_action_result=None):
     """Build a minimal context whose mock_server.get_requests() returns `requests`."""
-    return SimpleNamespace(mock_server=SimpleNamespace(get_requests=lambda: requests))
+    return SimpleNamespace(
+        mock_server=SimpleNamespace(get_requests=lambda: requests),
+        last_action_result=last_action_result,
+    )
 
 
 def _req(parsed_events=None, body=None):
@@ -123,4 +128,57 @@ class TestAssertBodyField:
         with pytest.raises(AssertionError):
             await AssertBodyFieldAction().execute(
                 {"field": "historical_migration", "expected": True}, _ctx([_req(body=body)])
+            )
+
+
+class TestAssertUuidFormat:
+    @pytest.mark.asyncio
+    async def test_valid_uuid_passes(self):
+        requests = [_req(parsed_events=[{"uuid": "0198c0de-0000-7000-8000-000000000abc"}])]
+        await AssertUuidFormatAction().execute({"field": "uuid"}, _ctx(requests))
+
+    @pytest.mark.asyncio
+    async def test_wrong_length_raises(self):
+        requests = [_req(parsed_events=[{"uuid": "not-a-uuid"}])]
+        with pytest.raises(AssertionError):
+            await AssertUuidFormatAction().execute({"field": "uuid"}, _ctx(requests))
+
+    @pytest.mark.asyncio
+    async def test_right_shape_but_invalid_hex_raises(self):
+        requests = [_req(parsed_events=[{"uuid": "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"}])]
+        with pytest.raises(AssertionError):
+            await AssertUuidFormatAction().execute({"field": "uuid"}, _ctx(requests))
+
+
+class TestAssertActionResultUuidMatchesEvent:
+    @pytest.mark.asyncio
+    async def test_matching_uuids_pass(self):
+        uuid = "0198c0de-0000-7000-8000-000000000abc"
+        requests = [_req(parsed_events=[{"uuid": uuid}])]
+        await AssertActionResultUuidMatchesEventAction().execute(
+            {}, _ctx(requests, last_action_result={"success": True, "uuid": uuid})
+        )
+
+    @pytest.mark.asyncio
+    async def test_mismatched_uuids_raise(self):
+        requests = [_req(parsed_events=[{"uuid": "0198c0de-0000-7000-8000-000000000abc"}])]
+        with pytest.raises(AssertionError):
+            await AssertActionResultUuidMatchesEventAction().execute(
+                {}, _ctx(requests, last_action_result={"success": True, "uuid": "other-uuid"})
+            )
+
+    @pytest.mark.asyncio
+    async def test_result_missing_uuid_raises(self):
+        requests = [_req(parsed_events=[{"uuid": "0198c0de-0000-7000-8000-000000000abc"}])]
+        with pytest.raises(AssertionError):
+            await AssertActionResultUuidMatchesEventAction().execute(
+                {}, _ctx(requests, last_action_result={"success": True})
+            )
+
+    @pytest.mark.asyncio
+    async def test_non_dict_result_raises(self):
+        requests = [_req(parsed_events=[{"uuid": "0198c0de-0000-7000-8000-000000000abc"}])]
+        with pytest.raises(AssertionError):
+            await AssertActionResultUuidMatchesEventAction().execute(
+                {}, _ctx(requests, last_action_result="not-a-dict")
             )

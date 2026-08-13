@@ -45,6 +45,21 @@ class SDKAdapterInterface(ABC):
         """
         pass
 
+    async def capture_ai(self, event: CaptureRequest) -> Dict[str, any]:
+        """
+        Capture an event on the dedicated AI capture endpoint.
+
+        Optional: only required for adapters that advertise the
+        `capture_ai_v0` capability. Override this method to support it.
+
+        Args:
+            event: Event to capture
+
+        Returns:
+            Dict with {"success": True, "uuid": "..."} on success
+        """
+        raise NotImplementedError("capture_ai is optional; implement it to support the capture_ai_v0 capability")
+
     @abstractmethod
     async def flush(self) -> Dict[str, any]:
         """

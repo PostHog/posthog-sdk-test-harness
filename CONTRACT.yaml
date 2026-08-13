@@ -36,8 +36,8 @@ adapter_interface:
           description: >
             List of capability strings declaring what the SDK supports.
             Used to filter which test suites and tests are run.
-            Common values: "capture_v0", "capture_v1", "encoding_gzip",
-            "encoding_zstd", "encoding_br", "encoding_deflate".
+            Common values: "capture_v0", "capture_v1", "capture_ai_v0",
+            "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
           default: []
 
   # Parallel test execution
@@ -108,6 +108,44 @@ adapter_interface:
           type: string
           format: iso8601
           description: Event timestamp
+    response:
+      type: object
+      required: [success, uuid]
+      properties:
+        success:
+          type: boolean
+        uuid:
+          type: string
+          format: uuid
+          description: Unique identifier for this event
+
+  # Capture a single event on the dedicated AI capture endpoint
+  capture_ai:
+    method: POST
+    path: /capture_ai
+    request:
+      type: object
+      required: [distinct_id, event]
+      properties:
+        distinct_id:
+          type: string
+          description: >
+            Unique identifier for the user. This is always a top-level adapter parameter even
+            if the SDK ultimately sends it only in person_properties.
+        event:
+          type: string
+          description: Event name
+        properties:
+          type: object
+          description: Event properties
+        timestamp:
+          type: string
+          format: iso8601
+          description: Event timestamp
+        uuid:
+          type: string
+          optional: true
+          description: Caller-supplied event UUID; when provided, it must be preserved on the wire
     response:
       type: object
       required: [success, uuid]
@@ -271,6 +309,8 @@ test_suites:
   capture: !include contracts/capture_tests.yaml
   # Capture Analytics V1 tests (new wire protocol)
   capture_v1: !include contracts/capture_analytics_v1_tests.yaml
+  # Dedicated AI capture endpoint tests (capture_ai)
+  capture_ai: !include contracts/capture_ai_tests.yaml
 
   # Feature flag evaluation tests (decide request payloads)
   feature_flags: !include contracts/feature_flags_tests.yaml

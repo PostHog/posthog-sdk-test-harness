@@ -1,0 +1,105 @@
+    description: Tests for the dedicated AI capture endpoint (capture_ai)
+    requires: capture_ai_v0
+    categories:
+      routing:
+        description: capture_ai rides an isolated route; capture never reroutes
+        tests:
+          - name: capture_ai_posts_to_ai_endpoint
+            description: capture_ai events reach /i/v0/ai/batch/ and not /batch
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_request_path
+                params:
+                  expected: /i/v0/ai/batch/
+              - action: assert_event_field
+                params:
+                  field: event
+                  expected: $ai_generation
+
+          - name: capture_does_not_reroute_ai_named_events
+            description: capture() never special-cases $ai_* names
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_request_path
+                params:
+                  expected: /batch
+              - action: assert_no_requests_to_paths
+                params:
+                  paths:
+                    - /i/v0/ai/batch/
+
+      identity:
+        description: UUID generation and return value
+        tests:
+          - name: capture_ai_event_has_uuid
+            description: AI events always carry a client-generated UUID
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: assert_action_result
+                params:
+                  field: success
+                  expected: true
+              - action: flush
+              - action: assert_event_has_field
+                params:
+                  field: uuid
+              - action: assert_uuid_format
+                params:
+                  field: uuid
+              - action: assert_action_result_uuid_matches_event
+
+          - name: capture_ai_keeps_supplied_uuid
+            description: A caller-supplied UUID is preserved on the wire
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  uuid: 0198c0de-0000-7000-8000-000000000abc
+              - action: assert_action_result
+                params:
+                  field: success
+                  expected: true
+              - action: assert_action_result
+                params:
+                  field: uuid
+                  expected: 0198c0de-0000-7000-8000-000000000abc
+              - action: flush
+              - action: assert_event_field
+                params:
+                  field: uuid
+                  expected: 0198c0de-0000-7000-8000-000000000abc
+              - action: assert_action_result_uuid_matches_event

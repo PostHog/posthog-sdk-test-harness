@@ -27,6 +27,7 @@ class CaptureRequest:
     properties: Optional[Dict[str, Any]] = None
     timestamp: Optional[str] = None
     options: Optional[Dict[str, Any]] = None
+    uuid: Optional[str] = None
 
 
 @dataclass

@@ -124,6 +124,7 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 |-------|----------|----------|
 | `capture` | `capture_v0` | `POST /batch` |
 | `capture_v1` | `capture_v1` | `POST /i/v1/analytics/events` |
+| `capture_ai` | `capture_ai_v0` | `POST /i/v0/ai/batch/` |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`).
 
@@ -136,7 +137,7 @@ Your adapter declares capabilities in its `/health` response:
   "sdk_name": "posthog-python",
   "sdk_version": "3.0.0",
   "adapter_version": "1.0.0",
-  "capabilities": ["capture_v0", "capture_v1", "encoding_gzip"]
+  "capabilities": ["capture_v0", "capture_v1", "capture_ai_v0", "encoding_gzip"]
 }
 ```
 
@@ -254,6 +255,7 @@ test-harness-version: "1.0"  # Recommended: pin to major.minor
   - `test_actions.yaml` - Test harness actions (assertions, etc.)
   - `capture_tests.yaml` - Capture V0 test suite
   - `capture_analytics_v1_tests.yaml` - Capture V1 test suite
+  - `capture_ai_tests.yaml` - Dedicated AI capture endpoint test suite
 - [examples/minimal_adapter/](examples/minimal_adapter/) - Working example
 
 ## License
