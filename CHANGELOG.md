@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.0.0 — 2026-08-14
+
+### Major changes
+
+- [4a7e606](https://github.com/posthog/posthog-sdk-test-harness/commit/4a7e60683c675e49679a954422721df6b663da81) Require SDK adapters to normalize event timestamps to canonical UTC before capture. — Thanks @marandaneto!
+
 ## 0.11.0 — 2026-08-13
 
 ### Minor changes
