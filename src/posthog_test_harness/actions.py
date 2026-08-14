@@ -34,14 +34,26 @@ from typing import TYPE_CHECKING, Any, Dict
 
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
 
+_RFC3339_UTC_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|\+00:00)")
 
-def _is_rfc3339(value: str) -> bool:
-    """Check if a string is a valid RFC 3339 timestamp."""
+
+def _is_rfc3339(value: Any) -> bool:
+    """Check if a value is a canonical RFC 3339 timestamp in UTC."""
+    if not isinstance(value, str) or not _RFC3339_UTC_PATTERN.fullmatch(value):
+        return False
+
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
         return True
-    except (ValueError, AttributeError):
+    except ValueError:
         return False
+
+
+def _rfc3339_utc_instant_key(value: str) -> tuple[str, str]:
+    """Return a lossless comparison key for an already-validated UTC timestamp."""
+    timestamp = value[:-1] if value.endswith("Z") else value[:-6]
+    base, separator, fraction = timestamp.partition(".")
+    return base, fraction.rstrip("0") if separator else ""
 
 
 def _is_valid_uuid(value: str) -> bool:
@@ -1434,11 +1446,10 @@ class AssertV1CreatedAtRecentAction(Action):
         if not created_at_str:
             raise AssertionError("V1 body missing 'created_at'")
 
-        try:
-            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise AssertionError(f"Invalid created_at: {created_at_str}") from exc
+        if not _is_rfc3339(created_at_str):
+            raise AssertionError(f"Invalid UTC created_at: {created_at_str}")
 
+        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
         diff = abs((now - created_at).total_seconds())
         max_age = params.get("max_age_seconds", 5)
@@ -1488,12 +1499,21 @@ class AssertEventFieldIsRfc3339Action(Action):
             raise AssertionError("No events found")
 
         field = params["field"]
+        expected = params.get("expected")
+        if expected is not None and not _is_rfc3339(str(expected)):
+            raise AssertionError(f"Expected value '{expected}' is not valid RFC 3339 UTC")
+
         for i, event in enumerate(requests[0].parsed_events):
             value = event.get(field)
             if value is None:
                 raise AssertionError(f"Event {i} missing '{field}' field")
             if not _is_rfc3339(str(value)):
-                raise AssertionError(f"Event {i} field '{field}' value '{value}' " f"is not valid RFC 3339")
+                raise AssertionError(f"Event {i} field '{field}' value '{value}' " f"is not valid RFC 3339 UTC")
+            if expected is not None:
+                actual_instant = _rfc3339_utc_instant_key(str(value))
+                expected_instant = _rfc3339_utc_instant_key(str(expected))
+                if actual_instant != expected_instant:
+                    raise AssertionError(f"Event {i} field '{field}' instant '{value}' != expected '{expected}'")
 
 
 class AssertEventFieldIsStringAction(Action):

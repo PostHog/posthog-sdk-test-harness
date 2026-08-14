@@ -8,9 +8,14 @@ import pytest
 from posthog_test_harness.actions import (
     AssertActionResultUuidMatchesEventAction,
     AssertBodyFieldAction,
+    AssertEventFieldIsRfc3339Action,
     AssertEventOptionAction,
     AssertEventsInBatchCountAction,
+    AssertHeaderIsRfc3339Action,
     AssertUuidFormatAction,
+    AssertV1BodyFormatAction,
+    AssertV1CreatedAtRecentAction,
+    _is_rfc3339,
 )
 
 
@@ -22,8 +27,106 @@ def _ctx(requests, last_action_result=None):
     )
 
 
-def _req(parsed_events=None, body=None):
-    return SimpleNamespace(parsed_events=parsed_events, body_decompressed=body)
+def _req(parsed_events=None, body=None, headers=None):
+    return SimpleNamespace(
+        parsed_events=parsed_events,
+        body_decompressed=body,
+        headers=headers or {},
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2025-01-02T03:04:05Z",
+        "2025-01-02T03:04:05.123456789Z",
+        "2025-01-02T03:04:05+00:00",
+        "2025-01-02T03:04:05.1+00:00",
+        "2024-02-29T23:59:59Z",
+    ],
+)
+def test_is_rfc3339_accepts_canonical_utc_timestamps(value):
+    assert _is_rfc3339(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2025-01-02T03:04:05",
+        "2025-01-02T03:04:05+05:30",
+        "2025-01-02T03:04:05-07:00",
+        "2025-01-02T03:04:05-00:00",
+        "2025-01-02 03:04:05Z",
+        "2025-01-02t03:04:05Z",
+        "2025-01-02T03:04:05z",
+        "20250102T030405Z",
+        "2025-01-02T03:04Z",
+        "2025-01-02T03:04:05,123Z",
+        "2025-01-02T03:04:05+0000",
+        "2025-01-02T03:04:05+00",
+        "2025-01-02T03:04:05. Z",
+        "2025-02-29T03:04:05Z",
+        "2025-13-02T03:04:05Z",
+        "2025-01-02T24:04:05Z",
+        "2025-01-02T03:60:05Z",
+        "2025-01-02T03:04:60Z",
+        "not-a-timestamp",
+    ],
+)
+def test_is_rfc3339_rejects_noncanonical_non_utc_or_invalid_timestamps(value):
+    assert not _is_rfc3339(value)
+
+
+class TestUtcTimestampActions:
+    @pytest.mark.asyncio
+    async def test_header_rejects_nonzero_offset(self):
+        request = _req(headers={"posthog-request-timestamp": "2025-01-02T08:34:05+05:30"})
+        with pytest.raises(AssertionError):
+            await AssertHeaderIsRfc3339Action().execute({"header": "PostHog-Request-Timestamp"}, _ctx([request]))
+
+    @pytest.mark.asyncio
+    async def test_v1_body_rejects_naive_created_at(self):
+        body = json.dumps({"created_at": "2025-01-02T03:04:05", "batch": [{}]})
+        with pytest.raises(AssertionError):
+            await AssertV1BodyFormatAction().execute({}, _ctx([_req(body=body)]))
+
+    @pytest.mark.asyncio
+    async def test_v1_recent_created_at_rejects_non_string_value(self):
+        body = json.dumps({"created_at": 1735787045, "batch": [{}]})
+        with pytest.raises(AssertionError, match="Invalid UTC created_at"):
+            await AssertV1CreatedAtRecentAction().execute({}, _ctx([_req(body=body)]))
+
+    @pytest.mark.asyncio
+    async def test_event_timestamp_rejects_nonzero_offset(self):
+        request = _req(parsed_events=[{"timestamp": "2025-01-02T08:34:05+05:30"}])
+        with pytest.raises(AssertionError):
+            await AssertEventFieldIsRfc3339Action().execute({"field": "timestamp"}, _ctx([request]))
+
+    @pytest.mark.asyncio
+    async def test_event_timestamp_matches_expected_utc_instant(self):
+        request = _req(parsed_events=[{"timestamp": "2025-01-02T03:04:05+00:00"}])
+        await AssertEventFieldIsRfc3339Action().execute(
+            {"field": "timestamp", "expected": "2025-01-02T03:04:05Z"},
+            _ctx([request]),
+        )
+
+    @pytest.mark.asyncio
+    async def test_event_timestamp_rejects_different_utc_instant(self):
+        request = _req(parsed_events=[{"timestamp": "2025-01-02T03:04:06Z"}])
+        with pytest.raises(AssertionError, match="instant"):
+            await AssertEventFieldIsRfc3339Action().execute(
+                {"field": "timestamp", "expected": "2025-01-02T03:04:05Z"},
+                _ctx([request]),
+            )
+
+    @pytest.mark.asyncio
+    async def test_event_timestamp_compares_sub_microsecond_precision(self):
+        request = _req(parsed_events=[{"timestamp": "2025-01-02T03:04:05.123456789Z"}])
+        with pytest.raises(AssertionError, match="instant"):
+            await AssertEventFieldIsRfc3339Action().execute(
+                {"field": "timestamp", "expected": "2025-01-02T03:04:05.123456788Z"},
+                _ctx([request]),
+            )
 
 
 class TestAssertEventsInBatchCount:

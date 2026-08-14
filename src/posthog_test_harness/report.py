@@ -1,7 +1,7 @@
 """Report generation for test results."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from .types import TestSummary
@@ -23,7 +23,7 @@ def generate_markdown_report(summary: TestSummary, sdk_name: str = "Unknown SDK"
     # Header
     lines.append(f"# {sdk_name} Compliance Report")
     lines.append("")
-    lines.append(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"**Date**: {datetime.now(timezone.utc).isoformat()}")
     lines.append(f"**Duration**: {summary.duration_ms}ms")
     lines.append("")
 
@@ -98,7 +98,7 @@ def generate_json_report(summary: TestSummary, sdk_name: str = "Unknown SDK") ->
     """
     return {
         "sdk_name": sdk_name,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "duration_ms": summary.duration_ms,
         "summary": {
             "total": summary.total,

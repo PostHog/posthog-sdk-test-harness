@@ -294,7 +294,7 @@
         required: true
 
   assert_header_is_rfc3339:
-    description: Assert a header value is a valid RFC 3339 timestamp
+    description: Assert a header value is a valid RFC 3339 timestamp in UTC
     params:
       header:
         type: string
@@ -323,7 +323,7 @@
 
   # V1 Body Assertions
   assert_v1_body_format:
-    description: Assert V1 body has created_at (RFC 3339) and batch (non-empty array)
+    description: Assert V1 body has created_at (RFC 3339 UTC) and batch (non-empty array)
     params: {}
 
   assert_body_field_absent:
@@ -363,11 +363,15 @@
     params: {}
 
   assert_event_field_is_rfc3339:
-    description: Assert an event field is a valid RFC 3339 timestamp
+    description: Assert an event field is a valid RFC 3339 timestamp in UTC
     params:
       field:
         type: string
         required: true
+      expected:
+        type: string
+        optional: true
+        description: Expected UTC instant; equivalent Z and zero-offset forms compare equal
 
   assert_event_field_is_string:
     description: Assert an event field is a string

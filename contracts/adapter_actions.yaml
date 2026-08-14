@@ -44,6 +44,7 @@
       timestamp:
         type: string
         optional: true
+        description: UTC is preferred; convert non-UTC offsets to the equivalent UTC instant before sending
       options:
         type: object
         optional: true
@@ -64,6 +65,7 @@
       timestamp:
         type: string
         optional: true
+        description: UTC is preferred; convert non-UTC offsets to the equivalent UTC instant before sending
       options:
         type: object
         optional: true

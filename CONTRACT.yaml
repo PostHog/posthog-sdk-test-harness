@@ -107,7 +107,9 @@ adapter_interface:
         timestamp:
           type: string
           format: iso8601
-          description: Event timestamp
+          description: >
+            Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
+            equivalent UTC instant before the SDK sends the event.
     response:
       type: object
       required: [success, uuid]
@@ -141,7 +143,9 @@ adapter_interface:
         timestamp:
           type: string
           format: iso8601
-          description: Event timestamp
+          description: >
+            Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
+            equivalent UTC instant before the SDK sends the event.
         uuid:
           type: string
           optional: true

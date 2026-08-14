@@ -128,7 +128,7 @@
                   header: PostHog-Request-Id
 
           - name: has_posthog_request_timestamp
-            description: PostHog-Request-Timestamp header is valid RFC 3339
+            description: PostHog-Request-Timestamp header is valid RFC 3339 in UTC
             steps:
               - action: init
                 params:
@@ -240,7 +240,7 @@
                   field: uuid
 
           - name: event_timestamp_is_rfc3339
-            description: Event timestamp is a valid RFC 3339 timestamp
+            description: Event timestamp is a valid RFC 3339 timestamp in UTC
             steps:
               - action: init
                 params:
@@ -253,6 +253,29 @@
               - action: assert_event_field_is_rfc3339
                 params:
                   field: timestamp
+
+          - name: non_utc_event_timestamp_is_converted_to_utc
+            description: A timestamp override with a non-UTC offset preserves its instant and is sent in UTC
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  timestamp: "2025-01-02T08:34:05+05:30"
+                  properties:
+                    timestamp_like: "2025-01-02T08:34:05+05:30"
+              - action: flush
+              - action: assert_event_field_is_rfc3339
+                params:
+                  field: timestamp
+                  expected: "2025-01-02T03:04:05Z"
+              - action: assert_event_property
+                params:
+                  property: timestamp_like
+                  expected: "2025-01-02T08:34:05+05:30"
 
           - name: distinct_id_is_string
             description: Event distinct_id is a string
@@ -428,7 +451,7 @@
                   field: uuid
 
           - name: event_timestamp_is_rfc3339_batch
-            description: Event timestamp is valid RFC 3339 in a multi-event batch
+            description: Event timestamp is valid RFC 3339 UTC in a multi-event batch
             steps:
               - action: init
                 params:
