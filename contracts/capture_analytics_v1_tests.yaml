@@ -128,7 +128,7 @@
                   header: PostHog-Request-Id
 
           - name: has_posthog_request_timestamp
-            description: PostHog-Request-Timestamp header is valid RFC 3339 in UTC
+            description: PostHog-Request-Timestamp header uses canonical RFC 3339 UTC format
             steps:
               - action: init
                 params:
@@ -162,7 +162,7 @@
         description: Request body conforms to the V1 batch schema
         tests:
           - name: body_has_created_at_and_batch
-            description: Root created_at field is valid RFC 3339 and batch is a non-empty array
+            description: Root created_at field uses canonical RFC 3339 UTC format and batch is a non-empty array
             steps:
               - action: init
                 params:
@@ -240,7 +240,7 @@
                   field: uuid
 
           - name: event_timestamp_is_rfc3339
-            description: Event timestamp is a valid RFC 3339 timestamp in UTC
+            description: Event timestamp uses canonical RFC 3339 UTC format
             steps:
               - action: init
                 params:
@@ -451,7 +451,7 @@
                   field: uuid
 
           - name: event_timestamp_is_rfc3339_batch
-            description: Event timestamp is valid RFC 3339 UTC in a multi-event batch
+            description: Event timestamp uses canonical RFC 3339 UTC format in a multi-event batch
             steps:
               - action: init
                 params:

@@ -1230,7 +1230,7 @@ class AssertHeaderIsUuidAction(Action):
 
 
 class AssertHeaderIsRfc3339Action(Action):
-    """Assert a header value is a valid RFC 3339 timestamp."""
+    """Assert a header value uses canonical RFC 3339 UTC format."""
 
     @property
     def name(self) -> str:
@@ -1246,7 +1246,7 @@ class AssertHeaderIsRfc3339Action(Action):
         if value is None:
             raise AssertionError(f"Header '{params['header']}' not found")
         if not _is_rfc3339(value):
-            raise AssertionError(f"Header '{params['header']}' value '{value}' " f"is not valid RFC 3339")
+            raise AssertionError(f"Header '{params['header']}' value '{value}' " f"is not canonical RFC 3339 UTC")
 
 
 class AssertHeaderIsIntegerAction(Action):
@@ -1339,7 +1339,7 @@ class AssertV1BodyFormatAction(Action):
             raise AssertionError("V1 body missing 'created_at' field")
 
         if not _is_rfc3339(str(data["created_at"])):
-            raise AssertionError(f"V1 body 'created_at' is not valid RFC 3339: " f"{data['created_at']}")
+            raise AssertionError(f"V1 body 'created_at' is not canonical RFC 3339 UTC: " f"{data['created_at']}")
 
         if "batch" not in data:
             raise AssertionError("V1 body missing 'batch' field")
@@ -1487,7 +1487,7 @@ class AssertV1EventFormatAction(Action):
 
 
 class AssertEventFieldIsRfc3339Action(Action):
-    """Assert an event field is a valid RFC 3339 timestamp."""
+    """Assert an event field uses canonical RFC 3339 UTC format."""
 
     @property
     def name(self) -> str:
@@ -1501,14 +1501,14 @@ class AssertEventFieldIsRfc3339Action(Action):
         field = params["field"]
         expected = params.get("expected")
         if expected is not None and not _is_rfc3339(str(expected)):
-            raise AssertionError(f"Expected value '{expected}' is not valid RFC 3339 UTC")
+            raise AssertionError(f"Expected value '{expected}' is not canonical RFC 3339 UTC")
 
         for i, event in enumerate(requests[0].parsed_events):
             value = event.get(field)
             if value is None:
                 raise AssertionError(f"Event {i} missing '{field}' field")
             if not _is_rfc3339(str(value)):
-                raise AssertionError(f"Event {i} field '{field}' value '{value}' " f"is not valid RFC 3339 UTC")
+                raise AssertionError(f"Event {i} field '{field}' value '{value}' " f"is not canonical RFC 3339 UTC")
             if expected is not None:
                 actual_instant = _rfc3339_utc_instant_key(str(value))
                 expected_instant = _rfc3339_utc_instant_key(str(expected))
