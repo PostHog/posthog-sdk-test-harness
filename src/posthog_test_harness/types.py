@@ -20,7 +20,11 @@ class InitRequest:
 
 @dataclass
 class CaptureRequest:
-    """Event capture request."""
+    """Event capture request.
+
+    UTC is preferred for ``timestamp``; adapters must convert non-UTC offsets
+    to the equivalent UTC instant before sending the event.
+    """
 
     distinct_id: str
     event: str

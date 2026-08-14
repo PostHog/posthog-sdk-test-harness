@@ -103,3 +103,30 @@
                   field: uuid
                   expected: 0198c0de-0000-7000-8000-000000000abc
               - action: assert_action_result_uuid_matches_event
+
+      timestamp_format:
+        description: AI event timestamps preserve their instant and use canonical UTC wire format
+        tests:
+          - name: non_utc_event_timestamp_is_converted_to_utc
+            description: A timestamp override with a non-UTC offset preserves its instant and is sent in UTC
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  timestamp: "2025-01-02T08:34:05+05:30"
+                  properties:
+                    timestamp_like: "2025-01-02T08:34:05+05:30"
+              - action: flush
+              - action: assert_event_field_is_rfc3339
+                params:
+                  field: timestamp
+                  expected: "2025-01-02T03:04:05Z"
+              - action: assert_event_property
+                params:
+                  property: timestamp_like
+                  expected: "2025-01-02T08:34:05+05:30"
