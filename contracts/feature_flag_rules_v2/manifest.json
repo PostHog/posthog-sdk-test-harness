@@ -2,8 +2,15 @@
   "manifest_version": 1,
   "contract": {
     "name": "feature_flag_rules_v2",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "config_version": 2
+  },
+  "corpus": {
+    "version": "1.0.0",
+    "config_version_locked": 1,
+    "case_id_pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$",
+    "published_versions_are_immutable": true,
+    "expectation_change": "Any changed expected value requires a new corpus version and a review explanation."
   },
   "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
   "compatibility": {
@@ -181,6 +188,115 @@
         "keyword": "type",
         "instance_path": "/rules/0/value"
       }
+    },
+    {
+      "path": "schemas/hash_sha1_60_v1.schema.json",
+      "kind": "schema",
+      "version": "1.0.0"
+    },
+    {
+      "path": "schemas/v1_evaluation.schema.json",
+      "kind": "schema",
+      "version": "1.0.0"
+    },
+    {
+      "path": "schemas/legacy_projection.schema.json",
+      "kind": "schema",
+      "version": "1.0.0"
+    },
+    {
+      "path": "corpus/hash_sha1_60_v1.json",
+      "kind": "corpus",
+      "version": "1.0.0",
+      "schema": "schemas/hash_sha1_60_v1.schema.json",
+      "case_ids": [
+        "hash.rollout.ascii_division_edge",
+        "hash.rollout.ascii_excluded",
+        "hash.variant.ascii",
+        "hash.holdout.literal_prefix",
+        "hash.concatenation.no_separator_escaping",
+        "hash.identifier.empty",
+        "hash.identifier.unicode_utf8",
+        "hash.identifier.truncated_ascii",
+        "hash.identifier.truncated_scalar_values",
+        "hash.identifier.exactly_200_multibyte",
+        "hash.identifier.integer_group_key",
+        "threshold.equal_is_included",
+        "threshold.next_binary64_above_is_excluded",
+        "threshold.zero_percent_zero_hash",
+        "threshold.zero_percent_smallest_hash",
+        "threshold.hundred_percent_short_circuit",
+        "threshold.two_decimal_division_equal",
+        "threshold.two_decimal_division_excluded",
+        "threshold.two_decimal_division_included_below_quotient",
+        "variant.zero_hash_first_variant",
+        "variant.boundary_is_exclusive",
+        "variant.just_below_boundary",
+        "variant.accumulated_boundary_left_to_right",
+        "variant.accumulated_boundary_third",
+        "variant.two_decimal_weights_boundary",
+        "variant.hash_one_off_the_end",
+        "variant.sum_below_one_off_the_end",
+        "parity.rollout_identical_bytes",
+        "parity.variant_identical_bytes",
+        "parity.holdout_identical_bytes",
+        "parity.empty_identifier_divergent",
+        "parity.final_variant_fallback_divergent"
+      ]
+    },
+    {
+      "path": "corpus/v1_evaluation.json",
+      "kind": "corpus",
+      "version": "1.0.0",
+      "schema": "schemas/v1_evaluation.schema.json",
+      "case_ids": [
+        "v1.boolean.targeted_match_with_payload",
+        "v1.boolean.targeting_miss",
+        "v1.boolean.rollout_included",
+        "v1.boolean.rollout_excluded",
+        "v1.boolean.rollout_miss_continues_to_lower_condition",
+        "v1.boolean.rollout_miss_early_exit",
+        "v1.boolean.reason_priority_keeps_earlier_rollout_miss",
+        "v1.boolean.reason_priority_prefers_later_rollout_miss",
+        "v1.boolean.null_rollout_is_100",
+        "v1.multivariate.variant_from_hash_with_payload",
+        "v1.multivariate.variant_from_hash_control",
+        "v1.multivariate.variant_override",
+        "v1.multivariate.invalid_variant_override_uses_hash",
+        "v1.multivariate.partial_rollout_included",
+        "v1.multivariate.partial_rollout_excluded",
+        "v1.group.included_by_group_key",
+        "v1.group.excluded_by_group_key",
+        "v1.group.integer_group_key_normalized",
+        "v1.group.missing_group_key",
+        "v1.dependency.satisfied",
+        "v1.dependency.unsatisfied",
+        "v1.dependency.variant_match",
+        "v1.dependency.variant_mismatch",
+        "v1.dependency.missing_target",
+        "v1.holdout.member",
+        "v1.holdout.not_member",
+        "v1.omission.inactive_flag"
+      ]
+    },
+    {
+      "path": "corpus/legacy_projection.json",
+      "kind": "corpus",
+      "version": "1.0.0",
+      "schema": "schemas/legacy_projection.schema.json",
+      "case_ids": [
+        "projection.boolean_true",
+        "projection.boolean_true_with_payload",
+        "projection.boolean_false_targeting_miss",
+        "projection.boolean_false_out_of_rollout",
+        "projection.variant",
+        "projection.variant_with_payload",
+        "projection.holdout_variant",
+        "projection.no_group_type",
+        "projection.missing_dependency",
+        "projection.failed_evaluation",
+        "projection.inactive_omitted"
+      ]
     }
   ]
 }

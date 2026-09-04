@@ -1,0 +1,497 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:posthog:feature-flag-rules-v2:corpus:hash_sha1_60_v1:1.0.0",
+  "title": "sha1_60_v1 hash corpus",
+  "description": "Companion schema for corpus/hash_sha1_60_v1.json.",
+  "type": "object",
+  "required": [
+    "corpus_version",
+    "algorithm",
+    "definition",
+    "vectors",
+    "threshold_vectors",
+    "variant_vectors",
+    "seed_parity"
+  ],
+  "properties": {
+    "corpus_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "algorithm": {
+      "const": "sha1_60_v1"
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-posthog-open-object": "prose_definition"
+          }
+        ]
+      },
+      "x-posthog-open-object": "prose_definition"
+    },
+    "vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/vector"
+      }
+    },
+    "threshold_vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/thresholdVector"
+      }
+    },
+    "variant_vectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/variantVector"
+      }
+    },
+    "seed_parity": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/parityVector"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "caseId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+    },
+    "unitInterval": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "percentage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]*$"
+    },
+    "binary64Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$"
+    },
+    "decimalInteger": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "rolloutCheck": {
+      "type": "object",
+      "required": [
+        "rollout_percentage",
+        "threshold",
+        "included"
+      ],
+      "properties": {
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "threshold": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "included": {
+          "type": "boolean"
+        },
+        "short_circuit": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "holdoutCheck": {
+      "type": "object",
+      "required": [
+        "exclusion_percentage",
+        "threshold",
+        "member"
+      ],
+      "properties": {
+        "exclusion_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "threshold": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "member": {
+          "type": "boolean"
+        },
+        "short_circuit": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "variantWeight": {
+      "type": "object",
+      "required": [
+        "key",
+        "rollout_percentage"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "variantSelection": {
+      "type": "object",
+      "required": [
+        "variants",
+        "cumulative_boundaries",
+        "selected"
+      ],
+      "properties": {
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/variantWeight"
+          }
+        },
+        "cumulative_boundaries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "vector": {
+      "type": "object",
+      "required": [
+        "id",
+        "purpose",
+        "prefix",
+        "identifier",
+        "salt",
+        "input",
+        "input_utf8_hex",
+        "sha1_hex",
+        "first_15_hex",
+        "n",
+        "hash01",
+        "hash01_binary64_hex"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/caseId"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "identifier": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "salt": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
+        },
+        "input_utf8_hex": {
+          "$ref": "#/$defs/hex"
+        },
+        "sha1_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "first_15_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{15}$"
+        },
+        "n": {
+          "$ref": "#/$defs/decimalInteger"
+        },
+        "hash01": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "hash01_binary64_hex": {
+          "$ref": "#/$defs/binary64Hex"
+        },
+        "hash01_if_quotient_rounded_once": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "hash01_if_quotient_rounded_once_binary64_hex": {
+          "$ref": "#/$defs/binary64Hex"
+        },
+        "identifier_before_truncation": {
+          "type": "string"
+        },
+        "identifier_before_truncation_scalar_values": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identifier_scalar_values": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "identifier_utf8_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identifier_utf16_code_units": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identifier_empty": {
+          "const": true
+        },
+        "identifier_source": {
+          "type": "object",
+          "required": [
+            "json_group_key"
+          ],
+          "properties": {
+            "json_group_key": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "v2_rule": {
+          "type": "string"
+        },
+        "rollout_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rolloutCheck"
+          }
+        },
+        "holdout_checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/holdoutCheck"
+          }
+        },
+        "variant_check": {
+          "$ref": "#/$defs/variantSelection"
+        }
+      },
+      "additionalProperties": false
+    },
+    "thresholdVector": {
+      "type": "object",
+      "required": [
+        "id",
+        "hash01",
+        "rollout_percentage",
+        "threshold",
+        "included",
+        "note"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/caseId"
+        },
+        "hash01": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "threshold": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "included": {
+          "type": "boolean"
+        },
+        "short_circuit": {
+          "const": true
+        },
+        "parsed_decimal_literal": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "variantVector": {
+      "type": "object",
+      "required": [
+        "id",
+        "hash01",
+        "variants",
+        "cumulative_boundaries",
+        "selected",
+        "note"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/caseId"
+        },
+        "hash01": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/variantWeight"
+          }
+        },
+        "cumulative_boundaries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "v1_result": {
+          "const": "no_variant_boolean_true"
+        },
+        "v2_rule": {
+          "const": "final_variant_fallback"
+        },
+        "v2_selected": {
+          "type": "string"
+        },
+        "parsed_decimal_literal_boundary": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "parityVector": {
+      "type": "object",
+      "required": [
+        "id",
+        "flag_key",
+        "identifier",
+        "salt",
+        "hash01",
+        "identical_bytes",
+        "identical_outcome"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/caseId"
+        },
+        "flag_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "salt": {
+          "type": "string"
+        },
+        "v1_input": {
+          "type": "string"
+        },
+        "v2": {
+          "type": "object",
+          "required": [
+            "seed",
+            "prefix",
+            "identifier",
+            "salt",
+            "input"
+          ],
+          "properties": {
+            "seed": {
+              "type": "string",
+              "minLength": 1
+            },
+            "prefix": {
+              "type": "string",
+              "minLength": 1
+            },
+            "identifier": {
+              "type": "string"
+            },
+            "salt": {
+              "type": "string"
+            },
+            "input": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "hash01": {
+          "$ref": "#/$defs/unitInterval"
+        },
+        "identical_bytes": {
+          "type": "boolean"
+        },
+        "identical_outcome": {
+          "type": "boolean"
+        },
+        "divergence": {
+          "enum": [
+            "empty_identifier",
+            "final_variant_fallback"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
