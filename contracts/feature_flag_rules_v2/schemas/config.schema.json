@@ -166,8 +166,7 @@
     "percentage": {
       "type": "number",
       "minimum": 0,
-      "maximum": 100,
-      "multipleOf": 0.01
+      "maximum": 100
     },
     "seed": {
       "type": "string",

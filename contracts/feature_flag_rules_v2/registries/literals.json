@@ -165,6 +165,11 @@
       "requirement": "Variant rollout percentages sum to exactly 100 in stored order."
     },
     {
+      "id": "percentage_two_decimals",
+      "scope": "all rollout_percentage and exclusion_percentage values",
+      "requirement": "Percentages have at most two decimal places. JSON Schema multipleOf is not used because binary64 division is inexact for values such as 33.33."
+    },
+    {
       "id": "number_is_binary64",
       "scope": "all number and json values",
       "requirement": "Numbers are finite IEEE-754 binary64 values. Negative zero normalizes to zero. Nonzero underflow to zero is invalid."

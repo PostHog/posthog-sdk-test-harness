@@ -2,7 +2,6 @@ import hashlib
 import json
 import re
 from collections.abc import Iterator
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +18,7 @@ CHECKSUMS_PATH = CONTRACT_ROOT / "SHA256SUMS"
 
 def _load_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
-        return json.load(handle, parse_float=Decimal)
+        return json.load(handle)
 
 
 def _manifest() -> dict[str, Any]:
