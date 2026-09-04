@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:posthog:feature-flag-rules-v2:corpus:legacy_projection:1.0.0",
+  "title": "Legacy projection corpus",
+  "description": "Companion schema for corpus/legacy_projection.json. It describes the corpus file, not the wire responses.",
+  "type": "object",
+  "required": [
+    "corpus_version",
+    "config_version",
+    "description",
+    "response_protocols",
+    "asserted_fields",
+    "cases"
+  ],
+  "properties": {
+    "corpus_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "config_version": {
+      "const": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "response_protocols": {
+      "type": "object",
+      "required": [
+        "flags_v2",
+        "flags_v1",
+        "decide_v2",
+        "decide_v1"
+      ],
+      "properties": {
+        "flags_v2": {
+          "$ref": "#/$defs/protocol"
+        },
+        "flags_v1": {
+          "$ref": "#/$defs/protocol"
+        },
+        "decide_v2": {
+          "$ref": "#/$defs/protocol"
+        },
+        "decide_v1": {
+          "$ref": "#/$defs/protocol"
+        }
+      },
+      "additionalProperties": false
+    },
+    "asserted_fields": {
+      "type": "string"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "caseId": {
+      "type": "string",
+      "pattern": "^projection(\\.[a-z0-9_]+)+$"
+    },
+    "flagKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "flagValue": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "endpoint",
+        "selected_by",
+        "shape"
+      ],
+      "properties": {
+        "endpoint": {
+          "enum": [
+            "/flags",
+            "/decide"
+          ]
+        },
+        "selected_by": {
+          "type": "string"
+        },
+        "shape": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reason": {
+      "type": "object",
+      "required": [
+        "code",
+        "condition_index"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_:]*$"
+        },
+        "condition_index": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "required": [
+        "key",
+        "flag_id",
+        "flag_version",
+        "enabled",
+        "variant",
+        "payload",
+        "failed",
+        "omitted",
+        "reason"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/flagKey"
+        },
+        "flag_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "flag_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "variant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "payload": {},
+        "failed": {
+          "type": "boolean"
+        },
+        "omitted": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/reason"
+        }
+      },
+      "additionalProperties": false
+    },
+    "flagDetail": {
+      "type": "object",
+      "required": [
+        "key",
+        "enabled",
+        "variant",
+        "reason",
+        "metadata"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/flagKey"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "variant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "failed": {
+          "const": true
+        },
+        "reason": {
+          "$ref": "#/$defs/reason"
+        },
+        "metadata": {
+          "type": "object",
+          "required": [
+            "id",
+            "version",
+            "payload"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "payload": {}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "flagsV2": {
+      "type": "object",
+      "required": [
+        "response_version",
+        "errorsWhileComputingFlags",
+        "flags"
+      ],
+      "properties": {
+        "response_version": {
+          "const": 2
+        },
+        "errorsWhileComputingFlags": {
+          "type": "boolean"
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flagDetail"
+          },
+          "x-posthog-open-object": "details_by_flag_key"
+        }
+      },
+      "additionalProperties": false
+    },
+    "flagsV1": {
+      "type": "object",
+      "required": [
+        "response_version",
+        "errorsWhileComputingFlags",
+        "featureFlags",
+        "featureFlagPayloads"
+      ],
+      "properties": {
+        "response_version": {
+          "const": 1
+        },
+        "errorsWhileComputingFlags": {
+          "type": "boolean"
+        },
+        "featureFlags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flagValue"
+          },
+          "x-posthog-open-object": "values_by_flag_key"
+        },
+        "featureFlagPayloads": {
+          "type": "object",
+          "additionalProperties": {},
+          "x-posthog-open-object": "payloads_by_flag_key"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decideV2": {
+      "type": "object",
+      "required": [
+        "response_version",
+        "featureFlags"
+      ],
+      "properties": {
+        "response_version": {
+          "const": 2
+        },
+        "featureFlags": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/flagValue"
+          },
+          "x-posthog-open-object": "values_by_flag_key"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decideV1": {
+      "type": "object",
+      "required": [
+        "response_version",
+        "featureFlags"
+      ],
+      "properties": {
+        "response_version": {
+          "const": 1
+        },
+        "featureFlags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/flagKey"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "case": {
+      "type": "object",
+      "required": [
+        "id",
+        "config_version",
+        "outcome",
+        "projections"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/caseId"
+        },
+        "config_version": {
+          "const": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "projections": {
+          "type": "object",
+          "required": [
+            "flags_v2",
+            "flags_v1",
+            "decide_v2",
+            "decide_v1"
+          ],
+          "properties": {
+            "flags_v2": {
+              "$ref": "#/$defs/flagsV2"
+            },
+            "flags_v1": {
+              "$ref": "#/$defs/flagsV1"
+            },
+            "decide_v2": {
+              "$ref": "#/$defs/decideV2"
+            },
+            "decide_v1": {
+              "$ref": "#/$defs/decideV1"
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
