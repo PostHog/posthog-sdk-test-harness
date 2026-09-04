@@ -62,6 +62,12 @@
       "expected": "valid"
     },
     {
+      "path": "fixtures/config/valid/version_float_literal.json",
+      "kind": "fixture",
+      "fixture_id": "config.valid.version_float_literal",
+      "expected": "valid"
+    },
+    {
       "path": "fixtures/config/invalid/unknown_config_version.json",
       "kind": "fixture",
       "fixture_id": "config.invalid.unknown_config_version",
@@ -70,6 +76,26 @@
         "keyword": "const",
         "instance_path": "/version",
         "message_contains": "2 was expected"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/version_string.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.version_string",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "const",
+        "instance_path": "/version"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/version_boolean.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.version_boolean",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "const",
+        "instance_path": "/version"
       }
     },
     {

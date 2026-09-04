@@ -4,7 +4,8 @@
     "v1": 1,
     "v2": 2,
     "absent_version_selects": "v1",
-    "unknown_version_result": "unsupported"
+    "unknown_version_result": "unsupported",
+    "version_comparison": "A JSON number selects the version it equals mathematically, so 2.0 selects v2. A JSON string or boolean never selects a version."
   },
   "fields": [
     "aggregation_group_type_index",
