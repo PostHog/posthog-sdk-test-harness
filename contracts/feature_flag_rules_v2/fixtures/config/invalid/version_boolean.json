@@ -1,0 +1,6 @@
+{
+  "version": true,
+  "return_type": "boolean",
+  "fallthrough_value": false,
+  "rules": []
+}

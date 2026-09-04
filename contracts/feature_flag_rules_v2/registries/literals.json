@@ -1,0 +1,199 @@
+{
+  "registry_version": "1.0.0",
+  "config_versions": {
+    "v1": 1,
+    "v2": 2,
+    "absent_version_selects": "v1",
+    "unknown_version_result": "unsupported",
+    "version_comparison": "A JSON number selects the version it equals mathematically, so 2.0 selects v2. A JSON string or boolean never selects a version."
+  },
+  "fields": [
+    "aggregation_group_type_index",
+    "assign_variant_by",
+    "assignment_algorithm",
+    "cohort_name",
+    "description",
+    "exclusion_percentage",
+    "experiment_id",
+    "fallthrough_value",
+    "group_key_names",
+    "group_type_index",
+    "holdout",
+    "id",
+    "key",
+    "label",
+    "metadata",
+    "negation",
+    "on_rollout_miss",
+    "operator",
+    "paused",
+    "properties",
+    "release_type",
+    "return_type",
+    "rollout_percentage",
+    "rules",
+    "seed",
+    "targeting",
+    "type",
+    "value",
+    "variants",
+    "version"
+  ],
+  "release_types": [
+    {
+      "value": "targeted_release",
+      "writer_status": "enabled"
+    },
+    {
+      "value": "percentage_rollout",
+      "writer_status": "enabled"
+    },
+    {
+      "value": "variant_rollout",
+      "writer_status": "reserved"
+    },
+    {
+      "value": "experiment",
+      "writer_status": "enabled"
+    }
+  ],
+  "return_types": [
+    {
+      "value": "boolean",
+      "writer_status": "enabled"
+    },
+    {
+      "value": "string",
+      "writer_status": "enabled"
+    },
+    {
+      "value": "number",
+      "writer_status": "reserved"
+    },
+    {
+      "value": "json",
+      "writer_status": "reserved"
+    }
+  ],
+  "rollout_miss_policies": [
+    "continue",
+    "return_fallthrough"
+  ],
+  "assignment_targets": [
+    "user"
+  ],
+  "assignment_algorithms": [
+    "sha1_60_v1"
+  ],
+  "property_types": [
+    "person",
+    "cohort",
+    "group",
+    "flag"
+  ],
+  "property_operators": [
+    "exact",
+    "is_not",
+    "icontains",
+    "not_icontains",
+    "icontains_multi",
+    "not_icontains_multi",
+    "starts_with",
+    "not_starts_with",
+    "ends_with",
+    "not_ends_with",
+    "regex",
+    "not_regex",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "semver_gt",
+    "semver_gte",
+    "semver_lt",
+    "semver_lte",
+    "semver_eq",
+    "semver_neq",
+    "semver_tilde",
+    "semver_caret",
+    "semver_wildcard",
+    "is_set",
+    "is_not_set",
+    "is_date_exact",
+    "is_date_after",
+    "is_date_before",
+    "in",
+    "not_in",
+    "flag_evaluates_to"
+  ],
+  "reason_codes": [
+    "rule_match",
+    "variant_split",
+    "rule_split",
+    "out_of_rollout_bound",
+    "experiment_paused",
+    "holdout",
+    "no_rule_match",
+    "no_group_type",
+    "missing_dependency",
+    "error"
+  ],
+  "warning_codes": [
+    "RULE_ORDER_CHANGES_TRAFFIC",
+    "UNREACHABLE_LOWER_RULE",
+    "ROLLOUT_MISS_CAN_ENTER_LOWER_RULE",
+    "ASSIGNMENT_RESET_CHANGES_TRAFFIC",
+    "EXPERIMENT_VALUE_COLLISION",
+    "CONCLUSION_EXPANDS_POPULATION",
+    "SDK_REMOTE_FALLBACK_REQUIRED",
+    "SDK_EXPERIMENT_CONTEXT_MISSING",
+    "LEGACY_PROJECTION_LIMITED"
+  ],
+  "semantic_constraints": [
+    {
+      "id": "rule_ids_unique",
+      "scope": "rules",
+      "requirement": "Each rule id is unique in one config."
+    },
+    {
+      "id": "variant_keys_unique",
+      "scope": "rules[].variants",
+      "requirement": "Each variant key is unique in one variant list."
+    },
+    {
+      "id": "variant_weights_sum_100",
+      "scope": "rules[].variants",
+      "requirement": "Variant rollout percentages sum to exactly 100 in stored order."
+    },
+    {
+      "id": "percentage_two_decimals",
+      "scope": "all rollout_percentage and exclusion_percentage values",
+      "requirement": "Percentages have at most two decimal places. JSON Schema multipleOf is not used because binary64 division is inexact for values such as 33.33."
+    },
+    {
+      "id": "number_is_binary64",
+      "scope": "all number and json values",
+      "requirement": "Numbers are finite IEEE-754 binary64 values. Negative zero normalizes to zero. Nonzero underflow to zero is invalid."
+    },
+    {
+      "id": "json_keys_unique",
+      "scope": "all json values",
+      "requirement": "JSON object keys are unique at every depth before ordinary deserialization."
+    },
+    {
+      "id": "json_depth_limit",
+      "scope": "all json values",
+      "requirement": "JSON values contain at most 20 nested levels."
+    },
+    {
+      "id": "assignment_target_context",
+      "scope": "randomized rules",
+      "requirement": "Explicit user assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_variant_by."
+    },
+    {
+      "id": "contextual_size_limits",
+      "scope": "config and metadata",
+      "requirement": "The deployment config byte limit and the metadata size limit apply outside JSON Schema validation."
+    }
+  ]
+}

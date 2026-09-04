@@ -1,0 +1,822 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:posthog:feature-flag-rules-v2:config:1.0.0",
+  "title": "Feature Flag Rules v2 config",
+  "description": "Canonical stored configuration for Feature Flag Rules config version 2.",
+  "type": "object",
+  "required": [
+    "version",
+    "return_type",
+    "fallthrough_value",
+    "rules"
+  ],
+  "properties": {
+    "version": {
+      "const": 2
+    },
+    "return_type": {
+      "enum": [
+        "boolean",
+        "string",
+        "number",
+        "json"
+      ]
+    },
+    "fallthrough_value": {},
+    "rules": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "aggregation_group_type_index": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "return_type": {
+            "const": "boolean"
+          }
+        },
+        "required": [
+          "return_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "fallthrough_value": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/$defs/booleanRuleValues"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "return_type": {
+            "const": "string"
+          }
+        },
+        "required": [
+          "return_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "fallthrough_value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/stringValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/$defs/stringRuleValues"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "return_type": {
+            "const": "number"
+          }
+        },
+        "required": [
+          "return_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "fallthrough_value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/safeNumber"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/$defs/numberRuleValues"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "return_type": {
+            "const": "json"
+          }
+        },
+        "required": [
+          "return_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "fallthrough_value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/jsonObjectValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/$defs/jsonRuleValues"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "percentage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "stringValue": {
+      "type": "string",
+      "minLength": 1
+    },
+    "safeNumber": {
+      "type": "number",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "jsonValue": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/safeNumber"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonObjectValue"
+        }
+      ]
+    },
+    "jsonObjectValue": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      },
+      "x-posthog-open-object": "application_json_value"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "x-posthog-open-object": "opaque_metadata"
+    },
+    "groupKeyNames": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "x-posthog-open-object": "display_group_key_names"
+        }
+      ]
+    },
+    "propertyFilter": {
+      "type": "object",
+      "required": [
+        "key",
+        "type"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {},
+        "type": {
+          "enum": [
+            "person",
+            "cohort",
+            "group",
+            "flag"
+          ]
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "enum": [
+                "exact",
+                "is_not",
+                "icontains",
+                "not_icontains",
+                "icontains_multi",
+                "not_icontains_multi",
+                "starts_with",
+                "not_starts_with",
+                "ends_with",
+                "not_ends_with",
+                "regex",
+                "not_regex",
+                "gt",
+                "gte",
+                "lt",
+                "lte",
+                "semver_gt",
+                "semver_gte",
+                "semver_lt",
+                "semver_lte",
+                "semver_eq",
+                "semver_neq",
+                "semver_tilde",
+                "semver_caret",
+                "semver_wildcard",
+                "is_set",
+                "is_not_set",
+                "is_date_exact",
+                "is_date_after",
+                "is_date_before",
+                "in",
+                "not_in",
+                "flag_evaluates_to"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "group_type_index": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "negation": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cohort_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "group_key_names": {
+          "$ref": "#/$defs/groupKeyNames"
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "targeting": {
+      "type": "object",
+      "required": [
+        "properties"
+      ],
+      "properties": {
+        "properties": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/propertyFilter"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "required": [
+        "key",
+        "rollout_percentage",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "holdout": {
+      "type": "object",
+      "required": [
+        "id",
+        "seed",
+        "exclusion_percentage"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "seed": {
+          "$ref": "#/$defs/seed"
+        },
+        "exclusion_percentage": {
+          "$ref": "#/$defs/percentage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "targetedReleaseRule": {
+      "type": "object",
+      "required": [
+        "id",
+        "release_type",
+        "targeting",
+        "value"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "release_type": {
+          "const": "targeted_release"
+        },
+        "targeting": {
+          "$ref": "#/$defs/targeting"
+        },
+        "description": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "value": {}
+      },
+      "additionalProperties": false
+    },
+    "percentageRolloutRule": {
+      "type": "object",
+      "required": [
+        "id",
+        "release_type",
+        "targeting",
+        "value",
+        "rollout_percentage",
+        "on_rollout_miss",
+        "assignment_algorithm",
+        "seed"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "release_type": {
+          "const": "percentage_rollout"
+        },
+        "targeting": {
+          "$ref": "#/$defs/targeting"
+        },
+        "description": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "value": {},
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "on_rollout_miss": {
+          "enum": [
+            "continue",
+            "return_fallthrough"
+          ]
+        },
+        "assignment_algorithm": {
+          "const": "sha1_60_v1"
+        },
+        "seed": {
+          "$ref": "#/$defs/seed"
+        },
+        "assign_variant_by": {
+          "const": "user"
+        }
+      },
+      "additionalProperties": false
+    },
+    "variantRolloutRule": {
+      "type": "object",
+      "required": [
+        "id",
+        "release_type",
+        "targeting",
+        "rollout_percentage",
+        "on_rollout_miss",
+        "assignment_algorithm",
+        "seed",
+        "variants"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "release_type": {
+          "const": "variant_rollout"
+        },
+        "targeting": {
+          "$ref": "#/$defs/targeting"
+        },
+        "description": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "on_rollout_miss": {
+          "enum": [
+            "continue",
+            "return_fallthrough"
+          ]
+        },
+        "assignment_algorithm": {
+          "const": "sha1_60_v1"
+        },
+        "seed": {
+          "$ref": "#/$defs/seed"
+        },
+        "assign_variant_by": {
+          "const": "user"
+        },
+        "variants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/variant"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "experimentRule": {
+      "type": "object",
+      "required": [
+        "id",
+        "release_type",
+        "targeting",
+        "experiment_id",
+        "paused",
+        "rollout_percentage",
+        "on_rollout_miss",
+        "assignment_algorithm",
+        "seed",
+        "variants"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "release_type": {
+          "const": "experiment"
+        },
+        "targeting": {
+          "$ref": "#/$defs/targeting"
+        },
+        "description": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "experiment_id": {
+          "type": "integer"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "rollout_percentage": {
+          "$ref": "#/$defs/percentage"
+        },
+        "on_rollout_miss": {
+          "enum": [
+            "continue",
+            "return_fallthrough"
+          ]
+        },
+        "assignment_algorithm": {
+          "const": "sha1_60_v1"
+        },
+        "seed": {
+          "$ref": "#/$defs/seed"
+        },
+        "assign_variant_by": {
+          "const": "user"
+        },
+        "variants": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/variant"
+          }
+        },
+        "holdout": {
+          "$ref": "#/$defs/holdout"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/targetedReleaseRule"
+        },
+        {
+          "$ref": "#/$defs/percentageRolloutRule"
+        },
+        {
+          "$ref": "#/$defs/variantRolloutRule"
+        },
+        {
+          "$ref": "#/$defs/experimentRule"
+        }
+      ]
+    },
+    "booleanRuleValues": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "targeted_release",
+                  "percentage_rollout"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "variant_rollout",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "variants": {
+                "items": {
+                  "properties": {
+                    "value": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stringRuleValues": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "targeted_release",
+                  "percentage_rollout"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/stringValue"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "variant_rollout",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "variants": {
+                "items": {
+                  "properties": {
+                    "value": {
+                      "$ref": "#/$defs/stringValue"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "numberRuleValues": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "targeted_release",
+                  "percentage_rollout"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/safeNumber"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "variant_rollout",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "variants": {
+                "items": {
+                  "properties": {
+                    "value": {
+                      "$ref": "#/$defs/safeNumber"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "jsonRuleValues": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "targeted_release",
+                  "percentage_rollout"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/jsonObjectValue"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "release_type": {
+                "enum": [
+                  "variant_rollout",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "release_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "variants": {
+                "items": {
+                  "properties": {
+                    "value": {
+                      "$ref": "#/$defs/jsonObjectValue"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

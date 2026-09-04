@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "return_type": "boolean",
+  "fallthrough_value": false,
+  "rules": [],
+  "groups": []
+}
