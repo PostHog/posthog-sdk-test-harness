@@ -106,7 +106,7 @@
       "expected_failure": {
         "keyword": "additionalProperties",
         "instance_path": "",
-        "message_contains": "legacy_groups"
+        "message_contains": "groups"
       }
     },
     {
@@ -140,6 +140,26 @@
         "keyword": "required",
         "instance_path": "/rules/0",
         "message_contains": "paused"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/non_uuid_rule_id.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.non_uuid_rule_id",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "pattern",
+        "instance_path": "/rules/0/id"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/empty_seed.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.empty_seed",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "minLength",
+        "instance_path": "/rules/0/seed"
       }
     },
     {
