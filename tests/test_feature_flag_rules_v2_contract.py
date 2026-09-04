@@ -141,7 +141,9 @@ def test_literal_registry_matches_config_schema() -> None:
     schema = _load_json(SCHEMA_PATH)
     registry = _load_json(REGISTRY_PATH)
 
-    assert registry["registry_version"] == manifest["contract"]["version"]
+    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
+    assert registry["registry_version"] == component_versions["registries/literals.json"]
+    assert schema["$id"].endswith(":" + component_versions["schemas/config.schema.json"])
     assert registry["config_versions"]["v2"] == manifest["contract"]["config_version"]
     assert _property_literals(schema, "version") == {registry["config_versions"]["v2"]}
     assert _property_literals(schema, "release_type") == {
