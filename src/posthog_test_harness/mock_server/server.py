@@ -81,6 +81,18 @@ class MockServer:
                     methods=[method],
                 )
 
+        # Definitions polling is separate from capture/remote response queues
+        # and request accounting. Both current and legacy SDK paths are served.
+        @self.app.route("/flags/definitions", methods=["GET"])
+        @self.app.route("/flags/definitions/", methods=["GET"])
+        @self.app.route("/api/feature_flag/local_evaluation", methods=["GET"])
+        @self.app.route("/api/feature_flag/local_evaluation/", methods=["GET"])
+        def definitions() -> Response:
+            recorded = self.state.record_definition_request(
+                request.path, {k.lower(): v for k, v in request.headers.items()}, dict(request.args)
+            )
+            return Response(recorded.response_body, status=recorded.response_status, mimetype="application/json")
+
         # Control endpoints for test harness
         @self.app.route("/_control/requests", methods=["GET"])
         def get_requests() -> Response:
