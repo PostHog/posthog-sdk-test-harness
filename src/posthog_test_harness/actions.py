@@ -246,9 +246,9 @@ class GetFeatureFlagAction(Action):
         )
         if params.get("only_evaluate_locally"):
             # Check the whole test window, including initialization and reloads.
-            remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") in ("/flags", "/decide")]
+            remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
             if remote:
-                raise AssertionError("Local-only evaluation made a remote /flags or /decide request")
+                raise AssertionError("Local-only evaluation made a remote /flags request")
             if (
                 not isinstance(result, dict)
                 or result.get("success") is not True

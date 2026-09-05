@@ -458,7 +458,7 @@ To opt in, implement these optional extensions (see `CONTRACT.yaml`):
   responses need not contain `locally_evaluated`.
 
 The harness checks the local-result marker, conclusive value and **zero remote
-`/flags` or `/decide` requests over the whole test**, including initialization
+`/flags` requests over the whole test**, including initialization
 and reload. Adapters must call the real SDK and must not synthesize evaluations
 from fixtures. Reset must stop polling/dispose the previous SDK instance.
 

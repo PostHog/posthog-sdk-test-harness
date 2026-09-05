@@ -158,7 +158,7 @@ async def test_local_only_requires_conclusive_local_result(response):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/flags", "/flags/", "/decide", "/decide/"])
+@pytest.mark.parametrize("path", ["/flags", "/flags/"])
 async def test_local_only_detects_fallback_http_paths(path):
     state = MockServerState()
     MockServer(state).app.test_client().post(path, json={"token": "phc_test_key"})

@@ -17,8 +17,6 @@ class FlagsEndpoint(EndpointHandler):
         return [
             ("/flags", "POST", handler),
             ("/flags/", "POST", handler),
-            ("/decide", "POST", handler),
-            ("/decide/", "POST", handler),
         ]
 
     def default_success_body(self, request: Request) -> Dict[str, Any]:

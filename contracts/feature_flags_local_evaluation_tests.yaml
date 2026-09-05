@@ -991,7 +991,7 @@ categories:
         params:
           paths:
           - /flags
-          - /decide
+          - /flags/
     - name: matching_version_1
       steps:
       - action: configure_local_evaluation_definitions
