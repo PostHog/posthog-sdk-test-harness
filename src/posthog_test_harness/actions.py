@@ -141,6 +141,7 @@ class InitAction(Action):
                 enable_compression=params.get("enable_compression"),
                 disable_geoip=params.get("disable_geoip"),
                 historical_migration=params.get("historical_migration"),
+                personal_api_key=params.get("personal_api_key"),
             )
         )
 
@@ -231,7 +232,7 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        return await ctx.sdk_adapter.get_feature_flag(
+        result = await ctx.sdk_adapter.get_feature_flag(
             FeatureFlagRequest(
                 key=params["key"],
                 distinct_id=params["distinct_id"],
@@ -240,7 +241,60 @@ class GetFeatureFlagAction(Action):
                 group_properties=params.get("group_properties"),
                 disable_geoip=params.get("disable_geoip"),
                 force_remote=params.get("force_remote"),
+                only_evaluate_locally=params.get("only_evaluate_locally"),
             )
+        )
+        if params.get("only_evaluate_locally"):
+            # Check the whole test window, including initialization and reloads.
+            remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
+            if remote:
+                raise AssertionError("Local-only evaluation made a remote /flags request")
+            if (
+                not isinstance(result, dict)
+                or result.get("success") is not True
+                or result.get("locally_evaluated") is not True
+            ):
+                raise AssertionError("Local-only evaluation must report success and locally_evaluated=true")
+            if not isinstance(result.get("value"), (bool, str)):
+                raise AssertionError("Local-only evaluation was inconclusive or returned an invalid flag value")
+        return result
+
+
+class ReloadFeatureFlagDefinitionsAction(Action):
+    """Bounded fresh-load readiness barrier for opt-in local evaluation."""
+
+    @property
+    def name(self) -> str:
+        return "reload_feature_flag_definitions"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        timeout_ms = params.get("timeout_ms", 5000)
+        if not 0 < timeout_ms <= 30000:
+            raise ValueError("timeout_ms must be between 1 and 30000")
+        before = len(ctx.mock_server.get_definition_requests())
+        result = await asyncio.wait_for(
+            ctx.sdk_adapter.reload_feature_flag_definitions(timeout_ms), timeout=timeout_ms / 1000
+        )
+        if not isinstance(result, dict) or result.get("success") is not True or result.get("ready") is not True:
+            raise AssertionError("Definitions reload did not report success and ready=true")
+        requests = ctx.mock_server.get_definition_requests()[before:]
+        if not any(r.response_status == 200 for r in requests):
+            raise AssertionError("Definitions reload did not fetch a fresh successful snapshot")
+        return result
+
+
+class ConfigureLocalEvaluationDefinitionsAction(Action):
+    """Replace the isolated definitions envelope without consuming capture responses."""
+
+    @property
+    def name(self) -> str:
+        return "configure_local_evaluation_definitions"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        ctx.mock_server.set_definitions(
+            params["definitions"],
+            api_key=params.get("api_key", "phc_test_key"),
+            personal_api_key=params.get("personal_api_key", "phx_test_key"),
         )
 
 

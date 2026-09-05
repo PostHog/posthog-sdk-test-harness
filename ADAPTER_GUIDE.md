@@ -423,3 +423,89 @@ Implement exponential backoff and respect `Retry-After` headers.
 See [examples/minimal_adapter/](examples/minimal_adapter/) for a sequential adapter with event queueing, retry logic, and state tracking.
 
 See [examples/parallel_adapter/](examples/parallel_adapter/) for an adapter that supports parallel test execution with per-test-id instance isolation.
+
+## Optional local feature flag evaluation (protocol v1)
+
+Only adapters that explicitly advertise `feature_flags_local_evaluation_v1` in
+`/health.capabilities` run the `feature_flags_local_evaluation` suite. **The `v1`
+suffix versions the adapter protocol, not property matching:** opting in requires
+both released legacy matching (missing/1) and explicit matching (2). It is never
+inferred from `sdk_type`, and the harness does not advertise or enable it in any
+existing adapter. Without opt-in, all new tests/actions are skipped and existing
+adapter request JSON is unchanged.
+
+To opt in, implement these optional extensions (see `CONTRACT.yaml`):
+
+- `/init` accepts `personal_api_key` and configures the SDK's privileged
+  definitions loader, using the supplied `host` and project `api_key`. Map this
+  to the SDK's equivalent option (for example Python's `secret_key`). Omit this
+  field entirely for ordinary remote/capture tests.
+- `POST /reload_feature_flag_definitions` accepts `{"timeout_ms": 5000}`. Force
+  a **fresh definitions GET**, then wait until that new snapshot is usable by
+  local evaluation. Return `{"success": true, "ready": true}` only at that
+  point. A queued reload or readiness of an older snapshot is insufficient.
+  Return an error/false on failure; never wait indefinitely. The harness bounds
+  the entire call (default 5 seconds, configurable 1–30000 ms) and checks that a
+  successful definitions GET occurred during it. Use this as the initial
+  readiness barrier as well as for version-only refreshes. Disable long-lived
+  polling if needed in test mode, but do not replace the real loader/evaluator.
+- `/get_feature_flag` accepts optional `only_evaluate_locally`. When true, use
+  the SDK's **local-only** API, not just `force_remote=false` (which may fall
+  back). Reject `only_evaluate_locally=true` plus `force_remote=true`. Return
+  `{"success": true, "value": false, "locally_evaluated": true}` for a
+  conclusive local false result, likewise for true/variants. Missing properties
+  or other inconclusive outcomes must not be reported as local false. Legacy
+  responses need not contain `locally_evaluated`.
+
+The harness checks the local-result marker, conclusive value and **zero remote
+`/flags` requests over the whole test**, including initialization
+and reload. Adapters must call the real SDK and must not synthesize evaluations
+from fixtures. Reset must stop polling/dispose the previous SDK instance.
+
+### Definitions mock and fixture coverage
+
+`configure_local_evaluation_definitions` replaces an isolated complete envelope:
+
+```yaml
+- action: configure_local_evaluation_definitions
+  params:
+    definitions:
+      flags: []
+      cohorts: {}
+      group_type_mapping: {}
+      property_matching_version: 2
+```
+
+The mock serves GET `/flags/definitions` and legacy
+`/api/feature_flag/local_evaluation/`, including trailing-slash aliases. It
+requires query `token=<project api_key>` and header
+`Authorization: Bearer <personal_api_key>` (fixture defaults `phc_test_key` and
+`phx_test_key`; both configurable in the action). The version is a **top-level**
+definitions field, not an individual flag version or `/flags?v=2` format.
+Omitting it on replacement removes the previous selector.
+
+Definitions GETs use separate response state and `get_definition_requests()`
+accounting: they do not consume `configure_mock_responses` queues and are not
+capture events, generic recorded requests, or remote flag calls. Parallel
+adapters must propagate `X-Test-Id` to definitions GETs too; the optional reload
+adapter endpoint receives the usual `?test_id=...`. State and reset are isolated
+by that same test ID.
+
+The suite covers missing/1/2, six distinguishing rows and their `is_not`
+complements, null/array/normalization cases, group and recursive cohort leaves,
+and otherwise identical definitions switching 1→2→1→2→missing. Existing remote
+fixtures are untouched. Shared-cache persistence and failure/304 policies remain
+SDK-specific tests, not coverage claimed by this suite.
+
+For a real patched Python SDK smoke run (temporary in-test HTTP adapter, no
+production adapter modifications), install its runtime dependencies into the
+harness environment and run:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
+POSTHOG_LOCAL_EVALUATION_SDK_PATH=/path/to/patched/posthog-python \
+python -m pytest tests/test_local_evaluation_python_integration.py -q
+```
+
+Without that explicit path this integration test skips; ordinary harness unit
+tests require no SDK installation.
