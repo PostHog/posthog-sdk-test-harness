@@ -24,6 +24,10 @@
         type: boolean
         optional: true
         description: Disable GeoIP enrichment (SDK injects $geoip_disable on captured events)
+      personal_api_key:
+        type: string
+        optional: true
+        description: Privileged definitions key for feature_flags_local_evaluation_v1 opt-in
       historical_migration:
         type: boolean
         optional: true
@@ -118,6 +122,19 @@
         type: boolean
         optional: true
         description: Force a remote /flags request even if the SDK can evaluate flags locally
+
+      only_evaluate_locally:
+        type: boolean
+        optional: true
+        description: No remote fallback; require locally_evaluated=true. Conflicts with force_remote=true.
+
+  reload_feature_flag_definitions:
+    description: Opt-in fresh definitions GET and bounded readiness barrier; requires feature_flags_local_evaluation_v1
+    params:
+      timeout_ms:
+        type: integer
+        default: 5000
+        description: Positive deadline, at most 30000 ms; errors or ready=false fail the test
 
   flush:
     description: Flush pending events via the adapter

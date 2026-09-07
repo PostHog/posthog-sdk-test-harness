@@ -261,3 +261,12 @@ test-harness-version: "1.0"  # Recommended: pin to major.minor
 ## License
 
 MIT - see [LICENSE](LICENSE)
+
+### Opt-in local feature flag evaluation
+
+Adapters may explicitly advertise `feature_flags_local_evaluation_v1` to enable
+local-rule compliance tests for **both** property matching versions 1 and 2.
+No existing adapter or default health response opts in automatically; remote
+fixtures and requests remain unchanged. See [the optional adapter protocol](ADAPTER_GUIDE.md#optional-local-feature-flag-evaluation-protocol-v1)
+for privileged definitions loading, bounded readiness/reload and local-only
+result requirements.

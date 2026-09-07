@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 from collections import deque
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Deque, Dict, List, Optional
 
@@ -51,6 +52,56 @@ class MockServerState:
         self._partitioned_requests: Dict[str, List[RecordedRequest]] = {}
         self._partitioned_response_queue: Dict[str, Deque[MockResponse]] = {}
         self._partitioned_default_response: Dict[str, MockResponse] = {}
+
+        # Definitions GETs have independent configuration/accounting, including
+        # the global (None) partition; polling must not consume capture responses.
+        self._definitions: Dict[Optional[str], Dict[str, Any]] = {}
+        self._definition_auth: Dict[Optional[str], tuple[str, str]] = {}
+        self._definition_requests: Dict[Optional[str], List[RecordedRequest]] = {}
+
+    def set_definitions(
+        self,
+        definitions: Dict[str, Any],
+        api_key: str = "phc_test_key",
+        personal_api_key: str = "phx_test_key",
+        test_id: Optional[str] = None,
+    ) -> None:
+        """Replace the complete snapshot; omission must not retain an older version."""
+        with self._lock:
+            self._definitions[test_id] = deepcopy({"flags": [], "cohorts": {}, "group_type_mapping": {}, **definitions})
+            self._definition_auth[test_id] = (api_key, personal_api_key)
+
+    def get_definition_requests(self, test_id: Optional[str] = None) -> List[RecordedRequest]:
+        with self._lock:
+            return list(self._definition_requests.get(test_id, []))
+
+    def record_definition_request(
+        self, path: str, headers: Dict[str, str], query_params: Dict[str, str]
+    ) -> RecordedRequest:
+        """Serve definitions with project token and privileged Bearer authentication."""
+        with self._lock:
+            test_id = headers.get(TEST_ID_HEADER)
+            api_key, personal_api_key = self._definition_auth.get(test_id, ("phc_test_key", "phx_test_key"))
+            authorized = (
+                query_params.get("token") == api_key
+                and headers.get("authorization", "").split() == ["Bearer", personal_api_key]
+            )
+            body = self._definitions.get(test_id, {"flags": [], "cohorts": {}, "group_type_mapping": {}})
+            recorded = RecordedRequest(
+                timestamp_ms=int(time.time() * 1000),
+                method="GET",
+                path=path,
+                headers=dict(headers),
+                query_params=dict(query_params),
+                body_raw=b"",
+                body_decompressed=None,
+                parsed_events=None,
+                response_status=200 if authorized else 401,
+                response_headers={},
+                response_body=json.dumps(body if authorized else {"error": "Invalid definitions credentials"}),
+            )
+            self._definition_requests.setdefault(test_id, []).append(recorded)
+            return recorded
 
     def _ensure_partition(self, test_id: str) -> None:
         """Ensure a partition exists for the given test_id. Must be called with lock held."""
@@ -262,6 +313,7 @@ class MockServerState:
     def clear_requests(self, test_id: Optional[str] = None) -> None:
         """Clear recorded requests, optionally for a specific test_id."""
         with self._lock:
+            self._definition_requests.pop(test_id, None)
             if test_id is not None:
                 if test_id in self._partitioned_requests:
                     self._partitioned_requests[test_id].clear()
@@ -289,6 +341,9 @@ class MockServerState:
     def reset(self, test_id: Optional[str] = None) -> None:
         """Reset state. When test_id is provided, only resets that partition."""
         with self._lock:
+            self._definitions.pop(test_id, None)
+            self._definition_auth.pop(test_id, None)
+            self._definition_requests.pop(test_id, None)
             if test_id is not None:
                 self._partitioned_requests.pop(test_id, None)
                 self._partitioned_response_queue.pop(test_id, None)

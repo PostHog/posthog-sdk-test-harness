@@ -40,6 +40,9 @@ class SDKAdapterClient(SDKAdapterInterface):
         if request.force_remote is not None:
             payload["force_remote"] = request.force_remote
 
+        if request.only_evaluate_locally is not None:
+            payload["only_evaluate_locally"] = request.only_evaluate_locally
+
         return payload
 
     async def health(self) -> HealthResponse:
@@ -75,6 +78,8 @@ class SDKAdapterClient(SDKAdapterInterface):
             payload["disable_geoip"] = config.disable_geoip
         if config.historical_migration is not None:
             payload["historical_migration"] = config.historical_migration
+        if config.personal_api_key is not None:
+            payload["personal_api_key"] = config.personal_api_key
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -156,6 +161,20 @@ class SDKAdapterClient(SDKAdapterInterface):
                 resp.raise_for_status()
                 return await resp.json()
 
+    async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
+        return await self._reload_feature_flag_definitions(timeout_ms)
+
+    async def _reload_feature_flag_definitions(self, timeout_ms: int, test_id: Optional[str] = None) -> Dict[str, bool]:
+        if not 0 < timeout_ms <= 30000:
+            raise ValueError("timeout_ms must be between 1 and 30000")
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout_ms / 1000)) as session:
+            async with session.post(
+                self._url("/reload_feature_flag_definitions", test_id),
+                json={"timeout_ms": timeout_ms},
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
     async def reset(self) -> Dict[str, bool]:
         """Reset SDK state."""
         async with aiohttp.ClientSession() as session:
@@ -210,6 +229,8 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             payload["disable_geoip"] = config.disable_geoip
         if config.historical_migration is not None:
             payload["historical_migration"] = config.historical_migration
+        if config.personal_api_key is not None:
+            payload["personal_api_key"] = config.personal_api_key
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -285,6 +306,9 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
+
+    async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
+        return await self._client._reload_feature_flag_definitions(timeout_ms, self._test_id)
 
     async def reset(self) -> Dict[str, bool]:
         async with aiohttp.ClientSession() as session:

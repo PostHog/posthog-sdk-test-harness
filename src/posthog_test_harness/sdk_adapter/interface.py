@@ -93,6 +93,14 @@ class SDKAdapterInterface(ABC):
         """
         pass
 
+    async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
+        """Force a fresh definitions load and await readiness within timeout_ms.
+
+        Optional, only for feature_flags_local_evaluation_v1. Return
+        {"success": True, "ready": True} only after the fresh snapshot is usable.
+        """
+        raise NotImplementedError("reload_feature_flag_definitions requires feature_flags_local_evaluation_v1")
+
     @abstractmethod
     async def reset(self) -> Dict[str, bool]:
         """

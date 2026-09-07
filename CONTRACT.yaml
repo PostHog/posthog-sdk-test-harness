@@ -6,7 +6,7 @@
 version: "1.2"
 
 # SDK Adapter Interface
-# All adapters must implement these endpoints
+# Adapters must implement these endpoints unless marked optional
 adapter_interface:
   # Health check - returns SDK information
   health:
@@ -78,6 +78,9 @@ adapter_interface:
           type: boolean
           description: Enable gzip compression
           default: false
+        personal_api_key:
+          type: string
+          description: Optional privileged definitions key; only sent for feature_flags_local_evaluation_v1 opt-in
     response:
       type: object
       required: [success]
@@ -274,6 +277,9 @@ adapter_interface:
         force_remote:
           type: boolean
           description: Force a remote /flags request even if the SDK can evaluate flags locally
+        only_evaluate_locally:
+          type: boolean
+          description: Optional local-only evaluation; never remote fallback. Conflicts with force_remote=true.
     response:
       type: object
       required: [success]
@@ -283,6 +289,34 @@ adapter_interface:
         value:
           type: any
           description: Feature flag value
+        locally_evaluated:
+          type: boolean
+          description: Required true for a successful only_evaluate_locally request; absent on legacy responses is allowed
+
+  # Optional: feature_flags_local_evaluation_v1 only (supports matching versions 1 AND 2)
+  reload_feature_flag_definitions:
+    optional: true
+    requires: feature_flags_local_evaluation_v1
+    method: POST
+    path: /reload_feature_flag_definitions
+    request:
+      type: object
+      required: [timeout_ms]
+      properties:
+        timeout_ms:
+          type: integer
+          minimum: 1
+          maximum: 30000
+          description: Force a fresh definitions GET and await usable snapshot within this deadline
+    response:
+      type: object
+      required: [success, ready]
+      properties:
+        success:
+          type: boolean
+        ready:
+          type: boolean
+          description: True only after this fresh load is usable, not merely an existing snapshot
 
   # Reset SDK state
   reset:
@@ -318,3 +352,6 @@ test_suites:
 
   # Feature flag evaluation tests (decide request payloads)
   feature_flags: !include contracts/feature_flags_tests.yaml
+
+  # Explicit adapter opt-in only; never inferred from sdk_type
+  feature_flags_local_evaluation: !include contracts/feature_flags_local_evaluation_tests.yaml

@@ -28,6 +28,20 @@
                 {"results": {"<uuid>": {"result": "...", "details": "..."}}}.
                 Retry-After header is auto-added when any result is "retry".
 
+  configure_local_evaluation_definitions:
+    description: Replace the isolated definitions GET envelope, separately from capture and remote response queues
+    params:
+      definitions:
+        type: object
+        required: true
+        description: Complete snapshot (flags, cohorts, group_type_mapping, optional property_matching_version)
+      api_key:
+        type: string
+        default: phc_test_key
+      personal_api_key:
+        type: string
+        default: phx_test_key
+
   # Timing actions
   wait:
     description: Wait for a specified duration
