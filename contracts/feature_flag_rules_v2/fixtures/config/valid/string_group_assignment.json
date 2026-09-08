@@ -1,12 +1,12 @@
 {
   "version": 2,
   "return_type": "string",
-  "fallthrough_value": "standard",
+  "default_value": "standard",
   "aggregation_group_type_index": 0,
   "rules": [
     {
       "id": "55555555-5555-4555-8555-555555555555",
-      "release_type": "percentage_rollout",
+      "rule_type": "percentage_rollout",
       "targeting": {
         "properties": [
           {

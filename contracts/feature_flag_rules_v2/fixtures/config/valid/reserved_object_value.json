@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "return_type": "json",
-  "fallthrough_value": {
+  "return_type": "object",
+  "default_value": {
     "layout": "standard"
   },
   "rules": [
     {
       "id": "77777777-7777-4777-8777-777777777777",
-      "release_type": "targeted_release",
+      "rule_type": "targeted_release",
       "targeting": {
         "properties": []
       },

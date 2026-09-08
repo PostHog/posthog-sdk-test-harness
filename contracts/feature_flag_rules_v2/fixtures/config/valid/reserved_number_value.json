@@ -1,11 +1,11 @@
 {
   "version": 2,
   "return_type": "number",
-  "fallthrough_value": 0,
+  "default_value": 0,
   "rules": [
     {
       "id": "66666666-6666-4666-8666-666666666666",
-      "release_type": "targeted_release",
+      "rule_type": "targeted_release",
       "targeting": {
         "properties": []
       },

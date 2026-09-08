@@ -144,15 +144,15 @@ def test_literal_registry_matches_config_schema() -> None:
     assert registry["registry_version"] == manifest["contract"]["version"]
     assert registry["config_versions"]["v2"] == manifest["contract"]["config_version"]
     assert _property_literals(schema, "version") == {registry["config_versions"]["v2"]}
-    assert _property_literals(schema, "release_type") == {
-        item["value"] for item in registry["release_types"]
+    assert _property_literals(schema, "rule_type") == {
+        item["value"] for item in registry["rule_types"]
     }
     assert _property_literals(schema, "return_type") == {
         item["value"] for item in registry["return_types"]
     }
     assert _property_literals(schema, "on_rollout_miss") == set(registry["rollout_miss_policies"])
     assert _property_literals(schema, "assignment_algorithm") == set(registry["assignment_algorithms"])
-    assert _property_literals(schema, "assign_variant_by") == set(registry["assignment_targets"])
+    assert _property_literals(schema, "assign_by") == set(registry["assignment_targets"])
     assert _property_literals(schema, "type") == set(registry["property_types"])
     assert _property_literals(schema, "operator") == set(registry["property_operators"])
 
@@ -167,6 +167,15 @@ def test_registry_codes_are_unique_and_machine_readable(registry_key: str, patte
     values = _load_json(REGISTRY_PATH)[registry_key]
     assert len(values) == len(set(values))
     assert all(re.fullmatch(pattern, value) for value in values)
+
+
+def test_openfeature_mapping_covers_every_reason_code() -> None:
+    registry = _load_json(REGISTRY_PATH)
+    mapping = registry["openfeature_mapping"]
+    assert list(mapping["reason_codes"]) == registry["reason_codes"]
+    for entry in [*mapping["reason_codes"].values(), *mapping["outcomes_without_reason_code"]]:
+        assert entry["reason"]
+        assert (entry["reason"] == "ERROR") == (entry["error_code"] is not None), entry
 
 
 def test_valid_config_fixtures_match_the_schema() -> None:

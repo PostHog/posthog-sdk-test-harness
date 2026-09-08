@@ -1,11 +1,11 @@
 {
   "version": 2,
   "return_type": "boolean",
-  "fallthrough_value": false,
+  "default_value": false,
   "rules": [
     {
       "id": "99999999-9999-4999-8999-999999999999",
-      "release_type": "percentage_rollout",
+      "rule_type": "percentage_rollout",
       "targeting": {
         "properties": []
       },

@@ -5,12 +5,12 @@ Contract version 1.0.0 covers config version 2.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
-It reserves number values, JSON values, and variant rollout configs for later writer support.
+It reserves number values, object values, and variant rollout configs for later writer support.
 
 ## Package contents
 
 - schemas/config.schema.json contains the JSON Schema 2020-12 config contract.
-- registries/literals.json owns shared protocol literals and semantic constraints.
+- registries/literals.json owns shared protocol literals, semantic constraints, and the OpenFeature reason mapping.
 - fixtures/config/valid contains configs that the schema must accept.
 - fixtures/config/invalid contains configs that the schema must reject.
 - manifest.json assigns stable fixture IDs and declares the compatibility policy.

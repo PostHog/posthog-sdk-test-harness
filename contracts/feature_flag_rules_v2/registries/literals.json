@@ -9,13 +9,13 @@
   },
   "fields": [
     "aggregation_group_type_index",
-    "assign_variant_by",
+    "assign_by",
     "assignment_algorithm",
     "cohort_name",
+    "default_value",
     "description",
     "exclusion_percentage",
     "experiment_id",
-    "fallthrough_value",
     "group_key_names",
     "group_type_index",
     "holdout",
@@ -28,18 +28,19 @@
     "operator",
     "paused",
     "properties",
-    "release_type",
     "return_type",
     "rollout_percentage",
+    "rule_type",
     "rules",
     "seed",
     "targeting",
     "type",
     "value",
     "variants",
-    "version"
+    "version",
+    "weight"
   ],
-  "release_types": [
+  "rule_types": [
     {
       "value": "targeted_release",
       "writer_status": "enabled"
@@ -71,16 +72,16 @@
       "writer_status": "reserved"
     },
     {
-      "value": "json",
+      "value": "object",
       "writer_status": "reserved"
     }
   ],
   "rollout_miss_policies": [
     "continue",
-    "return_fallthrough"
+    "return_default"
   ],
   "assignment_targets": [
-    "user"
+    "person"
   ],
   "assignment_algorithms": [
     "sha1_60_v1"
@@ -127,17 +128,128 @@
     "flag_evaluates_to"
   ],
   "reason_codes": [
-    "rule_match",
+    "targeting_match",
     "variant_split",
-    "rule_split",
+    "experiment_split",
     "out_of_rollout_bound",
     "experiment_paused",
     "holdout",
     "no_rule_match",
+    "flag_disabled",
     "no_group_type",
     "missing_dependency",
     "error"
   ],
+  "openfeature_mapping": {
+    "specification": "https://openfeature.dev/specification/",
+    "reason_codes": {
+      "targeting_match": {
+        "reason": "TARGETING_MATCH",
+        "error_code": null,
+        "note": "Targeted release, or percentage rollout inclusion. Rollout inclusion maps to TARGETING_MATCH, not SPLIT."
+      },
+      "variant_split": {
+        "reason": "SPLIT",
+        "error_code": null,
+        "note": "variant carries the key."
+      },
+      "experiment_split": {
+        "reason": "SPLIT",
+        "error_code": null,
+        "note": "Experiment identity is in flag metadata."
+      },
+      "out_of_rollout_bound": {
+        "reason": "DEFAULT",
+        "error_code": null,
+        "note": "Value is default_value, or the caller default when null."
+      },
+      "experiment_paused": {
+        "reason": "DEFAULT",
+        "error_code": null,
+        "note": "Value is default_value, or the caller default when null."
+      },
+      "holdout": {
+        "reason": "DEFAULT",
+        "error_code": null,
+        "note": "Value is default_value, or the caller default when null."
+      },
+      "no_rule_match": {
+        "reason": "DEFAULT",
+        "error_code": null,
+        "note": "Value is default_value, or the caller default when null."
+      },
+      "flag_disabled": {
+        "reason": "DISABLED",
+        "error_code": null,
+        "note": "Local definitions only. Remote responses omit an inactive flag."
+      },
+      "no_group_type": {
+        "reason": "ERROR",
+        "error_code": "TARGETING_KEY_MISSING",
+        "note": "The group key is the targeting key for a group flag."
+      },
+      "missing_dependency": {
+        "reason": "ERROR",
+        "error_code": "GENERAL",
+        "note": "reason.description becomes the error message."
+      },
+      "error": {
+        "reason": "ERROR",
+        "error_code": "GENERAL",
+        "note": "reason.description becomes the error message."
+      }
+    },
+    "outcomes_without_reason_code": [
+      {
+        "situation": "Flag absent from the remote response",
+        "reason": "ERROR",
+        "error_code": "FLAG_NOT_FOUND",
+        "note": "Typed accessor returns the caller default."
+      },
+      {
+        "situation": "Unsupported config version or unknown semantic field in definitions, strict local mode",
+        "reason": "ERROR",
+        "error_code": "PARSE_ERROR",
+        "note": "Auto mode falls back remotely before this."
+      },
+      {
+        "situation": "Typed accessor asked for a type the flag does not return",
+        "reason": "ERROR",
+        "error_code": "TYPE_MISMATCH",
+        "note": "No coercion."
+      },
+      {
+        "situation": "Bootstrap value used",
+        "reason": "CACHED",
+        "error_code": null,
+        "note": "STALE when the SDK knows definitions are outdated. No experiment context, no exposure."
+      },
+      {
+        "situation": "Client-side override",
+        "reason": "override",
+        "error_code": null,
+        "note": "Custom reason string. Never TARGETING_MATCH; suppresses $experiment_exposure."
+      },
+      {
+        "situation": "Provider not initialised",
+        "reason": "ERROR",
+        "error_code": "PROVIDER_NOT_READY",
+        "note": "Provider concern."
+      }
+    ],
+    "flag_metadata_keys": [
+      "config_version",
+      "rule_type",
+      "rule_id",
+      "experiment_id",
+      "variant_key",
+      "holdout_id",
+      "id",
+      "version",
+      "reason_code",
+      "condition_index"
+    ]
+  },
   "warning_codes": [
     "RULE_ORDER_CHANGES_TRAFFIC",
     "UNREACHABLE_LOWER_RULE",
@@ -163,32 +275,32 @@
     {
       "id": "variant_weights_sum_100",
       "scope": "rules[].variants",
-      "requirement": "Variant rollout percentages sum to exactly 100 in stored order."
+      "requirement": "Variant weights sum to exactly 100 in stored order."
     },
     {
       "id": "percentage_two_decimals",
-      "scope": "all rollout_percentage and exclusion_percentage values",
+      "scope": "all rollout_percentage, weight, and exclusion_percentage values",
       "requirement": "Percentages have at most two decimal places. JSON Schema multipleOf is not used because binary64 division is inexact for values such as 33.33."
     },
     {
       "id": "number_is_binary64",
-      "scope": "all number and json values",
+      "scope": "all number and object values",
       "requirement": "Numbers are finite IEEE-754 binary64 values. Negative zero normalizes to zero. Nonzero underflow to zero is invalid."
     },
     {
       "id": "json_keys_unique",
-      "scope": "all json values",
+      "scope": "all object values",
       "requirement": "JSON object keys are unique at every depth before ordinary deserialization."
     },
     {
       "id": "json_depth_limit",
-      "scope": "all json values",
+      "scope": "all object values",
       "requirement": "JSON values contain at most 20 nested levels."
     },
     {
       "id": "assignment_target_context",
       "scope": "randomized rules",
-      "requirement": "Explicit user assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_variant_by."
+      "requirement": "Explicit person assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_by."
     },
     {
       "id": "contextual_size_limits",
