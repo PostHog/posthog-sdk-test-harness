@@ -1,9 +1,11 @@
 """AI capture contracts respect the adapter's normal capture protocol."""
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
+from posthog_test_harness.actions import AssertRequestPathAction
 from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
@@ -12,22 +14,21 @@ from posthog_test_harness.tests.suites import ContractTestSuite
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("capabilities", [["capture_v0"], ["capture_v1"], ["capture_v0", "capture_v1"]])
 @pytest.mark.parametrize(
-    "capability,path,expected_pass",
+    "path,expected_pass",
     [
-        ("capture_v0", "/batch", True),
-        ("capture_v1", "/i/v1/analytics/events", True),
-        ("capture_v0", "/i/v0/ai/batch/", False),
-        ("capture_v1", "/i/v0/ai/batch/", False),
-        ("capture_v0", "/i/v1/analytics/events", False),
-        ("capture_v1", "/batch", False),
+        ("/batch", True),
+        ("/i/v1/analytics/events", True),
+        ("/i/v0/ai/batch/", False),
+        ("/unexpected", False),
     ],
 )
-async def test_normal_capture_routing_contract(capability: str, path: str, expected_pass: bool) -> None:
+async def test_normal_capture_routing_contract(capabilities: list[str], path: str, expected_pass: bool) -> None:
     suite = ContractTestSuite("capture_ai", ContractExecutor())
-    tests = suite.collect_tests("server", ["capture_ai_v0", capability])
+    tests = suite.collect_tests("server", ["capture_ai_v0", *capabilities])
     routing = [(name, test) for name, test in tests if "capture_does_not_reroute_ai_named_events" in name]
-    assert len(tests) == 5  # Four shared AI tests plus exactly one protocol-specific routing test.
+    assert len(tests) == 5  # Four shared AI tests plus one normal-capture routing test.
     assert len(routing) == 1
 
     state = MockServerState()
@@ -50,3 +51,27 @@ async def test_normal_capture_routing_contract(capability: str, path: str, expec
 def test_ai_contract_remains_opt_in(capabilities: list[str]) -> None:
     suite = ContractTestSuite("capture_ai", ContractExecutor())
     assert suite.collect_tests("server", capabilities) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "expected,paths,passes",
+    [
+        ("/batch", ["/batch/"], True),
+        ("/batch", ["/i/v1/analytics/events"], False),
+        (["/batch", "/i/v1/analytics/events"], ["/batch/", "/i/v1/analytics/events/"], True),
+        (["/batch", "/i/v1/analytics/events"], ["/batch", "/i/v0/ai/batch/"], False),
+        ([], ["/batch"], False),
+        (["/batch"], [], False),
+    ],
+)
+async def test_request_path_assertion(expected, paths: list[str], passes: bool) -> None:
+    state = MockServerState()
+    for path in paths:
+        state.record_request("POST", path, {}, {}, b"{}")
+    ctx = SimpleNamespace(mock_server=state)
+    if passes:
+        await AssertRequestPathAction().execute({"expected": expected}, ctx)
+    else:
+        with pytest.raises(AssertionError):
+            await AssertRequestPathAction().execute({"expected": expected}, ctx)

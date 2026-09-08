@@ -28,8 +28,7 @@
                   expected: $ai_generation
 
           - name: capture_does_not_reroute_ai_named_events
-            description: capture() keeps $ai_* names on the capture-v0 endpoint
-            requires: capture_v0
+            description: capture() keeps $ai_* names on a normal capture endpoint
             sdk_types: [server]
             steps:
               - action: init
@@ -45,31 +44,9 @@
                   expected: 1
               - action: assert_request_path
                 params:
-                  expected: /batch
-              - action: assert_no_requests_to_paths
-                params:
-                  paths:
-                    - /i/v0/ai/batch/
-
-          - name: capture_does_not_reroute_ai_named_events_v1
-            description: capture() keeps $ai_* names on the capture-v1 endpoint
-            requires: capture_v1
-            sdk_types: [server]
-            steps:
-              - action: init
-                params:
-                  flush_at: 1
-              - action: capture
-                params:
-                  distinct_id: test_user
-                  event: $ai_generation
-              - action: flush
-              - action: assert_request_count
-                params:
-                  expected: 1
-              - action: assert_request_path
-                params:
-                  expected: /i/v1/analytics/events
+                  # Protocol suites check the configured version. An adapter may
+                  # advertise both versions, so this shared AI test accepts either.
+                  expected: [/batch, /i/v1/analytics/events]
               - action: assert_no_requests_to_paths
                 params:
                   paths:
