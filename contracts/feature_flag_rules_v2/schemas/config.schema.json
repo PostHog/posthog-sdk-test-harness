@@ -22,7 +22,9 @@
         "object"
       ]
     },
-    "default_value": {},
+    "default_value": {
+      "description": "Flag default for a normal result with no assigned value. Null delegates to the caller default. OpenFeature uses the caller default on abnormal execution regardless of this setting."
+    },
     "rules": {
       "type": "array",
       "maxItems": 100,
@@ -357,6 +359,7 @@
           "pattern": "^[a-zA-Z0-9_-]+$"
         },
         "weight": {
+          "description": "Percentage of subjects enrolled by the rule assigned to this variant. Variant weights sum to exactly 100; the rule's rollout_percentage separately controls enrollment.",
           "$ref": "#/$defs/percentage"
         },
         "value": {}

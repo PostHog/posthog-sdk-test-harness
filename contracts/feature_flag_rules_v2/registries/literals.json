@@ -126,13 +126,13 @@
   "reason_codes": [
     "targeting_match",
     "experiment_split",
-    "out_of_rollout_bound",
+    "rollout_miss",
     "experiment_paused",
     "holdout",
     "no_rule_match",
     "flag_disabled",
-    "no_group_type",
-    "missing_dependency",
+    "missing_group_key",
+    "dependency_error",
     "error"
   ],
   "openfeature_mapping": {
@@ -141,17 +141,17 @@
       "targeting_match": {
         "reason": "TARGETING_MATCH",
         "error_code": null,
-        "note": "Targeted release, or percentage rollout inclusion. Rollout inclusion maps to TARGETING_MATCH, not SPLIT."
+        "note": "Targeted release, or percentage rollout inclusion. TARGETING_MATCH is this contract's choice for rollout inclusion; OpenFeature also describes pseudorandom assignment with SPLIT and permits custom reasons."
       },
       "experiment_split": {
         "reason": "SPLIT",
         "error_code": null,
         "note": "Experiment identity is in flag metadata."
       },
-      "out_of_rollout_bound": {
+      "rollout_miss": {
         "reason": "DEFAULT",
         "error_code": null,
-        "note": "Value is default_value, or the caller default when null."
+        "note": "A terminal rollout miss under return_default. Value is default_value, or the caller default when null. A continuing miss contributes no context to the final result."
       },
       "experiment_paused": {
         "reason": "DEFAULT",
@@ -166,22 +166,22 @@
       "no_rule_match": {
         "reason": "DEFAULT",
         "error_code": null,
-        "note": "Value is default_value, or the caller default when null."
+        "note": "No rule produced a terminal result, including when targeting matched but rollout missed with continue. Value is default_value, or the caller default when null."
       },
       "flag_disabled": {
         "reason": "DISABLED",
         "error_code": null,
         "note": "Local definitions only. Remote responses omit an inactive flag."
       },
-      "no_group_type": {
+      "missing_group_key": {
         "reason": "ERROR",
-        "error_code": "TARGETING_KEY_MISSING",
-        "note": "The group key is the targeting key for a group flag."
+        "error_code": "INVALID_CONTEXT",
+        "note": "The required group key is missing from additional evaluation-context fields. If a provider binds the group key to OpenFeature targetingKey and that field is missing, use TARGETING_KEY_MISSING instead."
       },
-      "missing_dependency": {
+      "dependency_error": {
         "reason": "ERROR",
         "error_code": "GENERAL",
-        "note": "reason.description becomes the error message."
+        "note": "A dependency is unknown, cyclic, or otherwise unresolvable. reason.description becomes the error message."
       },
       "error": {
         "reason": "ERROR",
@@ -265,7 +265,7 @@
     {
       "id": "variant_weights_sum_100",
       "scope": "rules[].variants",
-      "requirement": "Variant weights sum to exactly 100 in stored order."
+      "requirement": "Each variant weight is a percentage of subjects enrolled by the rule. Weights sum to exactly 100 in stored order; rollout_percentage separately controls enrollment into the rule."
     },
     {
       "id": "percentage_two_decimals",
