@@ -461,63 +461,6 @@
       },
       "additionalProperties": false
     },
-    "variantRolloutRule": {
-      "type": "object",
-      "required": [
-        "id",
-        "rule_type",
-        "targeting",
-        "rollout_percentage",
-        "on_rollout_miss",
-        "assignment_algorithm",
-        "seed",
-        "variants"
-      ],
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/uuid"
-        },
-        "rule_type": {
-          "const": "variant_rollout"
-        },
-        "targeting": {
-          "$ref": "#/$defs/targeting"
-        },
-        "description": {
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/$defs/metadata"
-        },
-        "rollout_percentage": {
-          "$ref": "#/$defs/percentage"
-        },
-        "on_rollout_miss": {
-          "enum": [
-            "continue",
-            "return_default"
-          ]
-        },
-        "assignment_algorithm": {
-          "const": "sha1_60_v1"
-        },
-        "seed": {
-          "$ref": "#/$defs/seed"
-        },
-        "assign_by": {
-          "const": "person"
-        },
-        "variants": {
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 20,
-          "items": {
-            "$ref": "#/$defs/variant"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
     "experimentRule": {
       "type": "object",
       "required": [
@@ -595,9 +538,6 @@
           "$ref": "#/$defs/percentageRolloutRule"
         },
         {
-          "$ref": "#/$defs/variantRolloutRule"
-        },
-        {
           "$ref": "#/$defs/experimentRule"
         }
       ]
@@ -631,7 +571,6 @@
             "properties": {
               "rule_type": {
                 "enum": [
-                  "variant_rollout",
                   "experiment"
                 ]
               }
@@ -685,7 +624,6 @@
             "properties": {
               "rule_type": {
                 "enum": [
-                  "variant_rollout",
                   "experiment"
                 ]
               }
@@ -739,7 +677,6 @@
             "properties": {
               "rule_type": {
                 "enum": [
-                  "variant_rollout",
                   "experiment"
                 ]
               }
@@ -793,7 +730,6 @@
             "properties": {
               "rule_type": {
                 "enum": [
-                  "variant_rollout",
                   "experiment"
                 ]
               }

@@ -50,10 +50,6 @@
       "writer_status": "enabled"
     },
     {
-      "value": "variant_rollout",
-      "writer_status": "reserved"
-    },
-    {
       "value": "experiment",
       "writer_status": "enabled"
     }
@@ -129,7 +125,6 @@
   ],
   "reason_codes": [
     "targeting_match",
-    "variant_split",
     "experiment_split",
     "out_of_rollout_bound",
     "experiment_paused",
@@ -147,11 +142,6 @@
         "reason": "TARGETING_MATCH",
         "error_code": null,
         "note": "Targeted release, or percentage rollout inclusion. Rollout inclusion maps to TARGETING_MATCH, not SPLIT."
-      },
-      "variant_split": {
-        "reason": "SPLIT",
-        "error_code": null,
-        "note": "variant carries the key."
       },
       "experiment_split": {
         "reason": "SPLIT",

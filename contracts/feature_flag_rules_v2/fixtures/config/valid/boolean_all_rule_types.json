@@ -37,30 +37,6 @@
       "assign_by": "person"
     },
     {
-      "id": "33333333-3333-4333-8333-333333333333",
-      "rule_type": "variant_rollout",
-      "targeting": {
-        "properties": []
-      },
-      "rollout_percentage": 80,
-      "on_rollout_miss": "return_default",
-      "assignment_algorithm": "sha1_60_v1",
-      "seed": "variant-preview",
-      "assign_by": "person",
-      "variants": [
-        {
-          "key": "disabled",
-          "weight": 33.33,
-          "value": false
-        },
-        {
-          "key": "enabled",
-          "weight": 66.67,
-          "value": true
-        }
-      ]
-    },
-    {
       "id": "44444444-4444-4444-8444-444444444444",
       "rule_type": "experiment",
       "targeting": {
