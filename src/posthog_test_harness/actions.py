@@ -1197,7 +1197,7 @@ class AssertTokenPresentClientAction(Action):
 
 
 class AssertRequestPathAction(Action):
-    """Assert all capture requests hit a specific path."""
+    """Assert every capture request hits one of the explicitly allowed paths."""
 
     @property
     def name(self) -> str:
@@ -1208,10 +1208,12 @@ class AssertRequestPathAction(Action):
         if not requests:
             raise AssertionError("No requests recorded")
 
-        expected = params["expected"].rstrip("/")
+        expected = params["expected"]
+        paths = [expected] if isinstance(expected, str) else expected
+        allowed = {path.rstrip("/") for path in paths}
         for i, req in enumerate(requests):
             actual = req.path.rstrip("/")
-            if actual != expected:
+            if actual not in allowed:
                 raise AssertionError(f"Request {i} path '{req.path}' != expected '{params['expected']}'")
 
 

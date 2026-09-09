@@ -268,12 +268,14 @@
 
   # V1 Path Assertions
   assert_request_path:
-    description: Assert all requests hit a specific path
+    description: Assert every request hits one of the explicitly allowed paths
     params:
       expected:
-        type: string
+        type: [string, array]
+        items:
+          type: string
         required: true
-        description: Expected request path (e.g. /i/v1/analytics/events)
+        description: Expected request path or list of allowed paths. Trailing slashes are ignored.
 
   assert_no_requests_to_paths:
     description: Assert no requests were made to any of the listed paths
