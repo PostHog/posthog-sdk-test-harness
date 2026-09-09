@@ -178,37 +178,41 @@ def test_openfeature_mapping_covers_every_reason_code() -> None:
         assert (entry["reason"] == "ERROR") == (entry["error_code"] is not None), entry
 
 
-def test_valid_config_fixtures_match_the_schema() -> None:
+@pytest.mark.parametrize(
+    "fixture",
+    [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "valid"],
+    ids=lambda fixture: fixture["fixture_id"],
+)
+def test_valid_config_fixtures_match_the_schema(fixture: dict[str, Any]) -> None:
     validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
-    valid_fixtures = [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "valid"]
-
-    for fixture in valid_fixtures:
-        errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
-        assert not errors, f"{fixture['fixture_id']}: {errors}"
+    errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
+    assert not errors, f"{fixture['fixture_id']}: {errors}"
 
 
-def test_invalid_config_fixtures_fail_for_the_declared_reason() -> None:
+@pytest.mark.parametrize(
+    "fixture",
+    [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "invalid"],
+    ids=lambda fixture: fixture["fixture_id"],
+)
+def test_invalid_config_fixtures_fail_for_the_declared_reason(fixture: dict[str, Any]) -> None:
     validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
-    invalid_fixtures = [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "invalid"]
+    errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
+    assert errors, f"{fixture['fixture_id']} unexpectedly passed"
 
-    for fixture in invalid_fixtures:
-        errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
-        assert errors, f"{fixture['fixture_id']} unexpectedly passed"
-
-        expected = fixture["expected_failure"]
-        flattened_errors = [nested for error in errors for nested in _all_errors(error)]
-        matches = [
-            error
-            for error in flattened_errors
-            if error.validator == expected["keyword"]
-            and _json_pointer(error.absolute_path) == expected["instance_path"]
-            and expected.get("message_contains", "") in error.message
-        ]
-        assert matches, (
-            f"{fixture['fixture_id']} did not fail as declared. "
-            f"Actual errors: "
-            f"{[(error.validator, _json_pointer(error.absolute_path), error.message) for error in flattened_errors]}"
-        )
+    expected = fixture["expected_failure"]
+    flattened_errors = [nested for error in errors for nested in _all_errors(error)]
+    matches = [
+        error
+        for error in flattened_errors
+        if error.validator == expected["keyword"]
+        and _json_pointer(error.absolute_path) == expected["instance_path"]
+        and expected.get("message_contains", "") in error.message
+    ]
+    assert matches, (
+        f"{fixture['fixture_id']} did not fail as declared. "
+        f"Actual errors: "
+        f"{[(error.validator, _json_pointer(error.absolute_path), error.message) for error in flattened_errors]}"
+    )
 
 
 def test_checksum_index_is_complete_and_valid() -> None:

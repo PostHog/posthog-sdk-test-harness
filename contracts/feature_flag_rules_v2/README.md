@@ -20,6 +20,10 @@ On abnormal execution, OpenFeature returns the caller default regardless of the 
 Each variants[].weight is a percentage of subjects enrolled by the rule, and the weights sum to exactly 100.
 The separate rollout_percentage controls enrollment into the rule.
 
+Experiment rules require an integer experiment_id linking an Experiment row.
+An experiment_id of null is invalid in this contract.
+Non-experiment variant splits are reserved for a possible future extension; their evaluation reason and exposure semantics are not defined here.
+
 rollout_miss means a terminal miss under on_rollout_miss: return_default.
 A continuing miss contributes no context to the final result.
 no_rule_match means no rule produced a terminal result, including when targeting matched but rollout missed with continue.
