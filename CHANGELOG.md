@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.1.1 — 2026-09-09
+
+### Patch changes
+
+- [4274d8a](https://github.com/posthog/posthog-sdk-test-harness/commit/4274d8a5deb59800f31d2dd36397836713c6f5f3) Fix the AI capture routing test to accept either normal capture endpoint, including for adapters advertising both capture protocols, while still rejecting AI and unrelated endpoints. — Thanks @marandaneto!
+
 ## 1.1.0 — 2026-09-07
 
 ### Minor changes
