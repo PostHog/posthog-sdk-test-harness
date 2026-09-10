@@ -1,1 +1,2 @@
 recursive-include contracts/feature_flag_rules_v2 *.json README.md SHA256SUMS
+include bin/update-feature-flag-rules-v2-checksums.py

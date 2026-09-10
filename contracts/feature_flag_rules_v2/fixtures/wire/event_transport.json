@@ -1,0 +1,135 @@
+{
+  "fixture_version": "1.0.0",
+  "schema": "schemas/experiment_exposure_properties.schema.json",
+  "templates": {
+    "exposure": {
+      "event": "$experiment_exposure",
+      "uuid": "30000000-0000-4000-8000-000000000003",
+      "properties": {
+        "$feature_flag": "garden-layout",
+        "$feature_flag_response": false,
+        "$feature_flag_config_version": 2,
+        "$feature_flag_reason_code": "experiment_split",
+        "$feature_flag_variant": "arm_a",
+        "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+        "$feature_flag_rule_type": "experiment",
+        "$feature_flag_experiment_id": 301,
+        "$experiment_exposure_source": "sdk",
+        "locally_evaluated": false,
+        "distinct_id": "invented-reader",
+        "$lib": "invented-sdk",
+        "$groups": {
+          "company": "garden-club"
+        },
+        "$feature_flag_id": 201,
+        "$feature_flag_version": 7,
+        "$feature_flag_request_id": "20000000-0000-4000-8000-000000000002",
+        "$feature_flag_evaluated_at": 1800000000000
+      }
+    },
+    "call": {
+      "event": "$feature_flag_called",
+      "properties": {
+        "$feature_flag": "garden-layout",
+        "$feature_flag_response": false,
+        "$feature_flag_config_version": 2,
+        "$feature_flag_reason_code": "holdout",
+        "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+        "$feature_flag_rule_type": "experiment",
+        "$feature_flag_experiment_id": 301,
+        "$feature_flag_holdout_id": 401,
+        "distinct_id": "invented-reader",
+        "$feature_flag_reason": "Excluded by holdout."
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "event_transport.exposure_with_transport",
+      "template": "exposure",
+      "expected": "valid"
+    },
+    {
+      "id": "event_transport.call_with_transport",
+      "template": "call",
+      "expected": "valid"
+    },
+    {
+      "id": "event_transport.nested_seed",
+      "template": "exposure",
+      "set": {
+        "/properties/$groups/nested": [
+          {
+            "seed": "invented-seed"
+          }
+        ]
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/$groups/nested/0/seed"
+      }
+    },
+    {
+      "id": "event_transport.nested_assignment_seed",
+      "template": "call",
+      "set": {
+        "/properties/debug": [
+          {
+            "assignment_seed": "invented-seed"
+          }
+        ]
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/debug/0/assignment_seed"
+      }
+    },
+    {
+      "id": "event_transport.nested_holdout_seed",
+      "template": "exposure",
+      "set": {
+        "/properties/transport": {
+          "inner": {
+            "holdout_seed": "invented-seed"
+          }
+        }
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/transport/inner/holdout_seed"
+      }
+    },
+    {
+      "id": "event_transport.prefixed_seed",
+      "template": "call",
+      "set": {
+        "/properties/$feature_flag_seed": "invented-seed"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/$feature_flag_seed"
+      }
+    },
+    {
+      "id": "event_transport.holdout_context",
+      "template": "exposure",
+      "set": {
+        "/properties/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "semantic",
+        "keyword": "forbidden_context",
+        "instance_path": "/properties/$feature_flag_holdout_id"
+      }
+    }
+  ]
+}
