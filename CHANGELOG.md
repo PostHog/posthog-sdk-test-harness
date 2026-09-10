@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.2.0 — 2026-09-10
+
+### Minor changes
+
+- [bcaa923](https://github.com/posthog/posthog-sdk-test-harness/commit/bcaa9236c0743eb18cbd96b5b6a0c9d970330613) Add the versioned Feature Flag Rules v2 configuration contract, validation fixtures, and OpenFeature reason mapping. — Thanks @andehen!
+
 ## 1.1.1 — 2026-09-09
 
 ### Patch changes
