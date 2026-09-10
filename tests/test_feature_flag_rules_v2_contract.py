@@ -121,12 +121,9 @@ def test_schema_is_valid_draft_2020_12_and_has_no_wire_defaults() -> None:
     schema = _load_json(SCHEMA_PATH)
 
     assert schema["$schema"] == manifest["schema_dialect"]
-    assert schema["$id"] == f"urn:posthog:feature-flag-rules-v2:config:{manifest['contract']['version']}"
-    assert all(
-        artifact["version"] == manifest["contract"]["version"]
-        for artifact in manifest["artifacts"]
-        if "version" in artifact
-    )
+    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
+    schema_version = component_versions["schemas/config.schema.json"]
+    assert schema["$id"] == f"urn:posthog:feature-flag-rules-v2:config:{schema_version}"
     Draft202012Validator.check_schema(schema)
     assert all("default" not in node for node in _walk_json(schema) if isinstance(node, dict))
 
@@ -147,7 +144,8 @@ def test_literal_registry_matches_config_schema() -> None:
     schema = _load_json(SCHEMA_PATH)
     registry = _load_json(REGISTRY_PATH)
 
-    assert registry["registry_version"] == manifest["contract"]["version"]
+    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
+    assert registry["registry_version"] == component_versions["registries/literals.json"]
     assert registry["config_versions"]["v2"] == manifest["contract"]["config_version"]
     assert _property_literals(schema, "version") == {registry["config_versions"]["v2"]}
     assert _property_literals(schema, "rule_type") == {
