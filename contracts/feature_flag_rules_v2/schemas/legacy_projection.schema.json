@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:posthog:feature-flag-rules-v2:corpus:legacy_projection:1.0.0",
+  "$id": "urn:posthog:feature-flag-rules-v2:corpus:legacy_projection:1.1.0",
   "title": "Legacy projection corpus",
   "description": "Companion schema for corpus/legacy_projection.json. It describes the corpus file, not the wire responses.",
   "type": "object",

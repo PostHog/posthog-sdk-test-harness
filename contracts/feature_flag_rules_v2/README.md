@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines the stored configuration contract for Feature Flag Rules v2 and the canonical evaluation corpus that consumers pin.
-Contract version 1.1.0 covers config version 2 and corpus version 1.0.0.
+Contract version 1.2.0 covers config version 2 and corpus version 1.1.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -63,8 +63,8 @@ It does not install the contract as wheel package data; consumers should pin the
 ## Component versions
 
 Each artifact carries its own component version in manifest.json.
-The config schema and literal registry stay at 1.0.0 because contract 1.1.0 does not change accepted configs or frozen literals.
-The corpus files and their companion schemas are corpus version 1.0.0.
+The config schema and literal registry stay at 1.0.0 because contract 1.2.0 does not change accepted configs or frozen literals.
+The corpus files and their companion schemas are corpus version 1.1.0.
 
 ## Corpus rules
 
@@ -82,6 +82,27 @@ Additive cases may join a new minor corpus version; a changed expectation is a m
 Hash arithmetic is defined in corpus/hash_sha1_60_v1.json.
 The contract value of hash01 converts both the 60-bit integer and the scale to binary64 before one division.
 Thresholds are rollout_percentage / 100 computed in binary64, and variant boundaries accumulate left to right in binary64 in stored order.
+
+## Empty identifiers in the frozen version 1 arm
+
+The Rust `/flags` service is the server-side version 1 reference; there is no remaining Python server-side v1 evaluator.
+The frozen arm pins its behavior as verified on 2026-09-10 at [PostHog/posthog f57417de1c412fe55187540f392def4e2aef48b3](https://github.com/PostHog/posthog/blob/f57417de1c412fe55187540f392def4e2aef48b3/rust/feature-flags/src/flags/flag_matching.rs#L2160).
+A deliberate change to that behavior requires a new corpus version.
+
+Version 1 accepts an empty `distinct_id`; a missing field is invalid.
+Its rollout and variant hash accessor returns 0.0 without calling SHA-1 for the empty identifier.
+The inclusive rollout comparison therefore matches even at 0 percent, and a 50/50 variant split selects the first stored variant.
+Holdouts do call SHA-1: the empty identifier hashes `holdout-` to 0.9268829483920294, outside a 92 percent holdout and inside a 93 percent holdout.
+Version 2 never enters rollout, holdout, or variant assignment with an empty identifier.
+
+`hash_evidence` always records SHA-1 arithmetic.
+For the empty-identifier rollout and variant cases it shows the counterfactual arithmetic result; `expected` records the reference's 0.0-path outcome, and each note explains the difference.
+For holdouts the recorded arithmetic is the hash the reference actually uses.
+
+`local_evaluation` describes the local evaluator contract: `conclusive` requires the expected value, `inconclusive` requires fallback without a local value, and `remote_only` pins reference behavior that local evaluators do not yet implement; an evaluator implementing it must match.
+The empty-identifier cases are `remote_only` because [posthog-python a1002c577e7c69e3f321f8f0832ee037316135a3](https://github.com/PostHog/posthog-python/blob/a1002c577e7c69e3f321f8f0832ee037316135a3/posthog/feature_flags.py#L116) hashes the prefix (plus the variant salt) locally and ignores holdouts.
+Its public local-only flag API returns false at 0 and 62 percent, test for the stored control/test 50/50 split, and true for both holdout fixtures.
+These are known SDK divergences, not inconclusive results or evidence of automatic fallback; the 92 percent holdout result happens to agree.
 
 ## Version and integrity policy
 
