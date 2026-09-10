@@ -546,216 +546,68 @@
       ]
     },
     "booleanRuleValues": {
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "targeted_release",
-                  "percentage_rollout"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
+      "properties": {
+        "value": {
+          "type": "boolean"
+        },
+        "variants": {
+          "items": {
             "properties": {
               "value": {
                 "type": "boolean"
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "experiment"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
-            "properties": {
-              "variants": {
-                "items": {
-                  "properties": {
-                    "value": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
-      ]
+      }
     },
     "stringRuleValues": {
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "targeted_release",
-                  "percentage_rollout"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "variants": {
+          "items": {
             "properties": {
               "value": {
                 "$ref": "#/$defs/stringValue"
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "experiment"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
-            "properties": {
-              "variants": {
-                "items": {
-                  "properties": {
-                    "value": {
-                      "$ref": "#/$defs/stringValue"
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
-      ]
+      }
     },
     "numberRuleValues": {
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "targeted_release",
-                  "percentage_rollout"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/safeNumber"
+        },
+        "variants": {
+          "items": {
             "properties": {
               "value": {
                 "$ref": "#/$defs/safeNumber"
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "experiment"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
-            "properties": {
-              "variants": {
-                "items": {
-                  "properties": {
-                    "value": {
-                      "$ref": "#/$defs/safeNumber"
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
-      ]
+      }
     },
     "objectRuleValues": {
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "targeted_release",
-                  "percentage_rollout"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/jsonObjectValue"
+        },
+        "variants": {
+          "items": {
             "properties": {
               "value": {
                 "$ref": "#/$defs/jsonObjectValue"
               }
             }
           }
-        },
-        {
-          "if": {
-            "properties": {
-              "rule_type": {
-                "enum": [
-                  "experiment"
-                ]
-              }
-            },
-            "required": [
-              "rule_type"
-            ]
-          },
-          "then": {
-            "properties": {
-              "variants": {
-                "items": {
-                  "properties": {
-                    "value": {
-                      "$ref": "#/$defs/jsonObjectValue"
-                    }
-                  }
-                }
-              }
-            }
-          }
         }
-      ]
+      }
     }
   }
 }

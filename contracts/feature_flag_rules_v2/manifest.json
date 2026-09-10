@@ -183,6 +183,16 @@
       }
     },
     {
+      "path": "fixtures/config/invalid/variant_value_type_mismatch.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.variant_value_type_mismatch",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "type",
+        "instance_path": "/rules/0/variants/0/value"
+      }
+    },
+    {
       "path": "fixtures/config/invalid/null_experiment_id.json",
       "kind": "fixture",
       "fixture_id": "config.invalid.null_experiment_id",
