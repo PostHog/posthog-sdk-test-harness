@@ -67,7 +67,6 @@ def _property_literals(schema: dict[str, Any], name: str) -> set[Any]:
             continue
         if "const" in property_schema:
             literals.add(property_schema["const"])
-        literals.update(property_schema.get("enum", []))
         for child in _walk_json(property_schema):
             if isinstance(child, dict):
                 literals.update(child.get("enum", []))
@@ -75,6 +74,7 @@ def _property_literals(schema: dict[str, Any], name: str) -> set[Any]:
 
 
 def _schema_fields(value: Any) -> set[str]:
+    """Collect field names without mistaking targeting.properties for a schema properties block."""
     fields: set[str] = set()
     if isinstance(value, dict):
         properties = value.get("properties")
@@ -121,6 +121,12 @@ def test_schema_is_valid_draft_2020_12_and_has_no_wire_defaults() -> None:
     schema = _load_json(SCHEMA_PATH)
 
     assert schema["$schema"] == manifest["schema_dialect"]
+    assert schema["$id"] == f"urn:posthog:feature-flag-rules-v2:config:{manifest['contract']['version']}"
+    assert all(
+        artifact["version"] == manifest["contract"]["version"]
+        for artifact in manifest["artifacts"]
+        if "version" in artifact
+    )
     Draft202012Validator.check_schema(schema)
     assert all("default" not in node for node in _walk_json(schema) if isinstance(node, dict))
 
@@ -235,3 +241,32 @@ def test_checksum_index_is_complete_and_valid() -> None:
     for relative_path, expected_digest in entries.items():
         actual_digest = hashlib.sha256((CONTRACT_ROOT / relative_path).read_bytes()).hexdigest()
         assert actual_digest == expected_digest, relative_path
+
+
+@pytest.mark.parametrize("depth, valid", [(20, True), (21, False), (150, False)])
+@pytest.mark.parametrize("container", ["object", "array", "mixed"])
+@pytest.mark.parametrize("location", ["default", "rule", "variant"])
+def test_object_value_depth_limit(depth: int, valid: bool, container: str, location: str) -> None:
+    """Bound nesting at every value location, including inputs that previously exhausted recursion."""
+    value: Any = False
+    for level in range(depth, 1, -1):
+        if container == "object" or (container == "mixed" and level % 2 == 0):
+            value = {"child": value}
+        else:
+            value = [value]
+    value = {"child": value}
+
+    config = _load_json(CONTRACT_ROOT / "fixtures/config/valid/reserved_object_value.json")
+    if location == "default":
+        config["default_value"] = value
+    elif location == "rule":
+        config["rules"][0]["value"] = value
+    else:
+        boolean_config = _load_json(CONTRACT_ROOT / "fixtures/config/valid/boolean_all_rule_types.json")
+        rule = next(rule for rule in boolean_config["rules"] if rule["rule_type"] == "experiment")
+        rule["variants"][0]["value"] = value
+        rule["variants"][1]["value"] = {}
+        config["rules"] = [rule]
+
+    validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
+    assert validator.is_valid(config) is valid
