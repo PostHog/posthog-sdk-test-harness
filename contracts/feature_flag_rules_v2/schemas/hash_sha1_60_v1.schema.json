@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:posthog:feature-flag-rules-v2:corpus:hash_sha1_60_v1:1.0.0",
+  "$id": "urn:posthog:feature-flag-rules-v2:corpus:hash_sha1_60_v1:1.1.0",
   "title": "sha1_60_v1 hash corpus",
   "description": "Companion schema for corpus/hash_sha1_60_v1.json.",
   "type": "object",

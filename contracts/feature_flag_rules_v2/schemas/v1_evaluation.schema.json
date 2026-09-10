@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:posthog:feature-flag-rules-v2:corpus:v1_evaluation:1.0.0",
+  "$id": "urn:posthog:feature-flag-rules-v2:corpus:v1_evaluation:1.1.0",
   "title": "Version 1 evaluation corpus",
   "description": "Companion schema for corpus/v1_evaluation.json. The flag shape is the fixture input shape, not a definitions feed contract.",
   "type": "object",
@@ -309,7 +309,7 @@
       "properties": {
         "distinct_id": {
           "type": "string",
-          "minLength": 1
+          "description": "Version 1 accepts an empty string; a missing distinct_id remains invalid."
         },
         "person_properties": {
           "$ref": "#/$defs/propertyMap"
