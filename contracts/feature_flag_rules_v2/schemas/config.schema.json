@@ -157,6 +157,26 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "aggregation_group_type_index"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rules": {
+            "items": {
+              "not": {
+                "required": [
+                  "assign_by"
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {

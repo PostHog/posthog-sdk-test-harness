@@ -20,6 +20,9 @@ On abnormal execution, OpenFeature returns the caller default regardless of the 
 Each variants[].weight is a percentage of subjects enrolled by the rule, and the weights sum to exactly 100.
 The separate rollout_percentage controls enrollment into the rule.
 
+Person flags may explicitly set assign_by to person or omit it.
+Group flags declare aggregation_group_type_index (including index 0) and must omit assign_by on every rule; the schema enforces this so assignment uses the flag aggregation key.
+
 Experiment rules require an integer experiment_id linking an Experiment row.
 An experiment_id of null is invalid in this contract.
 Non-experiment variant splits are reserved for a possible future extension; their evaluation reason and exposure semantics are not defined here.

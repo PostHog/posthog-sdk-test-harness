@@ -268,6 +268,32 @@
         "keyword": "maxLength",
         "instance_path": "/rules/0/seed"
       }
+    },
+    {
+      "path": "fixtures/config/invalid/group_percentage_rollout_with_assign_by.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.group_percentage_rollout_with_assign_by",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "not",
+        "instance_path": "/rules/0"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/group_experiment_with_assign_by.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.group_experiment_with_assign_by",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "not",
+        "instance_path": "/rules/0"
+      }
+    },
+    {
+      "path": "fixtures/config/valid/group_all_rule_types.json",
+      "kind": "fixture",
+      "fixture_id": "config.valid.group_all_rule_types",
+      "expected": "valid"
     }
   ]
 }

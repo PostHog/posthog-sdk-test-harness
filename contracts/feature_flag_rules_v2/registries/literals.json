@@ -290,7 +290,7 @@
     {
       "id": "assignment_target_context",
       "scope": "randomized rules",
-      "requirement": "Explicit person assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_by."
+      "requirement": "Explicit person assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_by. The config schema enforces omission of assign_by whenever aggregation_group_type_index is present, including index 0."
     },
     {
       "id": "contextual_size_limits",
