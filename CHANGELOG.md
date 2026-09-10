@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.4.0 — 2026-09-10
+
+### Minor changes
+
+- [3de40b7](https://github.com/posthog/posthog-sdk-test-harness/commit/3de40b77efbe978057ea1d16a519b72cf6ec8e16) Publish Feature Flag Rules v2 contract 1.2.0 and corpus 1.1.0 with fixtures pinning the Rust version 1 reference's empty-identifier rollout, variant, and holdout behavior. Correct the hash/parity documentation and record the Python local-evaluation divergence. — Thanks @andehen!
+
 ## 1.3.0 — 2026-09-10
 
 ### Minor changes
