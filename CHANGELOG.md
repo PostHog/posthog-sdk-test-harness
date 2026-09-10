@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.3.0 — 2026-09-10
+
+### Minor changes
+
+- [89f5b4e](https://github.com/posthog/posthog-sdk-test-harness/commit/89f5b4e42e0d23104a5c65557ea8d3083f00856d) Add the Feature Flag Rules v2 corpus with version 1 evaluation fixtures, sha1_60_v1 hash vectors, legacy projection fixtures, and companion schemas. — Thanks @andehen!
+
 ## 1.2.0 — 2026-09-10
 
 ### Minor changes
