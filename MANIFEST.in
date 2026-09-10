@@ -1,0 +1,1 @@
+recursive-include contracts/feature_flag_rules_v2 *.json README.md SHA256SUMS

@@ -250,6 +250,7 @@ test-harness-version: "1.0"  # Recommended: pin to major.minor
 - [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) - Complete guide to implementing adapters
 - [EXTENDING.md](EXTENDING.md) - How to add new tests and actions
 - [CONTRACT.yaml](CONTRACT.yaml) - Main contract (references modular contracts)
+- [Feature Flag Rules v2](contracts/feature_flag_rules_v2/README.md) - Versioned configuration schema and fixtures
 - [contracts/](contracts/) - Modular contract definitions:
   - `adapter_actions.yaml` - Actions that call the adapter
   - `test_actions.yaml` - Test harness actions (assertions, etc.)
