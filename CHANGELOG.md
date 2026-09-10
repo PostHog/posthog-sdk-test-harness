@@ -1,5 +1,23 @@
 # posthog-sdk-test-harness
 
+## 1.2.0 — 2026-09-10
+
+### Minor changes
+
+- [bcaa923](https://github.com/posthog/posthog-sdk-test-harness/commit/bcaa9236c0743eb18cbd96b5b6a0c9d970330613) Add the versioned Feature Flag Rules v2 configuration contract, validation fixtures, and OpenFeature reason mapping. — Thanks @andehen!
+
+## 1.1.1 — 2026-09-09
+
+### Patch changes
+
+- [4274d8a](https://github.com/posthog/posthog-sdk-test-harness/commit/4274d8a5deb59800f31d2dd36397836713c6f5f3) Fix the AI capture routing test to accept either normal capture endpoint, including for adapters advertising both capture protocols, while still rejecting AI and unrelated endpoints. — Thanks @marandaneto!
+
+## 1.1.0 — 2026-09-07
+
+### Minor changes
+
+- [3030099](https://github.com/posthog/posthog-sdk-test-harness/commit/303009996449089ec1d1ed99482263bc99d47538) Add opt-in `feature_flags_local_evaluation_v1` adapter controls and capability-gated tests for legacy and version-2 boolean matching, including version-only reloads, groups, and recursive cohorts. Serve isolated authenticated definitions GET mocks without affecting capture/remote accounting. Existing adapters and remote fixtures remain unchanged unless explicitly opted in. — Thanks @marandaneto!
+
 ## 1.0.0 — 2026-08-14
 
 ### Major changes

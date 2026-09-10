@@ -28,6 +28,20 @@
                 {"results": {"<uuid>": {"result": "...", "details": "..."}}}.
                 Retry-After header is auto-added when any result is "retry".
 
+  configure_local_evaluation_definitions:
+    description: Replace the isolated definitions GET envelope, separately from capture and remote response queues
+    params:
+      definitions:
+        type: object
+        required: true
+        description: Complete snapshot (flags, cohorts, group_type_mapping, optional property_matching_version)
+      api_key:
+        type: string
+        default: phc_test_key
+      personal_api_key:
+        type: string
+        default: phx_test_key
+
   # Timing actions
   wait:
     description: Wait for a specified duration
@@ -254,12 +268,14 @@
 
   # V1 Path Assertions
   assert_request_path:
-    description: Assert all requests hit a specific path
+    description: Assert every request hits one of the explicitly allowed paths
     params:
       expected:
-        type: string
+        type: [string, array]
+        items:
+          type: string
         required: true
-        description: Expected request path (e.g. /i/v1/analytics/events)
+        description: Expected request path or list of allowed paths. Trailing slashes are ignored.
 
   assert_no_requests_to_paths:
     description: Assert no requests were made to any of the listed paths

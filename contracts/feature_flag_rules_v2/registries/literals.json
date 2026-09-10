@@ -151,7 +151,7 @@
       "rollout_miss": {
         "reason": "DEFAULT",
         "error_code": null,
-        "note": "A terminal rollout miss under return_default. Value is default_value, or the caller default when null. A continuing miss contributes no context to the final result."
+        "note": "A terminal rollout miss under return_default. Value is default_value, or the caller default when null. A continuing miss moves evaluation to the next rule and contributes neither a reason code nor metadata from the missed rule (including rule_id and condition_index) to the final result. The final result uses the terminating rule's reason and metadata, or no_rule_match if no rule terminates."
       },
       "experiment_paused": {
         "reason": "DEFAULT",
@@ -255,17 +255,17 @@
     {
       "id": "rule_ids_unique",
       "scope": "rules",
-      "requirement": "Each rule id is unique in one config."
+      "requirement": "Each rule id is unique in one config. For example, two rules in one config with id aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa are invalid even if their rule_type differs; the same id may appear in separate configs."
     },
     {
       "id": "variant_keys_unique",
       "scope": "rules[].variants",
-      "requirement": "Each variant key is unique in one variant list."
+      "requirement": "Each variant key is unique in one variant list. For example, [control, test] is valid and [control, control] is invalid within one rule. Separate rules may each use control and test."
     },
     {
       "id": "variant_weights_sum_100",
       "scope": "rules[].variants",
-      "requirement": "Each variant weight is a percentage of subjects enrolled by the rule. Weights sum to exactly 100 in stored order; rollout_percentage separately controls enrollment into the rule."
+      "requirement": "Each variant weight is a percentage of subjects enrolled by the rule. Weights sum to exactly 100 in stored order; rollout_percentage separately controls enrollment into the rule. For example, [33.33, 33.33, 33.34] is valid, while [33.33, 33.33, 33.33] totals 99.99 and is invalid. Validate the stored decimal percentages exactly (for example, as integer hundredths totaling 10000); do not round an invalid sum to 100. This validation is separate from binary64 accumulation during assignment."
     },
     {
       "id": "percentage_two_decimals",
@@ -285,12 +285,12 @@
     {
       "id": "json_depth_limit",
       "scope": "all object values",
-      "requirement": "JSON values contain at most 20 nested levels."
+      "requirement": "Object values contain at most 20 object/array levels, counting the root object as level 1. Scalar leaves do not add a level. The config schema enforces this bound with numbered definitions."
     },
     {
       "id": "assignment_target_context",
       "scope": "randomized rules",
-      "requirement": "Explicit person assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_by."
+      "requirement": "Explicit person assignment is valid only for person flags. Group flags use the flag aggregation key and omit assign_by. The config schema enforces omission of assign_by whenever aggregation_group_type_index is present, including index 0."
     },
     {
       "id": "contextual_size_limits",

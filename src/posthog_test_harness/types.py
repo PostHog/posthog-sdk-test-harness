@@ -16,6 +16,7 @@ class InitRequest:
     enable_compression: Optional[bool] = None
     disable_geoip: Optional[bool] = None
     historical_migration: Optional[bool] = None
+    personal_api_key: Optional[str] = None
 
 
 @dataclass
@@ -45,6 +46,11 @@ class FeatureFlagRequest:
     group_properties: Optional[Dict[str, Any]] = None
     disable_geoip: Optional[bool] = None
     force_remote: Optional[bool] = None
+    only_evaluate_locally: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.only_evaluate_locally and self.force_remote:
+            raise ValueError("only_evaluate_locally and force_remote cannot both be true")
 
 
 @dataclass

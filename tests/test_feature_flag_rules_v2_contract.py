@@ -67,7 +67,6 @@ def _property_literals(schema: dict[str, Any], name: str) -> set[Any]:
             continue
         if "const" in property_schema:
             literals.add(property_schema["const"])
-        literals.update(property_schema.get("enum", []))
         for child in _walk_json(property_schema):
             if isinstance(child, dict):
                 literals.update(child.get("enum", []))
@@ -75,6 +74,7 @@ def _property_literals(schema: dict[str, Any], name: str) -> set[Any]:
 
 
 def _schema_fields(value: Any) -> set[str]:
+    """Collect field names without mistaking targeting.properties for a schema properties block."""
     fields: set[str] = set()
     if isinstance(value, dict):
         properties = value.get("properties")
@@ -121,6 +121,9 @@ def test_schema_is_valid_draft_2020_12_and_has_no_wire_defaults() -> None:
     schema = _load_json(SCHEMA_PATH)
 
     assert schema["$schema"] == manifest["schema_dialect"]
+    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
+    schema_version = component_versions["schemas/config.schema.json"]
+    assert schema["$id"] == f"urn:posthog:feature-flag-rules-v2:config:{schema_version}"
     Draft202012Validator.check_schema(schema)
     assert all("default" not in node for node in _walk_json(schema) if isinstance(node, dict))
 
@@ -143,7 +146,6 @@ def test_literal_registry_matches_config_schema() -> None:
 
     component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
     assert registry["registry_version"] == component_versions["registries/literals.json"]
-    assert schema["$id"].endswith(":" + component_versions["schemas/config.schema.json"])
     assert registry["config_versions"]["v2"] == manifest["contract"]["config_version"]
     assert _property_literals(schema, "version") == {registry["config_versions"]["v2"]}
     assert _property_literals(schema, "rule_type") == {
@@ -180,37 +182,41 @@ def test_openfeature_mapping_covers_every_reason_code() -> None:
         assert (entry["reason"] == "ERROR") == (entry["error_code"] is not None), entry
 
 
-def test_valid_config_fixtures_match_the_schema() -> None:
+@pytest.mark.parametrize(
+    "fixture",
+    [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "valid"],
+    ids=lambda fixture: fixture["fixture_id"],
+)
+def test_valid_config_fixtures_match_the_schema(fixture: dict[str, Any]) -> None:
     validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
-    valid_fixtures = [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "valid"]
-
-    for fixture in valid_fixtures:
-        errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
-        assert not errors, f"{fixture['fixture_id']}: {errors}"
+    errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
+    assert not errors, f"{fixture['fixture_id']}: {errors}"
 
 
-def test_invalid_config_fixtures_fail_for_the_declared_reason() -> None:
+@pytest.mark.parametrize(
+    "fixture",
+    [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "invalid"],
+    ids=lambda fixture: fixture["fixture_id"],
+)
+def test_invalid_config_fixtures_fail_for_the_declared_reason(fixture: dict[str, Any]) -> None:
     validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
-    invalid_fixtures = [entry for entry in _fixture_entries(_manifest()) if entry["expected"] == "invalid"]
+    errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
+    assert errors, f"{fixture['fixture_id']} unexpectedly passed"
 
-    for fixture in invalid_fixtures:
-        errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / fixture["path"])))
-        assert errors, f"{fixture['fixture_id']} unexpectedly passed"
-
-        expected = fixture["expected_failure"]
-        flattened_errors = [nested for error in errors for nested in _all_errors(error)]
-        matches = [
-            error
-            for error in flattened_errors
-            if error.validator == expected["keyword"]
-            and _json_pointer(error.absolute_path) == expected["instance_path"]
-            and expected.get("message_contains", "") in error.message
-        ]
-        assert matches, (
-            f"{fixture['fixture_id']} did not fail as declared. "
-            f"Actual errors: "
-            f"{[(error.validator, _json_pointer(error.absolute_path), error.message) for error in flattened_errors]}"
-        )
+    expected = fixture["expected_failure"]
+    flattened_errors = [nested for error in errors for nested in _all_errors(error)]
+    matches = [
+        error
+        for error in flattened_errors
+        if error.validator == expected["keyword"]
+        and _json_pointer(error.absolute_path) == expected["instance_path"]
+        and expected.get("message_contains", "") in error.message
+    ]
+    assert matches, (
+        f"{fixture['fixture_id']} did not fail as declared. "
+        f"Actual errors: "
+        f"{[(error.validator, _json_pointer(error.absolute_path), error.message) for error in flattened_errors]}"
+    )
 
 
 def test_checksum_index_is_complete_and_valid() -> None:
@@ -233,3 +239,32 @@ def test_checksum_index_is_complete_and_valid() -> None:
     for relative_path, expected_digest in entries.items():
         actual_digest = hashlib.sha256((CONTRACT_ROOT / relative_path).read_bytes()).hexdigest()
         assert actual_digest == expected_digest, relative_path
+
+
+@pytest.mark.parametrize("depth, valid", [(20, True), (21, False), (150, False)])
+@pytest.mark.parametrize("container", ["object", "array", "mixed"])
+@pytest.mark.parametrize("location", ["default", "rule", "variant"])
+def test_object_value_depth_limit(depth: int, valid: bool, container: str, location: str) -> None:
+    """Bound nesting at every value location, including inputs that previously exhausted recursion."""
+    value: Any = False
+    for level in range(depth, 1, -1):
+        if container == "object" or (container == "mixed" and level % 2 == 0):
+            value = {"child": value}
+        else:
+            value = [value]
+    value = {"child": value}
+
+    config = _load_json(CONTRACT_ROOT / "fixtures/config/valid/reserved_object_value.json")
+    if location == "default":
+        config["default_value"] = value
+    elif location == "rule":
+        config["rules"][0]["value"] = value
+    else:
+        boolean_config = _load_json(CONTRACT_ROOT / "fixtures/config/valid/boolean_all_rule_types.json")
+        rule = next(rule for rule in boolean_config["rules"] if rule["rule_type"] == "experiment")
+        rule["variants"][0]["value"] = value
+        rule["variants"][1]["value"] = {}
+        config["rules"] = [rule]
+
+    validator = Draft202012Validator(_load_json(SCHEMA_PATH), format_checker=FormatChecker())
+    assert validator.is_valid(config) is valid

@@ -1,0 +1,1974 @@
+# Source: sdk-specs local-feature-flag-evaluator and flag-definition-loader.
+# Shared YAML anchors keep identical flag definitions across version-only reloads.
+description: 'Opt-in local rules: protocol v1 covers matching versions missing/1 and 2, not remote flag values.'
+requires: feature_flags_local_evaluation_v1
+categories:
+  versioned_boolean_matching:
+    tests:
+    - name: matching_version_missing
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: &id017
+            - id: 1
+              name: false_banana_exact
+              key: false_banana_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 2
+              name: false_banana_is_not
+              key: false_banana_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 3
+              name: false_zero_exact
+              key: false_zero_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 4
+              name: false_zero_is_not
+              key: false_zero_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 5
+              name: boolean_array_true_exact
+              key: boolean_array_true_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id001
+                    - 'true'
+                    - 'false'
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 6
+              name: boolean_array_true_is_not
+              key: boolean_array_true_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id001
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 7
+              name: boolean_array_pro_exact
+              key: boolean_array_pro_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id002
+                    - 'true'
+                    - 'false'
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 8
+              name: boolean_array_pro_is_not
+              key: boolean_array_pro_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id002
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 9
+              name: empty_true_exact
+              key: empty_true_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id003 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 10
+              name: empty_true_is_not
+              key: empty_true_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id003
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 11
+              name: empty_array_exact
+              key: empty_array_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id004 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 12
+              name: empty_array_is_not
+              key: empty_array_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id004
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 13
+              name: true_property_array_exact
+              key: true_property_array_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: true
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 14
+              name: true_property_array_is_not
+              key: true_property_array_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: true
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 15
+              name: false_uppercase_exact
+              key: false_uppercase_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 16
+              name: false_uppercase_is_not
+              key: false_uppercase_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 17
+              name: false_null_exact
+              key: false_null_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 18
+              name: false_null_is_not
+              key: false_null_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 19
+              name: empty_nested_truthy_exact
+              key: empty_nested_truthy_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id005 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 20
+              name: empty_nested_truthy_is_not
+              key: empty_nested_truthy_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id005
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 21
+              name: empty_nested_false_exact
+              key: empty_nested_false_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id006 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 22
+              name: empty_nested_false_is_not
+              key: empty_nested_false_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id006
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 23
+              name: empty_false_exact
+              key: empty_false_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id007 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 24
+              name: empty_false_is_not
+              key: empty_false_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id007
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 25
+              name: empty_zero_exact
+              key: empty_zero_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id008 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 26
+              name: empty_zero_is_not
+              key: empty_zero_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id008
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 27
+              name: empty_banana_exact
+              key: empty_banana_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id009 []
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 28
+              name: empty_banana_is_not
+              key: empty_banana_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id009
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 29
+              name: mixed_members_exact
+              key: mixed_members_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id010
+                    - false
+                    - PRO
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 30
+              name: mixed_members_is_not
+              key: mixed_members_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id010
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 31
+              name: string_normalization_exact
+              key: string_normalization_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id011
+                    - FREE
+                    - PRO
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 32
+              name: string_normalization_is_not
+              key: string_normalization_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id011
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 33
+              name: member_boolean_exact
+              key: member_boolean_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: &id012
+                    - TrUe
+                    - 'FALSE'
+                    operator: exact
+                    type: person
+                  rollout_percentage: 100
+            - id: 34
+              name: member_boolean_is_not
+              key: member_boolean_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: *id012
+                    operator: is_not
+                    type: person
+                  rollout_percentage: 100
+            - id: 35
+              name: group_exact
+              key: group_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: exact
+                    type: group
+                  rollout_percentage: 100
+                aggregation_group_type_index: 0
+            - id: 36
+              name: cohort_exact
+              key: cohort_exact
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: id
+                    value: 1
+                    type: cohort
+                  rollout_percentage: 100
+            - id: 37
+              name: group_is_not
+              key: group_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: value
+                    value: false
+                    operator: is_not
+                    type: group
+                  rollout_percentage: 100
+                aggregation_group_type_index: 0
+            - id: 38
+              name: cohort_is_not
+              key: cohort_is_not
+              active: true
+              version: 2
+              filters:
+                groups:
+                - properties:
+                  - key: id
+                    value: 3
+                    type: cohort
+                  rollout_percentage: 100
+            group_type_mapping:
+              '0': company
+            cohorts: &id018
+              '1':
+                type: AND
+                values:
+                - key: id
+                  value: 2
+                  type: cohort
+              '2':
+                type: OR
+                values:
+                - key: value
+                  value: false
+                  operator: exact
+                  type: person
+              '3':
+                type: AND
+                values:
+                - key: id
+                  value: 4
+                  type: cohort
+              '4':
+                type: OR
+                values:
+                - key: value
+                  value: false
+                  operator: is_not
+                  type: person
+      - &id019
+        action: init
+        params:
+          personal_api_key: phx_test_key
+      - &id020
+        action: reload_feature_flag_definitions
+        params:
+          timeout_ms: 5000
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: &id013 []
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id013
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: true_property_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: &id014
+            - true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: true_property_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id014
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_null_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_null_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: &id015
+            - true
+            - - 'TRUE'
+              - []
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id015
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: &id016
+            - true
+            - - false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id016
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: string_normalization_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: string_normalization_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: member_boolean_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: member_boolean_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: group_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: group_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: cohort_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: cohort_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - &id021
+        action: assert_flags_request_count
+        params:
+          expected: 0
+      - &id022
+        action: assert_no_requests_to_paths
+        params:
+          paths:
+          - /flags
+          - /flags/
+    - name: matching_version_1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 1
+      - *id019
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id013
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id013
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: true_property_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id014
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: true_property_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id014
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_null_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_null_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id015
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id015
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id016
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id016
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: string_normalization_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: string_normalization_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: member_boolean_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: member_boolean_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: group_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: group_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: cohort_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: cohort_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - *id021
+      - *id022
+    - name: matching_version_2
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 2
+      - *id019
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: boolean_array_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'true'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: boolean_array_pro_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_true_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_true_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id013
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id013
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: true_property_array_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id014
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: true_property_array_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id014
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: false_uppercase_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 'FALSE'
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_null_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: false_null_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: null
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id015
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_nested_truthy_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id015
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id016
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_nested_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: *id016
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_false_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_false_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: false
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_zero_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_zero_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: 0
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: empty_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: empty_banana_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: mixed_members_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: string_normalization_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: string_normalization_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: pro
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: member_boolean_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: member_boolean_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: true
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: group_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: group_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          groups:
+            company: acme
+          group_properties:
+            company:
+              value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: cohort_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: cohort_is_not
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - *id021
+      - *id022
+    - name: version_only_reload_1_2_1_2_missing
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 1
+      - *id019
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 2
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 1
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+            property_matching_version: 2
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: *id017
+            group_type_mapping:
+              '0': company
+            cohorts: *id018
+      - *id020
+      - action: get_feature_flag
+        params:
+          key: false_banana_exact
+          distinct_id: local-user
+          only_evaluate_locally: true
+          person_properties:
+            value: banana
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - *id021
+      - *id022

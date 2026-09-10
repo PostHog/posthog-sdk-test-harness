@@ -20,8 +20,15 @@ On abnormal execution, OpenFeature returns the caller default regardless of the 
 Each variants[].weight is a percentage of subjects enrolled by the rule, and the weights sum to exactly 100.
 The separate rollout_percentage controls enrollment into the rule.
 
+Person flags may explicitly set assign_by to person or omit it.
+Group flags declare aggregation_group_type_index (including index 0) and must omit assign_by on every rule; the schema enforces this so assignment uses the flag aggregation key.
+
+Experiment rules require an integer experiment_id linking an Experiment row.
+An experiment_id of null is invalid in this contract.
+Non-experiment variant splits are reserved for a possible future extension; their evaluation reason and exposure semantics are not defined here.
+
 rollout_miss means a terminal miss under on_rollout_miss: return_default.
-A continuing miss contributes no context to the final result.
+A continuing miss moves evaluation to the next rule and contributes neither a reason code nor metadata from the missed rule (including rule_id and condition_index) to the final result. The final result uses the terminating rule's reason and metadata, or no_rule_match if no rule terminates.
 no_rule_match means no rule produced a terminal result, including when targeting matched but rollout missed with continue.
 dependency_error covers unknown, cyclic, and otherwise unresolvable dependencies.
 
@@ -43,8 +50,15 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - manifest.json assigns stable fixture and case IDs and declares the compatibility policy.
 - SHA256SUMS records the SHA-256 digest for each package file except itself.
 
-JSON Schema enforces all constraints that the standard can express.
-The registry identifies constraints that need a semantic or parser-level validator.
+Objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
+The marker documents this choice for the contract tests; additionalProperties defines how those keys are validated.
+
+JSON Schema enforces all constraints that the standard can express, including the 20-level object-value depth limit.
+Depth counts object and array containers, with the returned object at level 1; scalar leaves add no level.
+The registry also identifies constraints that need a semantic or parser-level validator, such as unique rule IDs and variant keys, and exact variant weight totals.
+
+Docker releases include contracts/ directly. MANIFEST.in also includes this contract in Python source distributions for source-artifact verification.
+It does not install the contract as wheel package data; consumers should pin the repository files or use the source distribution or Docker image.
 
 ## Component versions
 
@@ -81,3 +95,11 @@ Entries use bytewise path order.
 
 To pin this contract, record the source revision, the contract version, the corpus version, and the SHA-256 digest of SHA256SUMS.
 Verify each file against SHA256SUMS before use.
+
+After editing contract files and updating manifest.json, regenerate the checksum index from any working directory:
+
+```sh
+python3 <repo>/bin/update-feature-flag-rules-v2-checksums.py
+```
+
+Run `python -m pytest tests/test_feature_flag_rules_v2_contract.py tests/test_feature_flag_rules_v2_corpus.py` from the repository root to verify the manifest, fixtures, corpus, and checksums.
