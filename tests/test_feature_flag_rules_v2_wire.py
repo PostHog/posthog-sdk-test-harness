@@ -254,7 +254,7 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "1.3.0"
+    assert MANIFEST["contract"]["version"] == "2.0.0"
     assert MANIFEST["corpus"]["version"] == "1.1.0"
     assert MANIFEST["wire_contract"]["version"] == "1.0.0"
 
@@ -287,17 +287,18 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
 
 
 def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
+    # Registry 2.0.0 drops four warning codes from published 1.0.0; the other components keep their published bytes.
     frozen = {
-        "schemas/config.schema.json": "74e43ed13dbfd578bcb8eedc5a247917788b320829b888eab84ce1126841d63b",
-        "registries/literals.json": "aef3dd6aaca0a6ba2535f3781d569bd159a39ee988be1f1379671f80fbf10ea6",
-        "corpus/hash_sha1_60_v1.json": "e9bea9cff58bac0c6c1021e9c8842c53594055b6874a2c58bc4350d0c28a93ca",
-        "corpus/v1_evaluation.json": "752ff88dcb943ab1e21f9552b0c4ec606029393fca2b565b01a497da89cd8675",
-        "corpus/legacy_projection.json": "536c8386eefa75721d113bd8718ddeb7fb1aad3b4f2cce1fbcf516a346a16e26",
+        "schemas/config.schema.json": ("1.0.0", "74e43ed13dbfd578bcb8eedc5a247917788b320829b888eab84ce1126841d63b"),
+        "registries/literals.json": ("2.0.0", "afd25df141b5e05dfa5c8848e1685a4e8b81f3c80fbafc4769c944b815356069"),
+        "corpus/hash_sha1_60_v1.json": ("1.1.0", "e9bea9cff58bac0c6c1021e9c8842c53594055b6874a2c58bc4350d0c28a93ca"),
+        "corpus/v1_evaluation.json": ("1.1.0", "752ff88dcb943ab1e21f9552b0c4ec606029393fca2b565b01a497da89cd8675"),
+        "corpus/legacy_projection.json": ("1.1.0", "536c8386eefa75721d113bd8718ddeb7fb1aad3b4f2cce1fbcf516a346a16e26"),
     }
     versions = {a["path"]: a.get("version") for a in MANIFEST["artifacts"]}
-    for path, digest in frozen.items():
+    for path, (version, digest) in frozen.items():
         assert hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest() == digest, path
-        assert versions[path] == ("1.1.0" if path.startswith("corpus/") else "1.0.0"), path
+        assert versions[path] == version, path
     producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
     assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST
     assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST

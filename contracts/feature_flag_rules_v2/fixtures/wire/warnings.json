@@ -40,42 +40,10 @@
       "expected": "valid"
     },
     {
-      "id": "warnings.experiment_value_collision",
-      "template": "warning",
-      "set": {
-        "/code": "EXPERIMENT_VALUE_COLLISION"
-      },
-      "expected": "valid"
-    },
-    {
       "id": "warnings.conclusion_expands_population",
       "template": "warning",
       "set": {
         "/code": "CONCLUSION_EXPANDS_POPULATION"
-      },
-      "expected": "valid"
-    },
-    {
-      "id": "warnings.sdk_remote_fallback_required",
-      "template": "warning",
-      "set": {
-        "/code": "SDK_REMOTE_FALLBACK_REQUIRED"
-      },
-      "expected": "valid"
-    },
-    {
-      "id": "warnings.sdk_experiment_context_missing",
-      "template": "warning",
-      "set": {
-        "/code": "SDK_EXPERIMENT_CONTEXT_MISSING"
-      },
-      "expected": "valid"
-    },
-    {
-      "id": "warnings.legacy_projection_limited",
-      "template": "warning",
-      "set": {
-        "/code": "LEGACY_PROJECTION_LIMITED"
       },
       "expected": "valid"
     },

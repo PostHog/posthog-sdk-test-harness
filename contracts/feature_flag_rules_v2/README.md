@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
-Contract package 1.3.0 contains config schema 1.0.0, registry 1.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
+Contract package 2.0.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -63,7 +63,8 @@ It does not install the contract as wheel package data; consumers should pin the
 ## Component versions
 
 Each artifact carries its own component version in manifest.json.
-The config schema and literal registry stay at 1.0.0 because contract 1.3.0 does not change their published bytes, accepted configs or frozen literals.
+The config schema stays at 1.0.0 because contract 2.0.0 does not change its published bytes or accepted configs.
+The literal registry is 2.0.0: it removes the four unused management warning codes (`EXPERIMENT_VALUE_COLLISION`, `SDK_REMOTE_FALLBACK_REQUIRED`, `SDK_EXPERIMENT_CONTEXT_MISSING`, `LEGACY_PROJECTION_LIMITED`) from the `warning_codes` published in registry 1.0.0 (contract 1.2.0), which the compatibility policy classifies as a major change; the five remaining codes are unchanged.
 The corpus files and their companion schemas are corpus version 1.1.0.
 
 ## Corpus rules
@@ -133,7 +134,7 @@ Run `python -m pytest tests/test_feature_flag_rules_v2_contract.py tests/test_fe
 - `schemas/definitions_entry.schema.json` selects v1 for absent/1 `filters.version`, or references the frozen config schema for v2. The entry's row `version` is independent. Row `version` and `ensure_experience_continuity` retain their existing nullable types. Existing v1 filters are opaque in this schema; this package does not redefine legacy evaluation semantics.
 - `schemas/definitions_v2.schema.json` describes the mixed-version definitions feed, including its required cohort map and optional boolean `minimal_flag_called_events`. Unsupported config versions or v2 semantic fields require per-flag remote fallback in auto mode and an unsupported result in strict local mode.
 - `schemas/flags_response_v3.schema.json` is the exact producer schema. Its raw-byte digest is pinned in the manifest and tests. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects an `experiment_id` alongside `has_experiment: false` in any record; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
-- `schemas/management_warning.schema.json` describes a diagnostic with a required frozen warning code and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
+- `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
 - `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule/experiment attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 experiment-split tuple, SDK origin and `locally_evaluated`, and forbids holdout and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
 - `fixtures/wire/` contains producer fixtures, separate tolerant-reader expectations, and full-event transport examples. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes.
 
