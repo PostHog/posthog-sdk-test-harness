@@ -454,6 +454,14 @@
       }
     },
     {
+      "id": "responses.targeting_match_targeted_release_flag_with_experiment",
+      "template": "targeting_match_targeted_release",
+      "set": {
+        "/flags/garden-layout/metadata/has_experiment": true
+      },
+      "expected": "valid"
+    },
+    {
       "id": "responses.targeting_match_percentage_rollout",
       "template": "targeting_match_percentage_rollout",
       "expected": "valid"
@@ -681,6 +689,19 @@
         "layer": "schema",
         "keyword": "not",
         "instance_path": "/flags/garden-layout/metadata"
+      }
+    },
+    {
+      "id": "responses.experiment_split_contradicted_has_experiment",
+      "template": "experiment_split",
+      "set": {
+        "/flags/garden-layout/metadata/has_experiment": false
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "const",
+        "instance_path": "/flags/garden-layout/metadata/has_experiment"
       }
     },
     {

@@ -11,6 +11,22 @@
       "properties": {
         "flags": {
           "additionalProperties": {
+            "properties": {
+              "metadata": {
+                "if": {
+                  "required": [
+                    "experiment_id"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "has_experiment": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            },
             "if": {
               "properties": {
                 "metadata": {
@@ -624,18 +640,6 @@
                         "string",
                         "null"
                       ]
-                    }
-                  },
-                  "if": {
-                    "required": [
-                      "experiment_id"
-                    ]
-                  },
-                  "then": {
-                    "properties": {
-                      "has_experiment": {
-                        "const": true
-                      }
                     }
                   }
                 }
