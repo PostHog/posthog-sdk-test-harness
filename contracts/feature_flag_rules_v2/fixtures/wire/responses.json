@@ -448,9 +448,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -604,9 +604,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -762,9 +762,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -918,9 +918,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -1075,9 +1075,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -1232,9 +1232,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -1390,9 +1390,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "presence",
+        "layer": "schema",
         "keyword": "not",
-        "instance_path": "/flags/garden-layout"
+        "instance_path": "/flags/garden-layout/metadata"
       }
     },
     {
@@ -2590,6 +2590,73 @@
         }
       },
       "expected": "valid"
+    },
+    {
+      "id": "responses.v1_forbidden_rule_id",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/rule_id": "10000000-0000-4000-8000-000000000001"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "not",
+        "instance_path": "/flags/garden-layout/metadata"
+      }
+    },
+    {
+      "id": "responses.v1_forbidden_rule_type",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/rule_type": "targeted_release"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "not",
+        "instance_path": "/flags/garden-layout/metadata"
+      }
+    },
+    {
+      "id": "responses.v1_forbidden_holdout_id",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "not",
+        "instance_path": "/flags/garden-layout/metadata"
+      }
+    },
+    {
+      "id": "responses.v1_object_payload",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/payload": {
+          "columns": 2
+        }
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "type",
+        "instance_path": "/flags/garden-layout/metadata/payload"
+      }
+    },
+    {
+      "id": "responses.v1_null_value_not_failed",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/value": null
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "presence",
+        "keyword": "type",
+        "instance_path": "/flags/garden-layout/value"
+      }
     }
   ]
 }

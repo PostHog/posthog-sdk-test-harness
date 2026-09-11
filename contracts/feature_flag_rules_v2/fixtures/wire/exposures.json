@@ -495,6 +495,20 @@
         "keyword": "const",
         "instance_path": "/$feature_flag_config_version"
       }
+    },
+    {
+      "id": "exposures.forced_variant_context",
+      "template": "split",
+      "set": {
+        "/$feature_flag_forced_variant": true
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": "",
+        "message_contains": "$feature_flag_forced_variant"
+      }
     }
   ]
 }

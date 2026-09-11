@@ -80,6 +80,19 @@
         "keyword": "forbidden_context",
         "instance_path": "/properties/$feature_flag_holdout_id"
       }
+    },
+    {
+      "id": "exposure_transport.forced_variant_context",
+      "template": "exposure",
+      "set": {
+        "/properties/$feature_flag_forced_variant": true
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "semantic",
+        "keyword": "forbidden_context",
+        "instance_path": "/properties/$feature_flag_forced_variant"
+      }
     }
   ]
 }

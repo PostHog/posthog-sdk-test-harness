@@ -332,6 +332,180 @@
         "/$feature_flag_variant"
       ],
       "expected": "valid"
+    },
+    {
+      "id": "calls.targeting_match_forbidden_experiment_id",
+      "template": "targeting_match_targeted_release",
+      "set": {
+        "/$feature_flag_experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.targeting_match_forbidden_holdout_id",
+      "template": "targeting_match_percentage_rollout",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.rollout_miss_forbidden_variant",
+      "template": "rollout_miss_percentage_rollout",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.rollout_miss_experiment_forbidden_variant",
+      "template": "rollout_miss_experiment",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.experiment_paused_forbidden_variant",
+      "template": "experiment_paused",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.experiment_split_forbidden_holdout_id",
+      "template": "experiment_split",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.holdout_missing_holdout_id",
+      "template": "holdout",
+      "remove": [
+        "/$feature_flag_holdout_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_holdout_id"
+      }
+    },
+    {
+      "id": "calls.holdout_missing_experiment_id",
+      "template": "holdout",
+      "remove": [
+        "/$feature_flag_experiment_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_experiment_id"
+      }
+    },
+    {
+      "id": "calls.partial_split_missing_rule_type",
+      "template": "experiment_split",
+      "remove": [
+        "/$feature_flag_rule_type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_type"
+      }
+    },
+    {
+      "id": "calls.partial_split_missing_rule_id",
+      "template": "experiment_split",
+      "remove": [
+        "/$feature_flag_rule_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_id"
+      }
+    },
+    {
+      "id": "calls.partial_split_missing_experiment_id",
+      "template": "experiment_split",
+      "remove": [
+        "/$feature_flag_experiment_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_experiment_id"
+      }
+    },
+    {
+      "id": "calls.error_forbidden_experiment_id",
+      "template": "error",
+      "set": {
+        "/$feature_flag_experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.inactive_forbidden_experiment_id",
+      "template": "inactive",
+      "set": {
+        "/$feature_flag_experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
     }
   ]
 }

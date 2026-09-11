@@ -169,9 +169,7 @@ def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
         assert_failure(errors, case["expected_failure"])
         # Matrix-only and leak cases must demonstrate the exact schema's deliberate gaps.
         if case["expected_failure"]["layer"] in ["presence", "seed", "semantic"] and group == "responses":
-            # A forbidden failed result with terminal metadata also violates failed_rules.
-            if "forbidden_failed" not in case["id"]:
-                assert not schema_errors(SETS[group]["schema"], value)
+            assert not schema_errors(SETS[group]["schema"], value)
 
 
 def has_split_context(record: dict[str, Any]) -> bool:
@@ -378,3 +376,31 @@ def test_seed_scanner_reaches_opaque_objects_and_arrays(field: str) -> None:
     errors = seed_errors({"opaque": [None, {"nested": [{field: "invented-seed"}]}]})
     assert len(errors) == 1
     assert errors[0]["instance_path"] == f"/opaque/1/nested/0/{field}"
+
+
+def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
+    def branch(row: dict[str, Any]) -> dict[str, Any]:
+        metadata: dict[str, Any] = {
+            "required": ["has_experiment", *row["required"]],
+            "not": {"anyOf": [{"required": [field]} for field in row["forbidden"]]},
+        }
+        if row["rule_type"]:
+            metadata["properties"] = {"rule_type": {"const": row["rule_type"]}}
+        properties: dict[str, Any] = {
+            "reason": {
+                "properties": {
+                    "code": {"const": row["reason"]},
+                    "condition_index": {"type": "integer", "minimum": 0} if row["rule_type"] else {"type": "null"},
+                }
+            },
+            "metadata": metadata,
+        }
+        if row["reason"] in ["targeting_match", "experiment_split"]:
+            # A matched rule or variant value is never null.
+            properties["value"] = {"type": ["boolean", "string", "number", "object"]}
+        failed: dict[str, Any] = {"required": ["failed"]} if row["failed"] else {"not": {"required": ["failed"]}}
+        return {"properties": properties, **failed}
+
+    presence = SCHEMAS["schemas/flags_response_v3_presence.schema.json"]
+    branches = presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"]
+    assert branches == [branch(row) for row in MATRIX]

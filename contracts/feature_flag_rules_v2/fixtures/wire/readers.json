@@ -460,8 +460,8 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
-        "value": false,
+        "caller_default": true,
+        "value": true,
         "config_version": null,
         "experiment_exposure": false,
         "error_code": "PARSE_ERROR"
@@ -482,8 +482,8 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
-        "value": false,
+        "caller_default": true,
+        "value": true,
         "config_version": null,
         "experiment_exposure": false,
         "error_code": "PARSE_ERROR"
@@ -504,8 +504,8 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
-        "value": false,
+        "caller_default": true,
+        "value": true,
         "config_version": null,
         "experiment_exposure": false,
         "error_code": "PARSE_ERROR"
@@ -526,8 +526,8 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
-        "value": false,
+        "caller_default": true,
+        "value": true,
         "config_version": null,
         "experiment_exposure": false,
         "error_code": "PARSE_ERROR"
@@ -548,8 +548,8 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
-        "value": false,
+        "caller_default": true,
+        "value": true,
         "config_version": null,
         "experiment_exposure": false,
         "error_code": "PARSE_ERROR"
@@ -570,7 +570,7 @@
       "expected": "reader",
       "reader": {
         "requested_key": "garden-layout",
-        "caller_default": false,
+        "caller_default": true,
         "value": false,
         "config_version": 2,
         "experiment_exposure": false,

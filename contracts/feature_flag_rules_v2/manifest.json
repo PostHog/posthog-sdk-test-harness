@@ -682,7 +682,12 @@
         "responses.v1_ambiguous_experiment",
         "responses.flag_key_seed",
         "responses.seed_named_flag_nested_seed",
-        "responses.flag_key_assignment_seed"
+        "responses.flag_key_assignment_seed",
+        "responses.v1_forbidden_rule_id",
+        "responses.v1_forbidden_rule_type",
+        "responses.v1_forbidden_holdout_id",
+        "responses.v1_object_payload",
+        "responses.v1_null_value_not_failed"
       ]
     },
     {
@@ -755,7 +760,20 @@
         "calls.forbidden_value_array",
         "calls.forbidden_value_null",
         "calls.forbidden_value_empty_string",
-        "calls.partial_split_diagnostic"
+        "calls.partial_split_diagnostic",
+        "calls.targeting_match_forbidden_experiment_id",
+        "calls.targeting_match_forbidden_holdout_id",
+        "calls.rollout_miss_forbidden_variant",
+        "calls.rollout_miss_experiment_forbidden_variant",
+        "calls.experiment_paused_forbidden_variant",
+        "calls.experiment_split_forbidden_holdout_id",
+        "calls.holdout_missing_holdout_id",
+        "calls.holdout_missing_experiment_id",
+        "calls.partial_split_missing_rule_type",
+        "calls.partial_split_missing_rule_id",
+        "calls.partial_split_missing_experiment_id",
+        "calls.error_forbidden_experiment_id",
+        "calls.inactive_forbidden_experiment_id"
       ]
     },
     {
@@ -801,7 +819,8 @@
         "exposures.forbidden_value_empty_string",
         "exposures.holdout_context",
         "exposures.ingestion_source",
-        "exposures.v1_config"
+        "exposures.v1_config",
+        "exposures.forced_variant_context"
       ]
     },
     {
@@ -855,7 +874,8 @@
         "exposure_transport.exposure_with_transport",
         "exposure_transport.nested_seed",
         "exposure_transport.nested_holdout_seed",
-        "exposure_transport.holdout_context"
+        "exposure_transport.holdout_context",
+        "exposure_transport.forced_variant_context"
       ]
     },
     {
