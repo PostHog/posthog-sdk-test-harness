@@ -832,18 +832,26 @@
       ]
     },
     {
-      "path": "fixtures/wire/event_transport.json",
+      "path": "fixtures/wire/exposure_transport.json",
       "kind": "fixture_set",
       "version": "1.0.0",
       "schema": "schemas/experiment_exposure_properties.schema.json",
       "case_ids": [
-        "event_transport.exposure_with_transport",
-        "event_transport.call_with_transport",
-        "event_transport.nested_seed",
-        "event_transport.nested_assignment_seed",
-        "event_transport.nested_holdout_seed",
-        "event_transport.prefixed_seed",
-        "event_transport.holdout_context"
+        "exposure_transport.exposure_with_transport",
+        "exposure_transport.nested_seed",
+        "exposure_transport.nested_holdout_seed",
+        "exposure_transport.holdout_context"
+      ]
+    },
+    {
+      "path": "fixtures/wire/call_transport.json",
+      "kind": "fixture_set",
+      "version": "1.0.0",
+      "schema": "schemas/feature_flag_called_context.schema.json",
+      "case_ids": [
+        "call_transport.call_with_transport",
+        "call_transport.nested_assignment_seed",
+        "call_transport.prefixed_seed"
       ]
     }
   ],

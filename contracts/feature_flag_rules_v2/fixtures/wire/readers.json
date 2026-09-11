@@ -847,7 +847,7 @@
         "value": false,
         "config_version": 2,
         "experiment_exposure": false,
-        "error_code": null
+        "error_code": "INVALID_CONTEXT"
       },
       "producer_expected": "valid"
     },

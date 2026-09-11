@@ -99,14 +99,10 @@ def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
     return errors
 
 
-def event_errors(event: dict[str, Any]) -> list[dict[str, Any]]:
+def event_errors(event: dict[str, Any], path: str) -> list[dict[str, Any]]:
     errors = seed_errors(event)
-    direct = event["event"] == "$experiment_exposure"
-    path = (
-        "schemas/experiment_exposure_properties.schema.json"
-        if direct
-        else "schemas/feature_flag_called_context.schema.json"
-    )
+    direct = path == "schemas/experiment_exposure_properties.schema.json"
+    assert event["event"] == ("$experiment_exposure" if direct else "$feature_flag_called")
     props = event["properties"]
     fields = SCHEMAS[path]["properties"]
     context = {k: v for k, v in props.items() if k in fields}
@@ -139,8 +135,8 @@ def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
     value = materialize(group, case)
     if group == "responses":
         errors = response_errors(value)
-    elif group == "event_transport":
-        errors = event_errors(value)
+    elif group.endswith("_transport"):
+        errors = event_errors(value, SETS[group]["schema"])
     else:
         errors = schema_errors(SETS[group]["schema"], value)
         if group in ["calls", "exposures"]:
@@ -223,7 +219,11 @@ def check_reader_expectation(response: dict[str, Any], expected: dict[str, Any])
     value = record["value"]
     assert expected["value"] == (expected["caller_default"] if value is None or record.get("failed") else value)
     assert expected["experiment_exposure"] is has_split_context(record)
-    assert expected["error_code"] == ("GENERAL" if record.get("failed") else None)
+    if record["metadata"].get("config_version") == 2:
+        mapping = LITERALS["openfeature_mapping"]["reason_codes"]
+        assert expected["error_code"] == mapping[record["reason"]["code"]].get("error_code")
+    else:
+        assert expected["error_code"] == ("GENERAL" if record.get("failed") else None)
 
 
 @pytest.mark.parametrize("case", SETS["readers"]["cases"], ids=lambda c: c["id"])
