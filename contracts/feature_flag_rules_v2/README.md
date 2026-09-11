@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
-This package defines the stored configuration contract for Feature Flag Rules v2 and the canonical evaluation corpus that consumers pin.
-Contract version 1.2.0 covers config version 2 and corpus version 1.1.0.
+This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
+Contract package 2.0.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -50,10 +50,10 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - manifest.json assigns stable fixture and case IDs and declares the compatibility policy.
 - SHA256SUMS records the SHA-256 digest for each package file except itself.
 
-Objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
+In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
 The marker documents this choice for the contract tests; additionalProperties defines how those keys are validated.
 
-JSON Schema enforces all constraints that the standard can express, including the 20-level object-value depth limit.
+The config schema enforces all constraints that the standard can express, including the 20-level object-value depth limit.
 Depth counts object and array containers, with the returned object at level 1; scalar leaves add no level.
 The registry also identifies constraints that need a semantic or parser-level validator, such as unique rule IDs and variant keys, and exact variant weight totals.
 
@@ -63,7 +63,8 @@ It does not install the contract as wheel package data; consumers should pin the
 ## Component versions
 
 Each artifact carries its own component version in manifest.json.
-The config schema and literal registry stay at 1.0.0 because contract 1.2.0 does not change accepted configs or frozen literals.
+The config schema stays at 1.0.0 because contract 2.0.0 does not change its published bytes or accepted configs.
+The literal registry is 2.0.0: it removes the four unused management warning codes (`EXPERIMENT_VALUE_COLLISION`, `SDK_REMOTE_FALLBACK_REQUIRED`, `SDK_EXPERIMENT_CONTEXT_MISSING`, `LEGACY_PROJECTION_LIMITED`) from the `warning_codes` published in registry 1.0.0 (contract 1.2.0), which the compatibility policy classifies as a major change; the five remaining codes are unchanged.
 The corpus files and their companion schemas are corpus version 1.1.0.
 
 ## Corpus rules
@@ -81,6 +82,8 @@ Additive cases may join a new minor corpus version; a changed expectation is a m
 
 Hash arithmetic is defined in corpus/hash_sha1_60_v1.json.
 The contract value of hash01 converts both the 60-bit integer and the scale to binary64 before one division.
+Consumers must parse decimal hash01 literals with correctly rounded binary64 conversion, including 17-digit literals.
+Check the accompanying hash01_binary64_hex before consuming the corpus; a best-effort JSON float parser can otherwise move a boundary case.
 Thresholds are rollout_percentage / 100 computed in binary64, and variant boundaries accumulate left to right in binary64 in stored order.
 
 ## Empty identifiers in the frozen version 1 arm
@@ -123,4 +126,31 @@ After editing contract files and updating manifest.json, regenerate the checksum
 python3 <repo>/bin/update-feature-flag-rules-v2-checksums.py
 ```
 
-Run `python -m pytest tests/test_feature_flag_rules_v2_contract.py tests/test_feature_flag_rules_v2_corpus.py` from the repository root to verify the manifest, fixtures, corpus, and checksums.
+Run `python -m pytest tests/test_feature_flag_rules_v2_contract.py tests/test_feature_flag_rules_v2_corpus.py tests/test_feature_flag_rules_v2_wire.py` from the repository root to verify the manifest, fixtures, corpus, and checksums.
+
+
+## Wire artifacts and validation boundaries
+
+- `schemas/definitions_entry.schema.json` selects v1 for absent/1 `filters.version`, or references the frozen config schema for v2. The entry's row `version` is independent. Row `version` and `ensure_experience_continuity` retain their existing nullable types. Existing v1 filters are opaque in this schema; this package does not redefine legacy evaluation semantics.
+- `schemas/definitions_v2.schema.json` describes the mixed-version definitions feed, including its required cohort map and optional boolean `minimal_flag_called_events`. Unsupported config versions or v2 semantic fields require per-flag remote fallback in auto mode and an unsupported result in strict local mode.
+- `schemas/flags_response_v3.schema.json` is the exact producer schema. Its raw-byte digest is pinned in the manifest and tests. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects an `experiment_id` alongside `has_experiment: false` in any record; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
+- `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
+- `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule/experiment attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 experiment-split tuple, SDK origin and `locally_evaluated`, and forbids holdout and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
+- `fixtures/wire/` contains producer fixtures, separate tolerant-reader expectations, and full-event transport examples. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes.
+
+Definitions retain canonical rule and holdout assignment seeds because local evaluation needs them. Evaluation responses and events prohibit assignment seeds recursively, including inside arrays, diagnostic conditions and opaque transport objects. The response's `flags` map keys are user-defined flag names, so names such as `seed` are allowed; every record and the rest of the envelope are still scanned.
+
+Producer and reader contracts serve different purposes. Missing split context is invalid producer output, but a reader preserves a usable value and emits no experiment exposure. Known fields with wrong JSON types produce a per-record parse error and leave siblings usable. Unknown fields are ignored. A record without `value` uses the old-server `variant ?? enabled` interpretation, config version 1, and no carried-over v2 context. Reader expectations never loosen producer validation. Reader and event fixtures are contract data; they do not run SDK execution or activate capabilities.
+
+The first event release permits only booleans and non-empty strings in the response property. Reserved number/object response-schema cases do not enable writers or event emission. Equal-valued arms remain separate analytical identities through their variant keys. A holdout, pause, rollout miss, default, missing or failed result cannot produce a direct exposure.
+
+Future accepted/rejected wire-contract changes require a new major wire component version; additive fixture cases require a new minor fixture version and a new package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes new schema files under new paths and `$id`s rather than reusing these.
+
+The source distribution includes every indexed artifact and the checksum utility. Verify a build against the checkout with:
+
+```sh
+uv build --sdist
+python3 bin/update-feature-flag-rules-v2-checksums.py --verify-sdist dist/posthog_sdk_test_harness-<harness-version>.tar.gz
+```
+
+The verifier reads the archive without extraction, requires its checksum index to match the checkout, and checks exact file coverage and every digest against that index.

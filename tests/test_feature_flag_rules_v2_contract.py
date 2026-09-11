@@ -108,7 +108,9 @@ def test_fixture_ids_are_unique_and_match_fixture_files() -> None:
     fixture_ids = [fixture["fixture_id"] for fixture in fixtures]
     assert len(fixture_ids) == len(set(fixture_ids))
 
-    manifest_fixture_paths = {fixture["path"] for fixture in fixtures}
+    manifest_fixture_paths = {fixture["path"] for fixture in fixtures} | {
+        artifact["path"] for artifact in _manifest()["artifacts"] if artifact["kind"] == "fixture_set"
+    }
     actual_fixture_paths = {
         path.relative_to(CONTRACT_ROOT).as_posix()
         for path in (CONTRACT_ROOT / "fixtures").rglob("*.json")

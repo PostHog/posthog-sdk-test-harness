@@ -1,5 +1,5 @@
 {
-  "registry_version": "1.0.0",
+  "registry_version": "2.0.0",
   "config_versions": {
     "v1": 1,
     "v2": 2,
@@ -245,11 +245,7 @@
     "UNREACHABLE_LOWER_RULE",
     "ROLLOUT_MISS_CAN_ENTER_LOWER_RULE",
     "ASSIGNMENT_RESET_CHANGES_TRAFFIC",
-    "EXPERIMENT_VALUE_COLLISION",
-    "CONCLUSION_EXPANDS_POPULATION",
-    "SDK_REMOTE_FALLBACK_REQUIRED",
-    "SDK_EXPERIMENT_CONTEXT_MISSING",
-    "LEGACY_PROJECTION_LIMITED"
+    "CONCLUSION_EXPANDS_POPULATION"
   ],
   "semantic_constraints": [
     {

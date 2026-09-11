@@ -1,0 +1,58 @@
+{
+  "fixture_version": "1.0.0",
+  "schema": "schemas/feature_flag_called_context.schema.json",
+  "templates": {
+    "call": {
+      "event": "$feature_flag_called",
+      "properties": {
+        "$feature_flag": "garden-layout",
+        "$feature_flag_response": false,
+        "$feature_flag_config_version": 2,
+        "$feature_flag_reason_code": "holdout",
+        "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+        "$feature_flag_rule_type": "experiment",
+        "$feature_flag_experiment_id": 301,
+        "$feature_flag_holdout_id": 401,
+        "distinct_id": "invented-reader",
+        "$feature_flag_reason": "Excluded by holdout."
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "call_transport.call_with_transport",
+      "template": "call",
+      "expected": "valid"
+    },
+    {
+      "id": "call_transport.nested_assignment_seed",
+      "template": "call",
+      "set": {
+        "/properties/debug": [
+          {
+            "assignment_seed": "invented-seed"
+          }
+        ]
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/debug/0/assignment_seed"
+      }
+    },
+    {
+      "id": "call_transport.prefixed_seed",
+      "template": "call",
+      "set": {
+        "/properties/$feature_flag_seed": "invented-seed"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/properties/$feature_flag_seed"
+      }
+    }
+  ]
+}
