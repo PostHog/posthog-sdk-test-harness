@@ -2205,7 +2205,8 @@
       "template": "v1",
       "set": {
         "/flags/garden-layout/metadata/experiment_id": 301,
-        "/flags/garden-layout/metadata/forced_variant": true
+        "/flags/garden-layout/metadata/forced_variant": true,
+        "/flags/garden-layout/metadata/has_experiment": true
       },
       "expected": "valid"
     },
@@ -2476,6 +2477,119 @@
         "keyword": "minLength",
         "instance_path": "/flags/garden-layout/value"
       }
+    },
+    {
+      "id": "responses.v1_experiment_without_linkage",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "semantic",
+        "keyword": "experiment_linkage",
+        "instance_path": "/flags/garden-layout/metadata/has_experiment"
+      }
+    },
+    {
+      "id": "responses.v1_ambiguous_experiment",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/metadata/has_experiment": true
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "responses.flag_key_seed",
+      "template": "omitted",
+      "set": {
+        "/flags/seed": {
+          "key": "seed",
+          "value": false,
+          "reason": {
+            "code": "experiment_split",
+            "condition_index": 0
+          },
+          "metadata": {
+            "id": 201,
+            "version": 7,
+            "config_version": 2,
+            "has_experiment": true,
+            "payload": null,
+            "rule_type": "experiment",
+            "rule_id": "10000000-0000-4000-8000-000000000001",
+            "experiment_id": 301,
+            "variant_key": "arm_a"
+          }
+        }
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "responses.seed_named_flag_nested_seed",
+      "template": "omitted",
+      "set": {
+        "/flags/seed": {
+          "key": "seed",
+          "value": false,
+          "reason": {
+            "code": "experiment_split",
+            "condition_index": 0
+          },
+          "metadata": {
+            "id": 201,
+            "version": 7,
+            "config_version": 2,
+            "has_experiment": true,
+            "payload": null,
+            "rule_type": "experiment",
+            "rule_id": "10000000-0000-4000-8000-000000000001",
+            "experiment_id": 301,
+            "variant_key": "arm_a"
+          },
+          "conditions": [
+            {
+              "nested": [
+                {
+                  "seed": "invented-assignment"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "seed",
+        "keyword": "assignment_seed",
+        "instance_path": "/flags/seed/conditions/0/nested/0/seed"
+      }
+    },
+    {
+      "id": "responses.flag_key_assignment_seed",
+      "template": "omitted",
+      "set": {
+        "/flags/assignment_seed": {
+          "key": "assignment_seed",
+          "value": false,
+          "reason": {
+            "code": "experiment_split",
+            "condition_index": 0
+          },
+          "metadata": {
+            "id": 201,
+            "version": 7,
+            "config_version": 2,
+            "has_experiment": true,
+            "payload": null,
+            "rule_type": "experiment",
+            "rule_id": "10000000-0000-4000-8000-000000000001",
+            "experiment_id": 301,
+            "variant_key": "arm_a"
+          }
+        }
+      },
+      "expected": "valid"
     }
   ]
 }

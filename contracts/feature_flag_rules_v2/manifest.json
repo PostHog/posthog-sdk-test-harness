@@ -478,7 +478,12 @@
         "definitions.unknown_semantic_field",
         "definitions.unknown_rule_field",
         "definitions.unsupported_rule_type",
-        "definitions.missing_assignment_seed"
+        "definitions.missing_assignment_seed",
+        "definitions.v1_null_version",
+        "definitions.v1_wrong_type_version",
+        "definitions.v1_null_ensure_experience_continuity",
+        "definitions.v1_wrong_type_ensure_experience_continuity",
+        "definitions.v1_explicit_null_row_fields"
       ]
     },
     {
@@ -488,7 +493,11 @@
       "schema": "schemas/definitions_v2.schema.json",
       "case_ids": [
         "definitions_feed.mixed_versions",
-        "definitions_feed.missing_cohorts"
+        "definitions_feed.missing_cohorts",
+        "definitions_feed.minimal_events_false",
+        "definitions_feed.minimal_events_true",
+        "definitions_feed.minimal_events_wrong_type",
+        "definitions_feed.null_legacy_row_fields"
       ]
     },
     {
@@ -668,7 +677,12 @@
         "responses.targeting_match_targeted_release_null_value",
         "responses.targeting_match_percentage_rollout_null_value",
         "responses.experiment_split_null_value",
-        "responses.empty_v2_string"
+        "responses.empty_v2_string",
+        "responses.v1_experiment_without_linkage",
+        "responses.v1_ambiguous_experiment",
+        "responses.flag_key_seed",
+        "responses.seed_named_flag_nested_seed",
+        "responses.flag_key_assignment_seed"
       ]
     },
     {
@@ -828,7 +842,8 @@
         "readers.malformed_sibling_isolation",
         "readers.partial_split_string_value",
         "readers.v1_at_v3",
-        "readers.integral_json_number_context"
+        "readers.integral_json_number_context",
+        "readers.flag_key_seed"
       ]
     },
     {

@@ -39,7 +39,10 @@
       ]
     },
     "version": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 0
     },
     "deleted": {
@@ -52,7 +55,10 @@
       "type": "integer"
     },
     "ensure_experience_continuity": {
-      "type": "boolean"
+      "type": [
+        "boolean",
+        "null"
+      ]
     },
     "evaluation_runtime": {
       "type": [

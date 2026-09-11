@@ -977,6 +977,41 @@
         "error_code": null
       },
       "producer_expected": "valid"
+    },
+    {
+      "id": "readers.flag_key_seed",
+      "template": "omitted",
+      "set": {
+        "/flags/seed": {
+          "key": "seed",
+          "value": false,
+          "reason": {
+            "code": "experiment_split",
+            "condition_index": 0
+          },
+          "metadata": {
+            "id": 201,
+            "version": 7,
+            "config_version": 2,
+            "has_experiment": true,
+            "payload": null,
+            "rule_type": "experiment",
+            "rule_id": "10000000-0000-4000-8000-000000000001",
+            "experiment_id": 301,
+            "variant_key": "arm_a"
+          }
+        }
+      },
+      "expected": "reader",
+      "reader": {
+        "requested_key": "seed",
+        "caller_default": true,
+        "value": false,
+        "config_version": 2,
+        "experiment_exposure": true,
+        "error_code": null
+      },
+      "producer_expected": "valid"
     }
   ]
 }

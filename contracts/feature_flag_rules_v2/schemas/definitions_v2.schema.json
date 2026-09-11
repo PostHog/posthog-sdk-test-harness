@@ -28,6 +28,9 @@
       },
       "x-posthog-open-object": "Group index to name"
     },
+    "minimal_flag_called_events": {
+      "type": "boolean"
+    },
     "property_matching_version": {
       "type": "integer"
     }

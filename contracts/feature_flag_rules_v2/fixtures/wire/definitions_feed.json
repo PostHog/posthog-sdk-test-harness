@@ -119,6 +119,44 @@
         "instance_path": "",
         "message_contains": "cohorts"
       }
+    },
+    {
+      "id": "definitions_feed.minimal_events_false",
+      "template": "mixed",
+      "set": {
+        "/minimal_flag_called_events": false
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "definitions_feed.minimal_events_true",
+      "template": "mixed",
+      "set": {
+        "/minimal_flag_called_events": true
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "definitions_feed.minimal_events_wrong_type",
+      "template": "mixed",
+      "set": {
+        "/minimal_flag_called_events": "false"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/minimal_flag_called_events"
+      }
+    },
+    {
+      "id": "definitions_feed.null_legacy_row_fields",
+      "template": "mixed",
+      "set": {
+        "/flags/0/version": null,
+        "/flags/0/ensure_experience_continuity": null
+      },
+      "expected": "valid"
     }
   ]
 }

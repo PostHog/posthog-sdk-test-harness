@@ -261,6 +261,58 @@
         "instance_path": "/filters/rules/1",
         "message_contains": "seed"
       }
+    },
+    {
+      "id": "definitions.v1_null_version",
+      "template": "v1",
+      "set": {
+        "/version": null
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "definitions.v1_wrong_type_version",
+      "template": "v1",
+      "set": {
+        "/version": "invalid"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/version"
+      }
+    },
+    {
+      "id": "definitions.v1_null_ensure_experience_continuity",
+      "template": "v1",
+      "set": {
+        "/ensure_experience_continuity": null
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "definitions.v1_wrong_type_ensure_experience_continuity",
+      "template": "v1",
+      "set": {
+        "/ensure_experience_continuity": "invalid"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/ensure_experience_continuity"
+      }
+    },
+    {
+      "id": "definitions.v1_explicit_null_row_fields",
+      "template": "v1",
+      "set": {
+        "/filters/version": 1,
+        "/version": null,
+        "/ensure_experience_continuity": null
+      },
+      "expected": "valid"
     }
   ]
 }

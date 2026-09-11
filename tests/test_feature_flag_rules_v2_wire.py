@@ -84,17 +84,38 @@ def seed_errors(value: Any, path: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
     return errors
 
 
+def response_seed_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
+    # The flags map is keyed by user-defined flag names, not protocol field names.
+    errors = seed_errors({field: child for field, child in value.items() if field != "flags"})
+    for key, record in value["flags"].items():
+        errors.extend(seed_errors(record, ("flags", key)))
+    return errors
+
+
 def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
     errors = schema_errors("schemas/flags_response_v3.schema.json", value)
     # Keep the schema copy and the additional presence constraints independently visible.
     errors += schema_errors("schemas/flags_response_v3_presence.schema.json", value, "presence")
-    errors += seed_errors(value)
+    errors += response_seed_errors(value)
     for key, record in value["flags"].items():
         if record.get("key") != key:
             errors.append({"layer": "semantic", "keyword": "map_key", "instance_path": pointer(["flags", key, "key"])})
         if record.get("failed") is True and value["errorsWhileComputingFlags"] is not True:
             errors.append(
                 {"layer": "semantic", "keyword": "failure_envelope", "instance_path": "/errorsWhileComputingFlags"}
+            )
+        metadata = record.get("metadata", {})
+        if (
+            metadata.get("config_version") == 1
+            and "experiment_id" in metadata
+            and metadata.get("has_experiment") is False
+        ):
+            errors.append(
+                {
+                    "layer": "semantic",
+                    "keyword": "experiment_linkage",
+                    "instance_path": pointer(["flags", key, "metadata", "has_experiment"]),
+                }
             )
     return errors
 
@@ -229,7 +250,7 @@ def check_reader_expectation(response: dict[str, Any], expected: dict[str, Any])
 @pytest.mark.parametrize("case", SETS["readers"]["cases"], ids=lambda c: c["id"])
 def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
     value = materialize("readers", case)
-    assert not seed_errors(value)
+    assert not response_seed_errors(value)
     check_reader_expectation(value, case["reader"])
     if case["producer_expected"] == "invalid":
         assert_failure(response_errors(value), case["producer_failure"])
