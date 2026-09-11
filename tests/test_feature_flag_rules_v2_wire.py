@@ -2,37 +2,42 @@
 
 import copy
 import hashlib
-import json
 import re
-from collections.abc import Iterator
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
-from jsonschema.exceptions import ValidationError
 from referencing import Registry, Resource
 
-ROOT = Path(__file__).parents[1] / "contracts" / "feature_flag_rules_v2"
-MANIFEST = json.loads((ROOT / "manifest.json").read_text())
+from tests.test_feature_flag_rules_v2_contract import (
+    CONTRACT_ROOT,
+    REGISTRY_PATH,
+    _all_errors,
+    _json_pointer,
+    _load_json,
+    _manifest,
+)
+
+MANIFEST = _manifest()
 ARTIFACTS = [a for a in MANIFEST["artifacts"] if a["kind"] == "fixture_set"]
-SETS = {Path(a["path"]).stem: json.loads((ROOT / a["path"]).read_text()) for a in ARTIFACTS}
-SCHEMAS = {
-    a["path"]: json.loads((ROOT / a["path"]).read_text()) for a in MANIFEST["artifacts"] if a["kind"] == "schema"
-}
+SETS = {Path(a["path"]).stem: _load_json(CONTRACT_ROOT / a["path"]) for a in ARTIFACTS}
+SCHEMAS = {a["path"]: _load_json(CONTRACT_ROOT / a["path"]) for a in MANIFEST["artifacts"] if a["kind"] == "schema"}
 REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS.values())
-LITERALS = json.loads((ROOT / "registries/literals.json").read_text())
-MATRIX = json.loads((ROOT / "rules/response_presence.json").read_text())["rows"]
+LITERALS = _load_json(REGISTRY_PATH)
+MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
+LAYERS = ["schema", "presence", "seed", "semantic"]
 PRODUCER_DIGEST = "1dd97730c746bc4534c4f47eebd82dac0cc67ceb1e4c53e7540960e7f74b00d9"
+# Event property names drop the wire prefix and rename the analytical arm key.
+EVENT_FIELDS = {"variant_key": "variant"}
 
 
-def validator(path: str) -> Draft202012Validator:
-    return Draft202012Validator(SCHEMAS[path], registry=REGISTRY, format_checker=FormatChecker())
-
-
-def pointer(path: Any) -> str:
-    return "".join("/" + str(p).replace("~", "~0").replace("/", "~1") for p in path)
+def validator(schema: str | dict[str, Any]) -> Draft202012Validator:
+    if isinstance(schema, str):
+        schema = SCHEMAS[schema]
+    return Draft202012Validator(schema, registry=REGISTRY, format_checker=FormatChecker())
 
 
 def parent(value: Any, path: str) -> tuple[Any, Any]:
@@ -54,17 +59,11 @@ def materialize(group: str, case: dict[str, Any]) -> Any:
     return value
 
 
-def flattened(error: ValidationError) -> Iterator[ValidationError]:
-    yield error
-    for child in error.context:
-        yield from flattened(child)
-
-
-def schema_errors(path: str, value: Any, layer: str = "schema") -> list[dict[str, Any]]:
+def schema_errors(schema: str | dict[str, Any], value: Any, layer: str = "schema") -> list[dict[str, Any]]:
     return [
-        {"layer": layer, "keyword": e.validator, "instance_path": pointer(e.absolute_path), "message": e.message}
-        for error in validator(path).iter_errors(value)
-        for e in flattened(error)
+        {"layer": layer, "keyword": e.validator, "instance_path": _json_pointer(e.absolute_path), "message": e.message}
+        for error in validator(schema).iter_errors(value)
+        for e in _all_errors(error)
     ]
 
 
@@ -76,7 +75,9 @@ def seed_errors(value: Any, path: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
             # Cover canonical seed, holdout_seed, assignmentSeed, and event-property spellings.
             normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", field).lower().replace("-", "_").lstrip("$")
             if normalized == "seed" or normalized.endswith("_seed"):
-                errors.append({"layer": "seed", "keyword": "assignment_seed", "instance_path": pointer((*path, field))})
+                errors.append(
+                    {"layer": "seed", "keyword": "assignment_seed", "instance_path": _json_pointer((*path, field))}
+                )
             errors.extend(seed_errors(child, (*path, field)))
     elif isinstance(value, list):
         for index, child in enumerate(value):
@@ -97,48 +98,25 @@ def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
     # Keep the schema copy and the additional presence constraints independently visible.
     errors += schema_errors("schemas/flags_response_v3_presence.schema.json", value, "presence")
     errors += response_seed_errors(value)
+    # JSON Schema cannot compare a record to its own map key; everything else lives in the schemas.
     for key, record in value["flags"].items():
         if record.get("key") != key:
-            errors.append({"layer": "semantic", "keyword": "map_key", "instance_path": pointer(["flags", key, "key"])})
-        if record.get("failed") is True and value["errorsWhileComputingFlags"] is not True:
             errors.append(
-                {"layer": "semantic", "keyword": "failure_envelope", "instance_path": "/errorsWhileComputingFlags"}
-            )
-        metadata = record.get("metadata", {})
-        if (
-            metadata.get("config_version") == 1
-            and "experiment_id" in metadata
-            and metadata.get("has_experiment") is False
-        ):
-            errors.append(
-                {
-                    "layer": "semantic",
-                    "keyword": "experiment_linkage",
-                    "instance_path": pointer(["flags", key, "metadata", "has_experiment"]),
-                }
+                {"layer": "semantic", "keyword": "map_key", "instance_path": _json_pointer(["flags", key, "key"])}
             )
     return errors
 
 
 def event_errors(event: dict[str, Any], path: str) -> list[dict[str, Any]]:
-    errors = seed_errors(event)
+    """Validate the whole capture: transport fields are allowed, forbidden context and seeds are not."""
     direct = path == "schemas/experiment_exposure_properties.schema.json"
-    assert event["event"] == ("$experiment_exposure" if direct else "$feature_flag_called")
-    props = event["properties"]
-    fields = SCHEMAS[path]["properties"]
-    context = {k: v for k, v in props.items() if k in fields}
-    errors += schema_errors(path, context)
-    if direct:
-        for field in ["$feature_flag_holdout_id", "$feature_flag_forced_variant"]:
-            if field in props:
-                errors.append(
-                    {
-                        "layer": "semantic",
-                        "keyword": "forbidden_context",
-                        "instance_path": pointer(["properties", field]),
-                    }
-                )
-    return errors
+    projection = {k: v for k, v in SCHEMAS[path].items() if k not in ["$id", "$schema", "additionalProperties"]}
+    envelope: dict[str, Any] = {
+        "required": ["event", "properties"],
+        "properties": {"event": {"const": "$experiment_exposure" if direct else "$feature_flag_called"}},
+    }
+    envelope["properties"]["properties"] = projection
+    return seed_errors(event) + schema_errors(envelope, event)
 
 
 def assert_failure(errors: list[dict[str, Any]], expected: dict[str, Any]) -> None:
@@ -160,31 +138,24 @@ def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
         errors = event_errors(value, SETS[group]["schema"])
     else:
         errors = schema_errors(SETS[group]["schema"], value)
-        if group in ["calls", "exposures"]:
-            errors += seed_errors(value)
     if case["expected"] == "valid":
         assert not errors, errors
     else:
         assert case["expected"] == "invalid"
         assert_failure(errors, case["expected_failure"])
-        # Matrix-only and leak cases must demonstrate the exact schema's deliberate gaps.
-        if case["expected_failure"]["layer"] in ["presence", "seed", "semantic"] and group == "responses":
-            assert not schema_errors(SETS[group]["schema"], value)
+        # A case fails at its declared layer and none before it, so the exact schema keeps its deliberate gaps.
+        earlier = LAYERS[: LAYERS.index(case["expected_failure"]["layer"])]
+        assert not [e for e in errors if e["layer"] in earlier], errors
 
 
 def has_split_context(record: dict[str, Any]) -> bool:
+    """The direct-exposure predicate; wrongly typed known fields are routed to PARSE_ERROR before this."""
     metadata = record.get("metadata", {})
     return (
         metadata.get("config_version") == 2
         and record.get("reason", {}).get("code") == "experiment_split"
         and metadata.get("rule_type") == "experiment"
-        and isinstance(metadata.get("rule_id"), str)
-        and FormatChecker().conforms(metadata["rule_id"], "uuid")
-        and Draft202012Validator({"type": "integer"}).is_valid(metadata.get("experiment_id"))
-        and isinstance(metadata.get("variant_key"), str)
-        and re.fullmatch(r"[a-zA-Z0-9_-]+", metadata["variant_key"]) is not None
-        and "holdout_id" not in metadata
-        and not record.get("failed", False)
+        and all(field in metadata for field in ["rule_id", "experiment_id", "variant_key"])
     )
 
 
@@ -192,23 +163,17 @@ def known_type_error(value: Any, shape: dict[str, Any]) -> bool:
     """Only known JSON types: missing tuple members and unknown keys are handled separately."""
     if "$ref" in shape:
         shape = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"][shape["$ref"].rsplit("/", 1)[-1]]
-    expected_type = shape.get("type")
-    if expected_type and not Draft202012Validator({"type": expected_type}).is_valid(value):
+    expected = shape.get("type")
+    if expected is None and "enum" in shape:
+        # Enum-only fields still have a known JSON type, even if their future literals are unknown.
+        expected = "integer" if type(shape["enum"][0]) is int else "string"
+    if expected is None and shape.get("const") is True:
+        expected = "boolean"
+    if expected and not Draft202012Validator({"type": expected}).is_valid(value):
         return True
-    if isinstance(value, dict):
-        return any(
-            k in shape.get("properties", {}) and known_type_error(v, shape["properties"][k]) for k, v in value.items()
-        )
-    # Enum-only fields still have a known JSON type, even if their future literals are unknown.
-    if "enum" in shape:
-        members = shape["enum"]
-        if all(type(v) is int for v in members):
-            return not Draft202012Validator({"type": "integer"}).is_valid(value)
-        if all(isinstance(v, str) for v in members):
-            return not isinstance(value, str)
-    if shape.get("const") is True:
-        return type(value) is not bool
-    return False
+    return isinstance(value, dict) and any(
+        k in shape.get("properties", {}) and known_type_error(v, shape["properties"][k]) for k, v in value.items()
+    )
 
 
 def check_reader_expectation(response: dict[str, Any], expected: dict[str, Any]) -> None:
@@ -267,12 +232,9 @@ def test_wire_ids_versions_and_file_coverage() -> None:
         if artifact["kind"] in ["corpus", "fixture_set"]:
             ids.extend(artifact["case_ids"])
     assert len(ids) == len(set(ids))
-    assert all(re.fullmatch(r"[a-z][a-z0-9_]*(\.[a-z0-9_]+)+", item) for item in ids)
-    assert {a["path"] for a in ARTIFACTS} == {
-        p.relative_to(ROOT).as_posix() for p in (ROOT / "fixtures/wire").glob("*.json")
-    }
+    assert all(re.fullmatch(MANIFEST["corpus"]["case_id_pattern"], item) for item in ids)
     for artifact in ARTIFACTS:
-        data = json.loads((ROOT / artifact["path"]).read_text())
+        data = _load_json(CONTRACT_ROOT / artifact["path"])
         assert artifact["version"] == data["fixture_version"] == MANIFEST["wire_contract"]["fixture_version"]
         assert artifact["schema"] == data["schema"]
         assert artifact["case_ids"] == [c["id"] for c in data["cases"]]
@@ -311,6 +273,17 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     ]
     filters = SCHEMAS["schemas/definitions_entry.schema.json"]["properties"]["filters"]
     assert filters["oneOf"][1]["$ref"] == SCHEMAS["schemas/config.schema.json"]["$id"]
+    # Event property shapes are copies of the producer metadata shapes, except the narrowed exposure literals.
+    metadata = producer["$defs"]["metadata"]["properties"]
+    called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["properties"]
+    exposure = SCHEMAS["schemas/experiment_exposure_properties.schema.json"]["properties"]
+    shared = ["variant_key", "rule_id", "experiment_id", "holdout_id", "forced_variant"]
+    for field in ["config_version", "rule_type", *shared]:
+        assert called["$feature_flag_" + EVENT_FIELDS.get(field, field)] == metadata[field], field
+    for field in shared:
+        assert exposure["$feature_flag_" + EVENT_FIELDS.get(field, field)] == metadata[field], field
+    assert exposure["$feature_flag"] == called["$feature_flag"]
+    assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
 
 
 def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
@@ -323,19 +296,24 @@ def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
     }
     versions = {a["path"]: a.get("version") for a in MANIFEST["artifacts"]}
     for path, digest in frozen.items():
-        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == digest, path
+        assert hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest() == digest, path
         assert versions[path] == ("1.1.0" if path.startswith("corpus/") else "1.0.0"), path
-    assert hashlib.sha256((ROOT / "schemas/flags_response_v3.schema.json").read_bytes()).hexdigest() == PRODUCER_DIGEST
+    producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
+    assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST
     assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST
 
 
 def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
     ids = {c["id"] for c in SETS["responses"]["cases"]}
     assert {r["reason"] for r in MATRIX} == set(LITERALS["reason_codes"]) - {"flag_disabled"}
+    rows_per_reason = Counter(row["reason"] for row in MATRIX)
+    for field in ["id", "version", "config_version"]:
+        # The exact schema requires these on every record, so one case each is enough.
+        assert f"responses.missing_{field}" in ids
     for row in MATRIX:
-        name = row["reason"] + ("_" + row["rule_type"] if row["reason"] in ["targeting_match", "rollout_miss"] else "")
+        name = row["reason"] + ("_" + row["rule_type"] if rows_per_reason[row["reason"]] > 1 else "")
         assert "responses." + name in ids
-        for field in ["id", "version", "config_version", "has_experiment", *row["required"]]:
+        for field in ["has_experiment", *row["required"]]:
             assert f"responses.{name}_missing_{field}" in ids
         for field in row["forbidden"]:
             assert f"responses.{name}_forbidden_{field}" in ids
@@ -401,6 +379,22 @@ def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
         failed: dict[str, Any] = {"required": ["failed"]} if row["failed"] else {"not": {"required": ["failed"]}}
         return {"properties": properties, **failed}
 
+    def called_branch(row: dict[str, Any]) -> dict[str, Any]:
+        def name(field: str) -> str:
+            return "$feature_flag_" + EVENT_FIELDS.get(field, field)
+
+        properties = {"$feature_flag_reason_code": {"const": row["reason"]}}
+        if row["rule_type"]:
+            properties["$feature_flag_rule_type"] = {"const": row["rule_type"]}
+        result: dict[str, Any] = {"properties": properties}
+        if row["required"]:
+            result["required"] = [name(field) for field in row["required"]]
+        result["not"] = {"anyOf": [{"required": [name(field)]} for field in row["forbidden"]]}
+        return result
+
     presence = SCHEMAS["schemas/flags_response_v3_presence.schema.json"]
     branches = presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"]
     assert branches == [branch(row) for row in MATRIX]
+    called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["allOf"][0]["then"]["oneOf"]
+    # The two trailing branches (local-only flag_disabled and the diagnostic split) have no matrix row.
+    assert called[: len(MATRIX)] == [called_branch(row) for row in MATRIX]

@@ -295,7 +295,6 @@
                 "const": "no_rule_match"
               }
             },
-            "required": [],
             "not": {
               "anyOf": [
                 {
@@ -332,7 +331,6 @@
                 "const": "missing_group_key"
               }
             },
-            "required": [],
             "not": {
               "anyOf": [
                 {
@@ -369,7 +367,6 @@
                 "const": "dependency_error"
               }
             },
-            "required": [],
             "not": {
               "anyOf": [
                 {
@@ -406,7 +403,6 @@
                 "const": "error"
               }
             },
-            "required": [],
             "not": {
               "anyOf": [
                 {
@@ -443,7 +439,6 @@
                 "const": "flag_disabled"
               }
             },
-            "required": [],
             "not": {
               "anyOf": [
                 {

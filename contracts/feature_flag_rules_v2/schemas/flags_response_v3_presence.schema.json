@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://posthog.com/contracts/feature_flag_rules_v2/flags_response_v3_presence.schema.json",
   "title": "Additional v3 producer presence constraints",
-  "description": "Use together with flags_response_v3.schema.json. Map-key equality, failure-envelope consistency and recursive seed prohibition are separate checks.",
+  "description": "Use together with flags_response_v3.schema.json. Map-key equality and recursive seed prohibition are separate checks.",
   "allOf": [
     {
       "$ref": "https://posthog.com/contracts/feature_flag_rules_v2/flags_response_v3.schema.json"
@@ -625,6 +625,18 @@
                         "null"
                       ]
                     }
+                  },
+                  "if": {
+                    "required": [
+                      "experiment_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "has_experiment": {
+                        "const": true
+                      }
+                    }
                   }
                 }
               },
@@ -646,6 +658,26 @@
                 }
               }
             }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "flags": {
+            "additionalProperties": {
+              "not": {
+                "required": [
+                  "failed"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "errorsWhileComputingFlags": {
+            "const": true
           }
         }
       }

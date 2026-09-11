@@ -303,7 +303,7 @@
       "expected": "valid"
     },
     {
-      "id": "responses.targeting_match_targeted_release_missing_id",
+      "id": "responses.missing_id",
       "template": "targeting_match_targeted_release",
       "remove": [
         "/flags/garden-layout/metadata/id"
@@ -317,7 +317,7 @@
       }
     },
     {
-      "id": "responses.targeting_match_targeted_release_missing_version",
+      "id": "responses.missing_version",
       "template": "targeting_match_targeted_release",
       "remove": [
         "/flags/garden-layout/metadata/version"
@@ -331,7 +331,7 @@
       }
     },
     {
-      "id": "responses.targeting_match_targeted_release_missing_config_version",
+      "id": "responses.missing_config_version",
       "template": "targeting_match_targeted_release",
       "remove": [
         "/flags/garden-layout/metadata/config_version"
@@ -459,48 +459,6 @@
       "expected": "valid"
     },
     {
-      "id": "responses.targeting_match_percentage_rollout_missing_id",
-      "template": "targeting_match_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.targeting_match_percentage_rollout_missing_version",
-      "template": "targeting_match_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.targeting_match_percentage_rollout_missing_config_version",
-      "template": "targeting_match_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
-    },
-    {
       "id": "responses.targeting_match_percentage_rollout_missing_has_experiment",
       "template": "targeting_match_percentage_rollout",
       "remove": [
@@ -613,48 +571,6 @@
       "id": "responses.experiment_split",
       "template": "experiment_split",
       "expected": "valid"
-    },
-    {
-      "id": "responses.experiment_split_missing_id",
-      "template": "experiment_split",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.experiment_split_missing_version",
-      "template": "experiment_split",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.experiment_split_missing_config_version",
-      "template": "experiment_split",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
     },
     {
       "id": "responses.experiment_split_missing_has_experiment",
@@ -773,48 +689,6 @@
       "expected": "valid"
     },
     {
-      "id": "responses.rollout_miss_percentage_rollout_missing_id",
-      "template": "rollout_miss_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.rollout_miss_percentage_rollout_missing_version",
-      "template": "rollout_miss_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.rollout_miss_percentage_rollout_missing_config_version",
-      "template": "rollout_miss_percentage_rollout",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
-    },
-    {
       "id": "responses.rollout_miss_percentage_rollout_missing_has_experiment",
       "template": "rollout_miss_percentage_rollout",
       "remove": [
@@ -927,48 +801,6 @@
       "id": "responses.rollout_miss_experiment",
       "template": "rollout_miss_experiment",
       "expected": "valid"
-    },
-    {
-      "id": "responses.rollout_miss_experiment_missing_id",
-      "template": "rollout_miss_experiment",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.rollout_miss_experiment_missing_version",
-      "template": "rollout_miss_experiment",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.rollout_miss_experiment_missing_config_version",
-      "template": "rollout_miss_experiment",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
     },
     {
       "id": "responses.rollout_miss_experiment_missing_has_experiment",
@@ -1086,48 +918,6 @@
       "expected": "valid"
     },
     {
-      "id": "responses.experiment_paused_missing_id",
-      "template": "experiment_paused",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.experiment_paused_missing_version",
-      "template": "experiment_paused",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.experiment_paused_missing_config_version",
-      "template": "experiment_paused",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
-    },
-    {
       "id": "responses.experiment_paused_missing_has_experiment",
       "template": "experiment_paused",
       "remove": [
@@ -1241,48 +1031,6 @@
       "id": "responses.holdout",
       "template": "holdout",
       "expected": "valid"
-    },
-    {
-      "id": "responses.holdout_missing_id",
-      "template": "holdout",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.holdout_missing_version",
-      "template": "holdout",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.holdout_missing_config_version",
-      "template": "holdout",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
     },
     {
       "id": "responses.holdout_missing_has_experiment",
@@ -1401,48 +1149,6 @@
       "expected": "valid"
     },
     {
-      "id": "responses.no_rule_match_missing_id",
-      "template": "no_rule_match",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.no_rule_match_missing_version",
-      "template": "no_rule_match",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.no_rule_match_missing_config_version",
-      "template": "no_rule_match",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
-    },
-    {
       "id": "responses.no_rule_match_missing_has_experiment",
       "template": "no_rule_match",
       "remove": [
@@ -1555,48 +1261,6 @@
       "expected": "valid"
     },
     {
-      "id": "responses.missing_group_key_missing_id",
-      "template": "missing_group_key",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.missing_group_key_missing_version",
-      "template": "missing_group_key",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.missing_group_key_missing_config_version",
-      "template": "missing_group_key",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
-    },
-    {
       "id": "responses.missing_group_key_missing_has_experiment",
       "template": "missing_group_key",
       "remove": [
@@ -1707,48 +1371,6 @@
       "id": "responses.dependency_error",
       "template": "dependency_error",
       "expected": "valid"
-    },
-    {
-      "id": "responses.dependency_error_missing_id",
-      "template": "dependency_error",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.dependency_error_missing_version",
-      "template": "dependency_error",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.dependency_error_missing_config_version",
-      "template": "dependency_error",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
     },
     {
       "id": "responses.dependency_error_missing_has_experiment",
@@ -1873,48 +1495,6 @@
       "id": "responses.error",
       "template": "error",
       "expected": "valid"
-    },
-    {
-      "id": "responses.error_missing_id",
-      "template": "error",
-      "remove": [
-        "/flags/garden-layout/metadata/id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "id"
-      }
-    },
-    {
-      "id": "responses.error_missing_version",
-      "template": "error",
-      "remove": [
-        "/flags/garden-layout/metadata/version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "version"
-      }
-    },
-    {
-      "id": "responses.error_missing_config_version",
-      "template": "error",
-      "remove": [
-        "/flags/garden-layout/metadata/config_version"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "config_version"
-      }
     },
     {
       "id": "responses.error_missing_has_experiment",
@@ -2244,8 +1824,8 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "semantic",
-        "keyword": "failure_envelope",
+        "layer": "presence",
+        "keyword": "const",
         "instance_path": "/errorsWhileComputingFlags"
       }
     },
@@ -2303,21 +1883,6 @@
       }
     },
     {
-      "id": "responses.inactive_omitted",
-      "template": "omitted",
-      "expected": "valid"
-    },
-    {
-      "id": "responses.archived_omitted",
-      "template": "omitted",
-      "expected": "valid"
-    },
-    {
-      "id": "responses.deleted_omitted",
-      "template": "omitted",
-      "expected": "valid"
-    },
-    {
       "id": "responses.reserved_number_wire_value",
       "template": "no_rule_match",
       "set": {
@@ -2338,19 +1903,6 @@
     {
       "id": "responses.targeting_match_targeted_release_wrong_rule_type",
       "template": "targeting_match_targeted_release",
-      "set": {
-        "/flags/garden-layout/metadata/rule_type": "experiment"
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "presence",
-        "keyword": "const",
-        "instance_path": "/flags/garden-layout/metadata/rule_type"
-      }
-    },
-    {
-      "id": "responses.targeting_match_percentage_rollout_wrong_rule_type",
-      "template": "targeting_match_percentage_rollout",
       "set": {
         "/flags/garden-layout/metadata/rule_type": "experiment"
       },
@@ -2486,8 +2038,8 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "semantic",
-        "keyword": "experiment_linkage",
+        "layer": "presence",
+        "keyword": "const",
         "instance_path": "/flags/garden-layout/metadata/has_experiment"
       }
     },

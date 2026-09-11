@@ -3,7 +3,6 @@
 
 import argparse
 import hashlib
-import json
 import re
 import tarfile
 from pathlib import Path
@@ -28,25 +27,15 @@ def verify_sdist(path: Path) -> tuple[int, str]:
             if handle is None:
                 raise ValueError(f"Unreadable contract member: {member.name}")
             files[relative] = handle.read()
-    if len(roots) != 1 or "SHA256SUMS" not in files or "manifest.json" not in files:
+    if len(roots) != 1 or "SHA256SUMS" not in files:
         raise ValueError("Archive must contain one complete contract package")
     index = files["SHA256SUMS"]
     if index != (CONTRACT_ROOT / "SHA256SUMS").read_bytes():
         raise ValueError("Archive checksum index differs from this checkout")
-    entries: dict[str, str] = {}
-    for line in index.decode("utf-8").splitlines():
-        match = re.fullmatch(r"([0-9a-f]{64})  ([^\n]+)", line)
-        if match is None or match[2] in entries:
-            raise ValueError("Invalid checksum index")
-        entries[match[2]] = match[1]
-    manifest = json.loads(files["manifest.json"])
-    paths = [artifact["path"] for artifact in manifest["artifacts"]]
-    if len(paths) != len(set(paths)) or set(entries) != set(paths) | {"manifest.json"}:
-        raise ValueError("Manifest and checksum file coverage differ")
+    # The contract tests validate the checkout index itself; the archive only has to match it exactly.
+    entries = {path: digest for digest, path in re.findall(r"^([0-9a-f]{64})  (.+)$", index.decode("utf-8"), re.M)}
     if set(files) != set(entries) | {"SHA256SUMS"}:
         raise ValueError("Archive and checksum file coverage differ")
-    if not index.endswith(b"\n") or list(entries) != sorted(entries, key=lambda p: p.encode("utf-8")):
-        raise ValueError("Checksum index ordering or final newline is invalid")
     for relative, digest in entries.items():
         if hashlib.sha256(files[relative]).hexdigest() != digest:
             raise ValueError(f"Checksum mismatch: {relative}")

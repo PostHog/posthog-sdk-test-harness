@@ -76,9 +76,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "semantic",
-        "keyword": "forbidden_context",
-        "instance_path": "/properties/$feature_flag_holdout_id"
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": "/properties"
       }
     },
     {
@@ -89,9 +89,9 @@
       },
       "expected": "invalid",
       "expected_failure": {
-        "layer": "semantic",
-        "keyword": "forbidden_context",
-        "instance_path": "/properties/$feature_flag_forced_variant"
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": "/properties"
       }
     }
   ]

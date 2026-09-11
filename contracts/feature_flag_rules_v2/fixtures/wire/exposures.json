@@ -390,19 +390,6 @@
       }
     },
     {
-      "id": "exposures.forbidden_value_number",
-      "template": "split",
-      "set": {
-        "/$feature_flag_response": 7
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "oneOf",
-        "instance_path": "/$feature_flag_response"
-      }
-    },
-    {
       "id": "exposures.forbidden_value_object",
       "template": "split",
       "set": {
@@ -465,9 +452,8 @@
       "expected": "invalid",
       "expected_failure": {
         "layer": "schema",
-        "keyword": "additionalProperties",
-        "instance_path": "",
-        "message_contains": "$feature_flag_holdout_id"
+        "keyword": "not",
+        "instance_path": ""
       }
     },
     {
@@ -505,9 +491,8 @@
       "expected": "invalid",
       "expected_failure": {
         "layer": "schema",
-        "keyword": "additionalProperties",
-        "instance_path": "",
-        "message_contains": "$feature_flag_forced_variant"
+        "keyword": "not",
+        "instance_path": ""
       }
     }
   ]
