@@ -23,10 +23,12 @@ class TestContext:
         mock_server_url: str,
         api_key: str = "phc_test_key",
         test_id: Optional[str] = None,
+        capabilities: Optional[list[str]] = None,
     ):
         self.mock_server_url = mock_server_url
         self.api_key = api_key
         self.test_id = test_id
+        self.capabilities = set(capabilities or [])
         self.last_action_result: Any = None
 
         if test_id is not None:

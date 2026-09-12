@@ -32,6 +32,10 @@
         type: boolean
         optional: true
         description: Mark batches as historical migration (V1 sets historical_migration in the request body)
+      distinct_id:
+        type: string
+        optional: true
+        description: Initial identified identity; forwarded only to adapters advertising bootstrap_identity
 
   capture:
     description: Capture a single event via the adapter

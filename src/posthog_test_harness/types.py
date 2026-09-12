@@ -17,6 +17,7 @@ class InitRequest:
     disable_geoip: Optional[bool] = None
     historical_migration: Optional[bool] = None
     personal_api_key: Optional[str] = None
+    distinct_id: Optional[str] = None
 
 
 @dataclass

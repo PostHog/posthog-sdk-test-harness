@@ -38,6 +38,7 @@ adapter_interface:
             Used to filter which test suites and tests are run.
             Common values: "capture_v0", "capture_v1", "capture_ai_v0",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
+            "bootstrap_identity" enables initial identified identity through /init.
           default: []
 
   # Parallel test execution
@@ -81,6 +82,13 @@ adapter_interface:
         personal_api_key:
           type: string
           description: Optional privileged definitions key; only sent for feature_flags_local_evaluation_v1 opt-in
+        distinct_id:
+          type: string
+          minLength: 1
+          description: >
+            Optional initial identified identity for adapters advertising bootstrap_identity.
+            Seed it through the SDK's public initialization API with fresh storage, without
+            an identify merge or identity-triggered flags reload. Omission keeps normal initialization.
     response:
       type: object
       required: [success]

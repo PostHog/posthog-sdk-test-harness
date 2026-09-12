@@ -133,6 +133,7 @@ async def _run_parallel(
             mock_server_url=ctx.mock_server_url,
             api_key=ctx.api_key,
             test_id=test_id,
+            capabilities=capabilities,
         )
         async with semaphore:
             result = await suite.run_single_test(test_name, test_def, scoped_ctx)

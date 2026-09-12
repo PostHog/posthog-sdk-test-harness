@@ -75,6 +75,8 @@ class ContractTestSuite(TestSuite):
         capabilities: Optional[List[str]] = None,
     ) -> TestSuiteResult:
         """Run all tests in this suite from CONTRACT.yaml."""
+        if capabilities is not None:
+            ctx.capabilities = set(capabilities)
         results = []
         for test_name, test_def in self.collect_tests(sdk_type, capabilities):
             result = await self._run_contract_test(test_name, test_def, ctx)

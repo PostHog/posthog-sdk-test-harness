@@ -16,6 +16,7 @@
             - action: init
               params:
                 api_key: phc_test_key
+                distinct_id: test_user_123
 
             - action: get_feature_flag
               params:
@@ -75,6 +76,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -95,6 +98,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -117,6 +122,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -138,6 +145,7 @@
             - action: init
               params:
                 api_key: phc_specific_key_12345
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -155,6 +163,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -181,6 +191,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -202,6 +214,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -220,6 +234,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -237,6 +253,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: my-specific-flag
@@ -288,6 +306,8 @@
           sdk_types: [server]
           steps:
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: any-flag
@@ -315,6 +335,8 @@
                   - status_code: 200
                     body: '{"featureFlags": {"signup-aa-test": "variant-a"}}'
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: signup-aa-test
@@ -341,6 +363,8 @@
                   - status_code: 200
                     body: '{"featureFlags": {"transient-502-flag": true}}'
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: transient-502-flag
@@ -367,6 +391,8 @@
                   - status_code: 200
                     body: '{"featureFlags": {"transient-504-flag": true}}'
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: transient-504-flag
@@ -399,6 +425,8 @@
                   - status_code: 200
                     body: '{"featureFlags": {"my-flag": true}}'
             - action: init
+              params:
+                distinct_id: user_1
             - action: get_feature_flag
               params:
                 key: my-flag

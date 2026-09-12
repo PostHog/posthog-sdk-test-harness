@@ -90,6 +90,18 @@ Initialize the SDK with configuration.
 - Use defaults from your SDK if params aren't provided
 - Don't send events with `null` values - omit them instead
 
+Adapters with a public identity-bootstrap API can advertise `bootstrap_identity`.
+For those adapters, an init action's optional `distinct_id` is forwarded to `/init`.
+Seed it as an already-identified user during SDK initialization with fresh storage,
+without an identify merge event or identity-triggered flags reload. Complete SDK
+setup before returning from `/init`; do not defer it until a flag getter.
+
+Flag scenarios declare the same identity in their init and evaluation actions.
+Adapters without this capability do not receive the init identity, so their existing
+setup behavior is unchanged. Omitted identity also preserves ordinary initialization.
+Bootstrapping identity does not supply flag values: remote-evaluation tests still
+require the SDK's own requests, response parsing, retries and called-events.
+
 ### `POST /capture`
 
 Capture a single event.

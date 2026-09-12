@@ -142,6 +142,7 @@ class InitAction(Action):
                 disable_geoip=params.get("disable_geoip"),
                 historical_migration=params.get("historical_migration"),
                 personal_api_key=params.get("personal_api_key"),
+                distinct_id=params.get("distinct_id") if "bootstrap_identity" in ctx.capabilities else None,
             )
         )
 

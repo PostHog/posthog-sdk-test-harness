@@ -80,6 +80,8 @@ class SDKAdapterClient(SDKAdapterInterface):
             payload["historical_migration"] = config.historical_migration
         if config.personal_api_key is not None:
             payload["personal_api_key"] = config.personal_api_key
+        if config.distinct_id is not None:
+            payload["distinct_id"] = config.distinct_id
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -231,6 +233,8 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             payload["historical_migration"] = config.historical_migration
         if config.personal_api_key is not None:
             payload["personal_api_key"] = config.personal_api_key
+        if config.distinct_id is not None:
+            payload["distinct_id"] = config.distinct_id
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
