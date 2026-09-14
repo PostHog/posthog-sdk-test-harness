@@ -163,6 +163,18 @@ class SDKAdapterClient(SDKAdapterInterface):
                 resp.raise_for_status()
                 return await resp.json()
 
+    async def reload_feature_flags(self) -> Dict:
+        return await self._client_flags_request("/reload_feature_flags", {})
+
+    async def get_cached_feature_flag(self, key: str) -> Dict:
+        return await self._client_flags_request("/get_cached_feature_flag", {"key": key})
+
+    async def _client_flags_request(self, path: str, payload: Dict, test_id: Optional[str] = None) -> Dict:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            async with session.post(self._url(path, test_id), json=payload) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
     async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
         return await self._reload_feature_flag_definitions(timeout_ms)
 
@@ -310,6 +322,12 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             ) as resp:
                 resp.raise_for_status()
                 return await resp.json()
+
+    async def reload_feature_flags(self) -> Dict:
+        return await self._client._client_flags_request("/reload_feature_flags", {}, self._test_id)
+
+    async def get_cached_feature_flag(self, key: str) -> Dict:
+        return await self._client._client_flags_request("/get_cached_feature_flag", {"key": key}, self._test_id)
 
     async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
         return await self._client._reload_feature_flag_definitions(timeout_ms, self._test_id)

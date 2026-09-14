@@ -1,0 +1,292 @@
+description: Client initialization, explicit remote loading, and public cached flag reads
+# This profile disables preload and starts with fresh storage and a known identity.
+# Each operation maps to a separate public client SDK call.
+tests:
+  - name: bootstrap_identity_is_used_by_reload
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 200
+              body: '{"featureFlags": {"identity-flag": "variant-a"}}'
+      - action: init
+        params:
+          distinct_id: user-café 雪
+      - action: assert_flags_request_count
+        params:
+          expected: 0
+      - action: reload_feature_flags
+      - action: flush
+      - action: assert_event_count_with_name
+        params:
+          name: $feature_flag_called
+          expected: 0
+      - action: get_cached_feature_flag
+        params:
+          key: identity-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_flags_request_field
+        params:
+          field: distinct_id
+          expected: user-café 雪
+      - action: assert_event_count_with_name
+        params:
+          name: $identify
+          expected: 0
+      - action: assert_event_count_with_name
+        params:
+          name: $feature_flag_called
+          expected: 1
+      - action: assert_event_property_in_named_event
+        params:
+          event_name: $feature_flag_called
+          property: $feature_flag
+          expected: identity-flag
+      - action: assert_event_property_in_named_event
+        params:
+          event_name: $feature_flag_called
+          property: $feature_flag_response
+          expected: variant-a
+
+  - name: cached_reads_do_not_reload
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 200
+              body: '{"featureFlags": {"cached-flag": "variant-a"}}'
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: cached-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: get_cached_feature_flag
+        params:
+          key: cached-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_event_count_with_name
+        params:
+          name: $feature_flag_called
+          expected: 1
+
+  - name: explicit_reload_replaces_cached_value
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 200
+              body: '{"featureFlags": {"changing-flag": "variant-a"}}'
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: changing-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: flush
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 200
+              body: '{"featureFlags": {"changing-flag": "variant-b"}}'
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: changing-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-b
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 2
+
+  - name: reload_populates_multiple_flags
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 200
+              body: '{"featureFlags": {"first-flag": true, "second-flag": false}}'
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: first-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_cached_feature_flag
+        params:
+          key: second-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+
+  - name: reload_retries_502
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 502
+            - status_code: 200
+              body: '{"featureFlags": {"retry-flag": "variant-a"}}'
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: retry-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 2
+
+  - name: reload_retries_504
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: configure_mock_responses
+        params:
+          responses:
+            - status_code: 504
+            - status_code: 200
+              body: '{"featureFlags": {"retry-flag": "variant-a"}}'
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: get_cached_feature_flag
+        params:
+          key: retry-flag
+      - action: assert_action_result
+        params:
+          field: value
+          expected: variant-a
+      - action: flush
+      - action: assert_flags_request_count
+        params:
+          expected: 2
+
+  - name: reload_uses_flags_path_and_version
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_flags_request_query_param
+        params:
+          param: v
+          expected: "2"
+      - action: assert_no_requests_to_paths
+        params:
+          paths: [/decide, /decide/]
+
+  - name: reload_omits_authorization_header
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_header_absent
+        params:
+          header: Authorization
+
+  - name: reload_uses_configured_token
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: init
+        params:
+          api_key: phc_client_flags_fixture
+          distinct_id: user_1
+      - action: reload_feature_flags
+      - action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_flags_request_field
+        params:
+          field: token
+          expected: phc_client_flags_fixture
+
+  - name: normal_capture_does_not_reload
+    sdk_types: [client]
+    requires: [bootstrap_identity, client_feature_flags]
+    steps:
+      - action: init
+        params:
+          distinct_id: user_1
+      - action: capture
+        params:
+          distinct_id: user_1
+          event: regular_event
+      - action: flush
+      - action: assert_event_count_with_name
+        params:
+          name: regular_event
+          expected: 1
+      - action: assert_event_count_with_name
+        params:
+          name: $identify
+          expected: 0
+      - action: assert_flags_request_count
+        params:
+          expected: 0

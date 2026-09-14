@@ -35,7 +35,7 @@
       distinct_id:
         type: string
         optional: true
-        description: Initial identified identity; forwarded only to adapters advertising bootstrap_identity
+        description: Client initialization identity; forwarded only to adapters advertising bootstrap_identity
 
   capture:
     description: Capture a single event via the adapter
@@ -131,6 +131,17 @@
         type: boolean
         optional: true
         description: No remote fallback; require locally_evaluated=true. Conflicts with force_remote=true.
+
+  reload_feature_flags:
+    description: Load client flags using the initialized identity and await the SDK callback; requires client_feature_flags
+    params: {}
+
+  get_cached_feature_flag:
+    description: Read a public client flag without reload or context changes, retaining native called-events; requires client_feature_flags
+    params:
+      key:
+        type: string
+        required: true
 
   reload_feature_flag_definitions:
     description: Opt-in fresh definitions GET and bounded readiness barrier; requires feature_flags_local_evaluation_v1

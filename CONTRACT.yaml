@@ -38,7 +38,8 @@ adapter_interface:
             Used to filter which test suites and tests are run.
             Common values: "capture_v0", "capture_v1", "capture_ai_v0",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
-            "bootstrap_identity" enables initial identified identity through /init.
+            "bootstrap_identity" enables initial client identity through /init.
+            "client_feature_flags" enables explicit client reload and cached-read operations.
           default: []
 
   # Parallel test execution
@@ -86,7 +87,7 @@ adapter_interface:
           type: string
           minLength: 1
           description: >
-            Optional initial identified identity for adapters advertising bootstrap_identity.
+            Optional initial identified client identity for adapters advertising bootstrap_identity.
             Seed it through the SDK's public initialization API with fresh storage, without
             an identify merge or identity-triggered flags reload. Omission keeps normal initialization.
     response:
@@ -300,6 +301,48 @@ adapter_interface:
         locally_evaluated:
           type: boolean
           description: Required true for a successful only_evaluate_locally request; absent on legacy responses is allowed
+
+  # Optional client lifecycle operations
+  reload_feature_flags:
+    method: POST
+    path: /reload_feature_flags
+    requires: client_feature_flags
+    description: >
+      Call the public client reload API using the initialized identity and context.
+      Return after its completion callback, without identifying or reading a flag.
+      The harness requires a fresh successful /flags response within 30 seconds.
+    request:
+      type: object
+      additionalProperties: false
+    response:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+  get_cached_feature_flag:
+    method: POST
+    path: /get_cached_feature_flag
+    requires: client_feature_flags
+    description: >
+      Call the public cached getter. Do not change identity, properties, groups,
+      or reload flags. Preserve the SDK's called-event and missing-value behavior.
+    request:
+      type: object
+      required: [key]
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+    response:
+      type: object
+      required: [success, value]
+      properties:
+        success:
+          type: boolean
+        value:
+          type: [boolean, string, "null"]
 
   # Optional: feature_flags_local_evaluation_v1 only (supports matching versions 1 AND 2)
   reload_feature_flag_definitions:

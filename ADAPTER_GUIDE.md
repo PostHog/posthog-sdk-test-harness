@@ -90,17 +90,38 @@ Initialize the SDK with configuration.
 - Use defaults from your SDK if params aren't provided
 - Don't send events with `null` values - omit them instead
 
-Adapters with a public identity-bootstrap API can advertise `bootstrap_identity`.
+Client adapters with a public identity-bootstrap API can advertise `bootstrap_identity`.
 For those adapters, an init action's optional `distinct_id` is forwarded to `/init`.
 Seed it as an already-identified user during SDK initialization with fresh storage,
 without an identify merge event or identity-triggered flags reload. Complete SDK
 setup before returning from `/init`; do not defer it until a flag getter.
+Omitted identity preserves ordinary initialization. Bootstrap supplies identity,
+not flag answers; remote responses and called-events still belong to the SDK.
 
-Flag scenarios declare the same identity in their init and evaluation actions.
-Adapters without this capability do not receive the init identity, so their existing
-setup behavior is unchanged. Omitted identity also preserves ordinary initialization.
-Bootstrapping identity does not supply flag values: remote-evaluation tests still
-require the SDK's own requests, response parsing, retries and called-events.
+### Client feature flag lifecycle
+
+`--sdk-type client --suite feature_flags` selects the client lifecycle cases when
+both `bootstrap_identity` and `client_feature_flags` are advertised. This configured
+profile disables flag preload and automatic lifecycle capture. The actions are:
+
+1. `init` supplies the known identity before SDK setup.
+2. `reload_feature_flags` sends `POST /reload_feature_flags` with `{}`. Call the
+   public reload API and await its completion callback. The harness allows 30 seconds
+   and checks for a fresh successful `/flags` response.
+3. `get_cached_feature_flag` sends `POST /get_cached_feature_flag` with only
+   `{"key": "my-flag"}`. Read the public cached getter without changing identity,
+   evaluation context, or loading flags. Return `{"success": true, "value": ...}`
+   and retain the native `$feature_flag_called` behavior.
+
+Reload returns `{"success": true}` after the SDK callback; that callback alone
+is not proof of a successful response or correct cache contents. The tests also
+check request counts and returned values, including a second explicit reload.
+`flush` remains a separate operation for observing called-events.
+
+Server flag cases use `--sdk-type server` and pass identity to each
+`get_feature_flag` evaluation. They do not establish a client identity at init.
+Client group/context updates, GeoIP configuration and default preload behavior
+need their own lifecycle cases; per-call server assertions do not establish them.
 
 ### `POST /capture`
 

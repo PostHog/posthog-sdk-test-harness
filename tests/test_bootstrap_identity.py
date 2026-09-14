@@ -6,7 +6,6 @@ import pytest
 from aiohttp import web
 
 from posthog_test_harness.actions import InitAction
-from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.tests.context import TestContext
@@ -84,18 +83,3 @@ async def test_runner_propagates_bootstrap_capability(parallel):
     assert result.total == result.passed == 1
     assert observed[0][0] == {"bootstrap_identity"}
     assert (observed[0][1] is not None) == parallel
-
-
-def test_remote_flag_cases_declare_identity_at_initialization():
-    suite = ContractExecutor().get_test_suites()["feature_flags"]
-    checked = 0
-    for category in suite["categories"].values():
-        for test in category["tests"]:
-            initial_identity = None
-            for step in test["steps"]:
-                if step["action"] == "init":
-                    initial_identity = step.get("params", {}).get("distinct_id")
-                elif step["action"] == "get_feature_flag":
-                    assert initial_identity == step["params"]["distinct_id"], test["name"]
-                    checked += 1
-    assert checked > 0

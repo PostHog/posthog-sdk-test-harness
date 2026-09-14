@@ -261,6 +261,46 @@ class GetFeatureFlagAction(Action):
         return result
 
 
+class ReloadFeatureFlagsAction(Action):
+    """Explicit client flags load, completed before subsequent cache reads."""
+
+    @property
+    def name(self) -> str:
+        return "reload_feature_flags"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        if "client_feature_flags" not in ctx.capabilities:
+            raise ValueError("reload_feature_flags requires client_feature_flags")
+        before = len(ctx.mock_server.get_requests())
+        result = await asyncio.wait_for(ctx.sdk_adapter.reload_feature_flags(), timeout=30)
+        if not isinstance(result, dict) or result.get("success") is not True:
+            raise AssertionError("Client flags reload did not report success")
+        requests = ctx.mock_server.get_requests()[before:]
+        if not any(r.path.rstrip("/") == "/flags" and r.response_status == 200 for r in requests):
+            raise AssertionError("Client flags reload did not fetch a fresh successful response")
+        return result
+
+
+class GetCachedFeatureFlagAction(Action):
+    """Read a client flag without preparing identity or initiating a reload."""
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "get_cached_feature_flag"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        if "client_feature_flags" not in ctx.capabilities:
+            raise ValueError("get_cached_feature_flag requires client_feature_flags")
+        result = await ctx.sdk_adapter.get_cached_feature_flag(params["key"])
+        if not isinstance(result, dict) or result.get("success") is not True or "value" not in result:
+            raise AssertionError("Client cached getter did not report a successful value")
+        if result["value"] is not None and not isinstance(result["value"], (bool, str)):
+            raise AssertionError("Client cached flag value must be a Boolean, string, or null")
+        return result
+
+
 class ReloadFeatureFlagDefinitionsAction(Action):
     """Bounded fresh-load readiness barrier for opt-in local evaluation."""
 

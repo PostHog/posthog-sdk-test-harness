@@ -93,6 +93,21 @@ class SDKAdapterInterface(ABC):
         """
         pass
 
+    async def reload_feature_flags(self) -> Dict:
+        """Load client flags through the public SDK and await its completion callback.
+
+        Optional, for client_feature_flags. Uses the initialized identity and
+        context; does not identify, evaluate a key, or emit a called-event.
+        """
+        raise NotImplementedError("reload_feature_flags requires client_feature_flags")
+
+    async def get_cached_feature_flag(self, key: str) -> Dict:
+        """Read the public client cache without a reload or context mutation.
+
+        Optional, for client_feature_flags. Preserve the SDK's called-event.
+        """
+        raise NotImplementedError("get_cached_feature_flag requires client_feature_flags")
+
     async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
         """Force a fresh definitions load and await readiness within timeout_ms.
 
