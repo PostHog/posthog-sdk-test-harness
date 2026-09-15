@@ -157,6 +157,48 @@
         "/flags/0/ensure_experience_continuity": null
       },
       "expected": "valid"
+    },
+    {
+      "id": "definitions_feed.missing_flags",
+      "template": "mixed",
+      "remove": [
+        "/flags"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "flags"
+      }
+    },
+    {
+      "id": "definitions_feed.missing_group_type_mapping",
+      "template": "mixed",
+      "remove": [
+        "/group_type_mapping"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "group_type_mapping"
+      }
+    },
+    {
+      "id": "definitions_feed.unknown_field",
+      "template": "mixed",
+      "set": {
+        "/future_feed_field": 1
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": "",
+        "message_contains": "future_feed_field"
+      }
     }
   ]
 }

@@ -494,6 +494,20 @@
         "keyword": "not",
         "instance_path": ""
       }
+    },
+    {
+      "id": "exposures.unknown_field",
+      "template": "split",
+      "set": {
+        "/$feature_flag_surprise": 1
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": "",
+        "message_contains": "$feature_flag_surprise"
+      }
     }
   ]
 }

@@ -313,6 +313,76 @@
         "/ensure_experience_continuity": null
       },
       "expected": "valid"
+    },
+    {
+      "id": "definitions.missing_id",
+      "template": "v2",
+      "remove": [
+        "/id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "id"
+      }
+    },
+    {
+      "id": "definitions.missing_key",
+      "template": "v2",
+      "remove": [
+        "/key"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "key"
+      }
+    },
+    {
+      "id": "definitions.missing_active",
+      "template": "v2",
+      "remove": [
+        "/active"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "active"
+      }
+    },
+    {
+      "id": "definitions.missing_filters",
+      "template": "v2",
+      "remove": [
+        "/filters"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "filters"
+      }
+    },
+    {
+      "id": "definitions.unknown_field",
+      "template": "v2",
+      "set": {
+        "/future_row_field": 1
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": "",
+        "message_contains": "future_row_field"
+      }
     }
   ]
 }

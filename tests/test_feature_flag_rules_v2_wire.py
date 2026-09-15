@@ -28,6 +28,7 @@ SCHEMAS = {a["path"]: _load_json(CONTRACT_ROOT / a["path"]) for a in MANIFEST["a
 REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS.values())
 LITERALS = _load_json(REGISTRY_PATH)
 MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
+ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
 PRODUCER_DIGEST = "1dd97730c746bc4534c4f47eebd82dac0cc67ceb1e4c53e7540960e7f74b00d9"
@@ -306,15 +307,19 @@ def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
     assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST, "manifest pins the producer copy"
 
 
+def row_name(row: dict[str, Any]) -> str:
+    """Fixture ids name a row by reason, plus the rule type when a reason has more than one row."""
+    return row["reason"] + ("_" + row["rule_type"] if ROWS_PER_REASON[row["reason"]] > 1 else "")
+
+
 def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
     ids = {c["id"] for c in SETS["responses"]["cases"]}
     assert {r["reason"] for r in MATRIX} == set(LITERALS["reason_codes"]) - {"flag_disabled"}
-    rows_per_reason = Counter(row["reason"] for row in MATRIX)
     for field in ["id", "version", "config_version"]:
         # The exact schema requires these on every record, so one case each is enough.
         assert f"responses.missing_{field}" in ids
     for row in MATRIX:
-        name = row["reason"] + ("_" + row["rule_type"] if rows_per_reason[row["reason"]] > 1 else "")
+        name = row_name(row)
         assert "responses." + name in ids
         for field in ["has_experiment", *row["required"]]:
             assert f"responses.{name}_missing_{field}" in ids
@@ -324,6 +329,18 @@ def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() ->
     for field in ["config_version", "rule_type", "rule_id", "experiment_id", "variant_key"]:
         assert f"responses.split_wrong_type_{field}" in ids
         assert any(c["id"] == f"readers.partial_split_missing_{field}" for c in SETS["readers"]["cases"])
+
+
+def test_every_terminal_reason_has_call_context_fixtures() -> None:
+    """The event-side mirror: each row's required and forbidden fields have a $feature_flag_called case."""
+    ids = {c["id"] for c in SETS["calls"]["cases"]}
+    for row in MATRIX:
+        name = row_name(row)
+        assert "calls." + name in ids
+        for field in row["required"]:
+            assert f"calls.{name}_missing_{field}" in ids
+        for field in row["forbidden"]:
+            assert f"calls.{name}_forbidden_{field}" in ids
 
 
 def test_equal_values_keep_distinct_analytical_identities() -> None:
