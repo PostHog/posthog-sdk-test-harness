@@ -1,0 +1,113 @@
+{
+  "fixture_version": "1.0.0",
+  "schema": "schemas/management_warning.schema.json",
+  "templates": {
+    "warning": {
+      "code": "RULE_ORDER_CHANGES_TRAFFIC"
+    }
+  },
+  "cases": [
+    {
+      "id": "warnings.rule_order_changes_traffic",
+      "template": "warning",
+      "set": {
+        "/code": "RULE_ORDER_CHANGES_TRAFFIC"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.unreachable_lower_rule",
+      "template": "warning",
+      "set": {
+        "/code": "UNREACHABLE_LOWER_RULE"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.rollout_miss_can_enter_lower_rule",
+      "template": "warning",
+      "set": {
+        "/code": "ROLLOUT_MISS_CAN_ENTER_LOWER_RULE"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.assignment_reset_changes_traffic",
+      "template": "warning",
+      "set": {
+        "/code": "ASSIGNMENT_RESET_CHANGES_TRAFFIC"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.conclusion_expands_population",
+      "template": "warning",
+      "set": {
+        "/code": "CONCLUSION_EXPANDS_POPULATION"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.detail_and_attr",
+      "template": "warning",
+      "set": {
+        "/detail": "Reordering can change traffic.",
+        "/attr": "filters.rules"
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "warnings.unknown_code",
+      "template": "warning",
+      "set": {
+        "/code": "INVENTED_WARNING"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "enum",
+        "instance_path": "/code"
+      }
+    },
+    {
+      "id": "warnings.missing_code",
+      "template": "warning",
+      "remove": [
+        "/code"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "code"
+      }
+    },
+    {
+      "id": "warnings.wrong_detail_type",
+      "template": "warning",
+      "set": {
+        "/detail": 2
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/detail"
+      }
+    },
+    {
+      "id": "warnings.unknown_field",
+      "template": "warning",
+      "set": {
+        "/acknowledgement_token": "invented"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": ""
+      }
+    }
+  ]
+}

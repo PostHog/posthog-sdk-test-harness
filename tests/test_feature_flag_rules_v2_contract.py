@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import re
 from collections.abc import Iterator
@@ -14,6 +15,16 @@ MANIFEST_PATH = CONTRACT_ROOT / "manifest.json"
 SCHEMA_PATH = CONTRACT_ROOT / "schemas" / "config.schema.json"
 REGISTRY_PATH = CONTRACT_ROOT / "registries" / "literals.json"
 CHECKSUMS_PATH = CONTRACT_ROOT / "SHA256SUMS"
+BIN_ROOT = Path(__file__).parents[1] / "bin"
+
+
+def _bin_module(name: str) -> Any:
+    """Import a hyphenated bin/ script so tests exercise the same code the maintainers run."""
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), BIN_ROOT / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _load_json(path: Path) -> Any:
@@ -108,7 +119,9 @@ def test_fixture_ids_are_unique_and_match_fixture_files() -> None:
     fixture_ids = [fixture["fixture_id"] for fixture in fixtures]
     assert len(fixture_ids) == len(set(fixture_ids))
 
-    manifest_fixture_paths = {fixture["path"] for fixture in fixtures}
+    manifest_fixture_paths = {fixture["path"] for fixture in fixtures} | {
+        artifact["path"] for artifact in _manifest()["artifacts"] if artifact["kind"] == "fixture_set"
+    }
     actual_fixture_paths = {
         path.relative_to(CONTRACT_ROOT).as_posix()
         for path in (CONTRACT_ROOT / "fixtures").rglob("*.json")

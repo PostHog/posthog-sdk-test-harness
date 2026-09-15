@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://posthog.com/contracts/feature_flag_rules_v2/management_error.schema.json",
+  "title": "Management validation error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "code",
+    "detail",
+    "attr"
+  ],
+  "properties": {
+    "type": {
+      "const": "validation_error"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detail": {
+      "type": "string"
+    },
+    "attr": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "description": "Existing management validation-error envelope. Error codes remain endpoint-owned; there is no new rules-v2 error-code registry."
+}

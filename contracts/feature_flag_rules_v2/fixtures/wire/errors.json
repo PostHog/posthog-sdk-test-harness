@@ -1,0 +1,109 @@
+{
+  "fixture_version": "1.0.0",
+  "schema": "schemas/management_error.schema.json",
+  "templates": {
+    "error": {
+      "type": "validation_error",
+      "code": "invalid",
+      "detail": "Unknown configuration field.",
+      "attr": "filters.future_field"
+    }
+  },
+  "cases": [
+    {
+      "id": "errors.validation",
+      "template": "error",
+      "expected": "valid"
+    },
+    {
+      "id": "errors.nonfield",
+      "template": "error",
+      "set": {
+        "/attr": null
+      },
+      "expected": "valid"
+    },
+    {
+      "id": "errors.missing_type",
+      "template": "error",
+      "remove": [
+        "/type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "type"
+      }
+    },
+    {
+      "id": "errors.missing_code",
+      "template": "error",
+      "remove": [
+        "/code"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "code"
+      }
+    },
+    {
+      "id": "errors.missing_detail",
+      "template": "error",
+      "remove": [
+        "/detail"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "detail"
+      }
+    },
+    {
+      "id": "errors.missing_attr",
+      "template": "error",
+      "remove": [
+        "/attr"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "attr"
+      }
+    },
+    {
+      "id": "errors.wrong_detail_type",
+      "template": "error",
+      "set": {
+        "/detail": []
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/detail"
+      }
+    },
+    {
+      "id": "errors.unknown_field",
+      "template": "error",
+      "set": {
+        "/seed_reset_token": "invented"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "additionalProperties",
+        "instance_path": ""
+      }
+    }
+  ]
+}
