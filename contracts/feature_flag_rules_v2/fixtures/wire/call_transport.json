@@ -53,6 +53,16 @@
         "keyword": "assignment_seed",
         "instance_path": "/properties/$feature_flag_seed"
       }
+    },
+    {
+      "id": "call_transport.person_property_named_seed",
+      "template": "call",
+      "set": {
+        "/properties/$set": {
+          "seed": 3
+        }
+      },
+      "expected": "valid"
     }
   ]
 }

@@ -93,6 +93,14 @@
         "keyword": "not",
         "instance_path": "/properties"
       }
+    },
+    {
+      "id": "exposure_transport.group_type_named_seed",
+      "template": "exposure",
+      "set": {
+        "/properties/$groups/seed": "garden-club"
+      },
+      "expected": "valid"
     }
   ]
 }

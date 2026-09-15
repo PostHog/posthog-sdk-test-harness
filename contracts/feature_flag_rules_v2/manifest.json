@@ -893,7 +893,8 @@
         "exposure_transport.nested_seed",
         "exposure_transport.nested_holdout_seed",
         "exposure_transport.holdout_context",
-        "exposure_transport.forced_variant_context"
+        "exposure_transport.forced_variant_context",
+        "exposure_transport.group_type_named_seed"
       ]
     },
     {
@@ -904,7 +905,8 @@
       "case_ids": [
         "call_transport.call_with_transport",
         "call_transport.nested_assignment_seed",
-        "call_transport.prefixed_seed"
+        "call_transport.prefixed_seed",
+        "call_transport.person_property_named_seed"
       ]
     }
   ],
