@@ -144,7 +144,7 @@ Producer and reader contracts serve different purposes. Missing split context is
 
 The first event release permits only booleans and non-empty strings in the response property. Reserved number/object response-schema cases do not enable writers or event emission. Equal-valued arms remain separate analytical identities through their variant keys. A holdout, pause, rollout miss, default, missing or failed result cannot produce a direct exposure.
 
-Future accepted/rejected wire-contract changes require a new major wire component version; additive fixture cases require a new minor fixture version and a new package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes new schema files under new paths and `$id`s rather than reusing these.
+Future accepted/rejected wire-contract changes require a new major wire component version and a new major package version; additive fixture cases require a new minor fixture version and a new minor package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes new schema files under new paths and `$id`s rather than reusing these.
 
 The source distribution includes every indexed artifact and the checksum utility. Verify a build against the checkout with:
 

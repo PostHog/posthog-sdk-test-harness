@@ -15,9 +15,9 @@
   "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
   "compatibility": {
     "published_versions_are_immutable": true,
-    "patch": "Documentation or integrity-tool changes that do not change accepted configs or frozen literals.",
-    "minor": "Additive fixtures or artifacts that do not change accepted configs or frozen literals.",
-    "major": "Any change to accepted configs, rejected configs, or frozen literals."
+    "patch": "Documentation or integrity-tool changes that do not change accepted configs, wire payloads, frozen literals, or fixture expectations.",
+    "minor": "Additive fixtures or artifacts that do not change accepted configs, accepted or rejected wire payloads, frozen literals, or published fixture expectations.",
+    "major": "Any change to accepted or rejected configs, accepted or rejected wire payloads (responses, definitions, events, diagnostics), frozen literals, or published fixture expectations."
   },
   "integrity": {
     "algorithm": "sha256",
