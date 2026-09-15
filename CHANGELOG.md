@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.5.0 — 2026-09-15
+
+### Minor changes
+
+- [d14f173](https://github.com/posthog/posthog-sdk-test-harness/commit/d14f1736849e3a63e610d16b0d3f02056554da37) Add versioned Feature Flag Rules v2 definitions, evaluation response, management diagnostic, and event contracts with producer and tolerant-reader fixtures. Include source-distribution integrity verification. Contract package 2.0.0 narrows the registry warning codes to the five actionable management warnings (registry 2.0.0), removing EXPERIMENT_VALUE_COLLISION, SDK_REMOTE_FALLBACK_REQUIRED, SDK_EXPERIMENT_CONTEXT_MISSING, and LEGACY_PROJECTION_LIMITED from published contract 1.2.0. — Thanks @andehen!
+
 ## 1.4.0 — 2026-09-10
 
 ### Minor changes
