@@ -120,6 +120,12 @@ Entries use bytewise path order.
 To pin this contract, record the source revision, the contract version, the corpus version, and the SHA-256 digest of SHA256SUMS.
 Verify each file against SHA256SUMS before use.
 
+After editing rules/response_presence.json, regenerate the derived terminal-reason branches of the presence and called-context schemas:
+
+```sh
+python3 <repo>/bin/update-feature-flag-rules-v2-presence-schemas.py
+```
+
 After editing contract files and updating manifest.json, regenerate the checksum index from any working directory:
 
 ```sh
