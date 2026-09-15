@@ -824,6 +824,28 @@
       "producer_expected": "valid"
     },
     {
+      "id": "readers.holdout_variant_key",
+      "template": "holdout",
+      "set": {
+        "/flags/garden-layout/metadata/variant_key": "arm_a"
+      },
+      "expected": "reader",
+      "reader": {
+        "requested_key": "garden-layout",
+        "caller_default": false,
+        "value": false,
+        "config_version": 2,
+        "experiment_exposure": false,
+        "error_code": null
+      },
+      "producer_expected": "invalid",
+      "producer_failure": {
+        "layer": "presence",
+        "keyword": "not",
+        "instance_path": "/flags/garden-layout/metadata"
+      }
+    },
+    {
       "id": "readers.no_rule_match",
       "template": "no_rule_match",
       "expected": "reader",
@@ -878,6 +900,28 @@
         "error_code": "GENERAL"
       },
       "producer_expected": "valid"
+    },
+    {
+      "id": "readers.error_with_value",
+      "template": "error",
+      "set": {
+        "/flags/garden-layout/value": false
+      },
+      "expected": "reader",
+      "reader": {
+        "requested_key": "garden-layout",
+        "caller_default": true,
+        "value": true,
+        "config_version": 2,
+        "experiment_exposure": false,
+        "error_code": "GENERAL"
+      },
+      "producer_expected": "invalid",
+      "producer_failure": {
+        "layer": "schema",
+        "keyword": "type",
+        "instance_path": "/flags/garden-layout/value"
+      }
     },
     {
       "id": "readers.malformed_sibling_isolation",
@@ -957,6 +1001,32 @@
         "config_version": 1,
         "experiment_exposure": false,
         "error_code": null
+      },
+      "producer_expected": "valid"
+    },
+    {
+      "id": "readers.v1_failed",
+      "template": "v1",
+      "set": {
+        "/flags/garden-layout/failed": true,
+        "/flags/garden-layout/value": null,
+        "/flags/garden-layout/reason": {
+          "code": "missing_dependency",
+          "condition_index": null
+        },
+        "/errorsWhileComputingFlags": true
+      },
+      "remove": [
+        "/flags/garden-layout/metadata/variant_key"
+      ],
+      "expected": "reader",
+      "reader": {
+        "requested_key": "garden-layout",
+        "caller_default": true,
+        "value": true,
+        "config_version": 1,
+        "experiment_exposure": false,
+        "error_code": "GENERAL"
       },
       "producer_expected": "valid"
     },

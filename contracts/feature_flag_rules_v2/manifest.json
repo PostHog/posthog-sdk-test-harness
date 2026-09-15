@@ -869,13 +869,16 @@
         "readers.rollout_miss_experiment",
         "readers.experiment_paused",
         "readers.holdout",
+        "readers.holdout_variant_key",
         "readers.no_rule_match",
         "readers.missing_group_key",
         "readers.dependency_error",
         "readers.error",
+        "readers.error_with_value",
         "readers.malformed_sibling_isolation",
         "readers.partial_split_string_value",
         "readers.v1_at_v3",
+        "readers.v1_failed",
         "readers.integral_json_number_context",
         "readers.flag_key_seed"
       ]
