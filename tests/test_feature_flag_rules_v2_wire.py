@@ -15,6 +15,7 @@ from tests.test_feature_flag_rules_v2_contract import (
     CONTRACT_ROOT,
     REGISTRY_PATH,
     _all_errors,
+    _bin_module,
     _json_pointer,
     _load_json,
     _manifest,
@@ -30,8 +31,8 @@ MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
 PRODUCER_DIGEST = "1dd97730c746bc4534c4f47eebd82dac0cc67ceb1e4c53e7540960e7f74b00d9"
-# Event property names drop the wire prefix and rename the analytical arm key.
-EVENT_FIELDS = {"variant_key": "variant"}
+FROZEN_POLICY = "published bytes are immutable; a wire change publishes a new schema file under a new $id (README)"
+PRESENCE = _bin_module("update-feature-flag-rules-v2-presence-schemas")
 
 
 def validator(schema: str | dict[str, Any]) -> Draft202012Validator:
@@ -279,9 +280,9 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     exposure = SCHEMAS["schemas/experiment_exposure_properties.schema.json"]["properties"]
     shared = ["variant_key", "rule_id", "experiment_id", "holdout_id", "forced_variant"]
     for field in ["config_version", "rule_type", *shared]:
-        assert called["$feature_flag_" + EVENT_FIELDS.get(field, field)] == metadata[field], field
+        assert called[PRESENCE.event_property(field)] == metadata[field], field
     for field in shared:
-        assert exposure["$feature_flag_" + EVENT_FIELDS.get(field, field)] == metadata[field], field
+        assert exposure[PRESENCE.event_property(field)] == metadata[field], field
     assert exposure["$feature_flag"] == called["$feature_flag"]
     assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
 
@@ -297,11 +298,12 @@ def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
     }
     versions = {a["path"]: a.get("version") for a in MANIFEST["artifacts"]}
     for path, (version, digest) in frozen.items():
-        assert hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest() == digest, path
+        actual = hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest()
+        assert actual == digest, f"{path} {version}: {FROZEN_POLICY}"
         assert versions[path] == version, path
     producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
-    assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST
-    assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST
+    assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST, f"flags_response_v3.schema.json: {FROZEN_POLICY}"
+    assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST, "manifest pins the producer copy"
 
 
 def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
@@ -358,44 +360,38 @@ def test_seed_scanner_reaches_opaque_objects_and_arrays(field: str) -> None:
 
 
 def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
-    def branch(row: dict[str, Any]) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "required": ["has_experiment", *row["required"]],
-            "not": {"anyOf": [{"required": [field]} for field in row["forbidden"]]},
-        }
-        if row["rule_type"]:
-            metadata["properties"] = {"rule_type": {"const": row["rule_type"]}}
-        properties: dict[str, Any] = {
-            "reason": {
-                "properties": {
-                    "code": {"const": row["reason"]},
-                    "condition_index": {"type": "integer", "minimum": 0} if row["rule_type"] else {"type": "null"},
-                }
-            },
-            "metadata": metadata,
-        }
-        if row["reason"] in ["targeting_match", "experiment_split"]:
-            # A matched rule or variant value is never null.
-            properties["value"] = {"type": ["boolean", "string", "number", "object"]}
-        failed: dict[str, Any] = {"required": ["failed"]} if row["failed"] else {"not": {"required": ["failed"]}}
-        return {"properties": properties, **failed}
-
-    def called_branch(row: dict[str, Any]) -> dict[str, Any]:
-        def name(field: str) -> str:
-            return "$feature_flag_" + EVENT_FIELDS.get(field, field)
-
-        properties = {"$feature_flag_reason_code": {"const": row["reason"]}}
-        if row["rule_type"]:
-            properties["$feature_flag_rule_type"] = {"const": row["rule_type"]}
-        result: dict[str, Any] = {"properties": properties}
-        if row["required"]:
-            result["required"] = [name(field) for field in row["required"]]
-        result["not"] = {"anyOf": [{"required": [name(field)]} for field in row["forbidden"]]}
-        return result
-
     presence = SCHEMAS["schemas/flags_response_v3_presence.schema.json"]
+    called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]
     branches = presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"]
-    assert branches == [branch(row) for row in MATRIX]
-    called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["allOf"][0]["then"]["oneOf"]
-    # The two trailing branches (local-only flag_disabled and the diagnostic split) have no matrix row.
-    assert called[: len(MATRIX)] == [called_branch(row) for row in MATRIX]
+    # Hand-written called branches (local-only flag_disabled and the diagnostic split) carry a description.
+    generated = [branch for branch in called["allOf"][0]["then"]["oneOf"] if "description" not in branch]
+    assert len(branches) == len(generated) == len(MATRIX)
+    for row, response, call in zip(MATRIX, branches, generated):
+        assert response == PRESENCE.response_branch(row), row["reason"]
+        assert call == PRESENCE.called_branch(row), row["reason"]
+    regenerated = copy.deepcopy((presence, called))
+    PRESENCE.regenerate(MATRIX, *regenerated)
+    assert regenerated == (presence, called), "run bin/update-feature-flag-rules-v2-presence-schemas.py"
+
+
+def test_frozen_producer_rules_agree_with_the_matrix() -> None:
+    """The frozen producer copy restates the split, no-rule and failed rows; a matrix edit must not diverge from it."""
+    defs = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"]
+
+    def forbidden(schema: dict[str, Any]) -> list[str]:
+        return [clause["required"][0] for clause in schema["not"].get("anyOf", [schema["not"]])]
+
+    def reasons(condition: dict[str, Any]) -> list[str]:
+        return condition["properties"]["reason"]["properties"]["code"]["enum"]
+
+    split = next(row for row in MATRIX if row["reason"] == "experiment_split")
+    metadata = defs["split_rules"]["then"]["properties"]["metadata"]
+    assert metadata["required"] == split["required"]
+    assert forbidden(metadata) == split["forbidden"]
+    assert metadata["properties"]["rule_type"]["const"] == split["rule_type"]
+    no_rule = [row for row in MATRIX if row["rule_type"] is None]
+    assert reasons(defs["no_rule_rules"]["if"]) == [row["reason"] for row in no_rule]
+    for row in no_rule:
+        assert row["required"] == [], row["reason"]
+        assert forbidden(defs["no_rule_context"]) == row["forbidden"], row["reason"]
+    assert reasons(defs["v2_rules"]["then"]["allOf"][0]["if"]) == [row["reason"] for row in MATRIX if row["failed"]]

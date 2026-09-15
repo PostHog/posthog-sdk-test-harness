@@ -434,6 +434,7 @@
             }
           },
           {
+            "description": "A local-only outcome with no matrix row: the server never returns flag_disabled, and the call carries no rule or experiment attribution.",
             "properties": {
               "$feature_flag_reason_code": {
                 "const": "flag_disabled"

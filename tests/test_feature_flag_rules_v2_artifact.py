@@ -1,20 +1,15 @@
 """Exercise the same archive verifier used after building a source distribution."""
 
-import importlib.util
 import io
 import tarfile
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).parents[1]
-CONTRACT = ROOT / "contracts" / "feature_flag_rules_v2"
-SPEC = importlib.util.spec_from_file_location(
-    "rules_v2_checksums", ROOT / "bin/update-feature-flag-rules-v2-checksums.py"
-)
-assert SPEC is not None and SPEC.loader is not None
-CHECKSUMS = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(CHECKSUMS)
+from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT as CONTRACT
+from tests.test_feature_flag_rules_v2_contract import _bin_module
+
+CHECKSUMS = _bin_module("update-feature-flag-rules-v2-checksums")
 
 
 @pytest.mark.parametrize("damage", [None, "missing", "tampered", "extra", "duplicate"])
