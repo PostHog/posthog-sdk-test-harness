@@ -250,7 +250,7 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "2.0.0"
+    assert MANIFEST["contract"]["version"] == "2.1.0"
     assert MANIFEST["corpus"]["version"] == "1.1.0"
     assert MANIFEST["wire_contract"]["version"] == "1.0.0"
 

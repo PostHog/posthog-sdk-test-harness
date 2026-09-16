@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
-Contract package 2.0.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
+Contract package 2.1.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -66,6 +66,7 @@ Each artifact carries its own component version in manifest.json.
 The config schema stays at 1.0.0 because contract 2.0.0 does not change its published bytes or accepted configs.
 The literal registry is 2.0.0: it removes the four unused management warning codes (`EXPERIMENT_VALUE_COLLISION`, `SDK_REMOTE_FALLBACK_REQUIRED`, `SDK_EXPERIMENT_CONTEXT_MISSING`, `LEGACY_PROJECTION_LIMITED`) from the `warning_codes` published in registry 1.0.0 (contract 1.2.0), which the compatibility policy classifies as a major change; the five remaining codes are unchanged.
 The corpus files and their companion schemas are corpus version 1.1.0.
+Contract package 2.1.0 adds config fixtures for the targeted-release and percentage-rollout family; it changes no published schema, registry, corpus or fixture bytes.
 
 ## Corpus rules
 
