@@ -25,25 +25,35 @@ def validate_report(contracts, report):
     calls = _index(report["calls"], lambda c: c["call_id"])
     require(results.keys() == inventory.keys(), "invalid_report", "Incomplete result inventory")
     for entry in inventory.values():
+        require(type(entry["selected"]) is bool, "invalid_report", "Expected selection flag")
         require(entry["profile_id"] in profiles, "invalid_report", "Unknown execution profile")
     for fixture in fixtures.values():
         require(_key(fixture) in inventory, "invalid_report", "Unattributed fixture")
     for call in calls.values():
         require(call["fixture_id"] in fixtures, "invalid_report", "Unattributed call")
-        visited = {call["call_id"]}
-        current = call
-        while "parent_call_id" in current:
-            parent = current["parent_call_id"]
-            require(parent in calls and parent not in visited, "invalid_report", "Unknown or cyclic parent call")
-            require(calls[parent]["fixture_id"] == call["fixture_id"], "invalid_report", "Cross-fixture parent call")
-            visited.add(parent)
-            current = calls[parent]
     attributed = set()
     for key, entry in inventory.items():
         result = results[key]
         require(result["source"] == entry["source"], "invalid_report", "Source identity mismatch")
         disposition = result["result"]
         status = disposition["status"]
+        require(
+            status
+            in (
+                "passed",
+                "not_selected",
+                "not_applicable",
+                "failed_assertion",
+                "blocked_fixture",
+                "blocked_contract",
+                "unsupported_binding",
+                "harness_error",
+            ),
+            "invalid_report",
+            "Unknown status",
+        )
+        require(type(disposition["executed"]) is bool, "invalid_report", "Expected execution flag")
+        require(status != "passed" or disposition["executed"], "invalid_report", "Unexecuted pass")
         if not entry["selected"]:
             require(status == "not_selected", "invalid_report", "Unselected case executed")
         elif entry["applicability"]["kind"] == "not_applicable":
@@ -58,6 +68,7 @@ def validate_report(contracts, report):
         if failure and disposition["executed"]:
             require(failure["failed_step"] is not None, "invalid_report", "Missing failing step")
         ids = disposition.get("call_ids", failure["call_ids"] if failure else [])
+        require(status != "passed" or bool(ids), "invalid_report", "Passed case has no SDK calls")
         require(disposition["executed"] or not ids, "invalid_report", "Unexecuted case has calls")
         for identity in ids:
             require(
@@ -80,7 +91,7 @@ def strict_exit_code(contracts, report):
     """0: complete successful strict scope; 1: failed/empty scope; 2: malformed report."""
     try:
         validate_report(contracts, report)
-    except BoundaryError:
+    except (BoundaryError, KeyError, TypeError, ValueError):
         return 2
     statuses = [result["result"]["status"] for result in report["results"]]
     return (

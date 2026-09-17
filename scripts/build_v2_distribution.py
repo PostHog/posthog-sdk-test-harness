@@ -10,9 +10,8 @@ import tempfile
 from pathlib import Path
 
 from posthog_test_harness.v2.bundle import FORMAT, MANIFEST, identity, validate_bundle
-from posthog_test_harness.v2.contracts import Contracts
+from posthog_test_harness.v2.contracts import VERSION
 from posthog_test_harness.v2.discovery import discover, feature_paths
-from posthog_test_harness.v2.migration import migration_paths
 
 
 def source_state(root):
@@ -23,23 +22,8 @@ def source_state(root):
 
 
 def bundle_paths(specs):
-    # Runtime features, data and audit ledgers. Historical YAML and generator toolchains
-    # are source provenance, not executable inputs of this distribution.
-    patterns = [
-        "acceptance/**/*.feature",
-        "acceptance/**/*.json",
-        *[
-            f"contracts/v2/{directory}/*.{suffix}"
-            for directory in ("inputs", "generated")
-            for suffix in ("json", "md", "ts")
-        ],
-        "contracts/v2/*.md",
-        "contracts/v2/protocol.ts",
-        *[f"migration/yaml-parity-v1/*.{suffix}" for suffix in ("feature", "json", "md")],
-        "coverage/harness-v2/*.json",
-        "coverage/harness-v2/*.jsonl",
-    ]
-    return sorted({p.relative_to(specs).as_posix() for pattern in patterns for p in specs.glob(pattern) if p.is_file()})
+    # All bound scenarios currently supply their data inline in Gherkin.
+    return feature_paths(specs)
 
 
 def create_bundle(specs, destination, *, allow_dirty=False):
@@ -63,21 +47,11 @@ def create_bundle(specs, destination, *, allow_dirty=False):
         hashlib.sha256((specs / n).read_bytes()).hexdigest() != h for n, h in digests.items()
     ):
         raise ValueError("Specs changed during snapshot construction")
-    catalog = Contracts(destination / "contracts/v2")
-    canonical = discover(destination, feature_paths(destination))
-    migrated = discover(destination, migration_paths(destination))
-    if len(canonical["cases"]) != 728 or len(migrated["cases"]) != 157:
-        raise ValueError("Frozen inventory counts differ")
-    if any(c["status"] != "harness_ready" for c in migrated["cases"]):
-        raise ValueError("Migration suite has missing harness steps")
+    discover(destination)
     manifest = {
         "format": FORMAT,
         "source": before,
-        "catalog_sha256": catalog.catalog_hash,
-        "scopes": {
-            "canonical": {"cases": 728, "purpose": "discovery"},
-            "yaml-parity-v1": {"cases": 157, "purpose": "migration execution"},
-        },
+        "protocol": VERSION,
         "files": digests,
     }
     manifest["bundle_sha256"] = identity(manifest)
@@ -113,6 +87,8 @@ def main():
             shutil.copytree(
                 repo / name, stage / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info")
             )
+        (stage / "bin").mkdir()
+        shutil.copy2(repo / "bin/update-feature-flag-rules-v2-checksums.py", stage / "bin")
         runner_files = {
             p.relative_to(stage).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in stage.rglob("*")

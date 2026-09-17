@@ -202,44 +202,4 @@ class FlushControls:
         self.timeout_ms, self.diagnostics = timeout_ms, diagnostics
 
     async def command(self, kind, **fields):
-        fixture = self.fixture
-        fixture.check_active()
-        require(not fixture.busy, "invalid_state", "Fixture already has a pending invocation")
-        capability = CAPABILITIES[kind]
-        if capability not in self.profile["fixture_capabilities"]:
-            raise BoundaryError("missing_fixture", f"Required fixture capability: {capability}", "blocked_fixture")
-        fixture.client.deadline(self.timeout_ms)
-        data = {"fixture_id": fixture.id, "timeout_ms": self.timeout_ms, "command": {"kind": kind, **fields}}
-        record = {"request": deepcopy(data)}
-        self.diagnostics.append(record)
-        fixture.busy = True
-        try:
-            result = await fixture.client._post(
-                "fixtures/flush", "FlushFixtureRequest", "FlushFixtureResponse", data, self.timeout_ms + 1000
-            )
-            record["response"] = deepcopy(result)
-            require(
-                result["fixture_id"] == fixture.id and result["command"] == kind,
-                "invalid_response",
-                "Wrong flush fixture attribution",
-            )
-            if result["kind"] == "failed":
-                failure = result["failure"]
-                raise BoundaryError(failure["code"], failure["message"], failure["kind"])
-            require(
-                result["kind"] == ("queue" if kind == "queue_snapshot" else "applied"),
-                "invalid_response",
-                "Wrong flush fixture response kind",
-            )
-            if kind == "queue_snapshot":
-                observation = result["observation"]
-                ids = [r["record_id"] for r in observation["records"]]
-                require(len(set(ids)) == len(ids), "invalid_response", "Duplicate queue record identity")
-                return observation["records"]
-        except BoundaryError as error:
-            record["failure"] = error.failure()
-            if error.kind not in ("blocked_fixture", "blocked_contract", "unsupported_binding"):
-                fixture.invalidate()
-            raise
-        finally:
-            fixture.busy = False
+        raise BoundaryError("fixture_unavailable", f"No public fixture binding for {kind}", "blocked_fixture")

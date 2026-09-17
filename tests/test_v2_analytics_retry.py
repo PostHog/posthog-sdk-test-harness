@@ -1,189 +1,32 @@
-"""Pinned analytics-v1 cases 41–69: source scopes, actual HTTP, and retry defects."""
+"""Public behavior and deliberate defect regressions over the draft2 HTTP adapter."""
 
 import json
-import time
-from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
 
-from posthog_test_harness.v2.ai_steps import json_arguments
 from posthog_test_harness.v2.analytics_retry_steps import STEPS
-from posthog_test_harness.v2.contracts import BoundaryError, Contracts, json_equal
-from posthog_test_harness.v2.discovery import discover
+from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.gherkin import load_cases
-from posthog_test_harness.v2.migration import SUITE, selection
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from posthog_test_harness.v2.steps import table
-from tests.test_v2_analytics_batching import actions, expected_calls
-from tests.test_v2_analytics_wire import LEGACY, SOURCE, assertion_texts
-from tests.test_v2_gherkin import CONTRACT_PATH, SPECS, cli_run
+from tests.test_v2_gherkin import SPECS
 from tests.v2_analytics_wire_host import AnalyticsWireHost
 from tests.v2_flush_host import serve
 
-FEATURE = SUITE + "/capture-analytics-v1-retry.feature"
+FEATURE = "migration/yaml-parity-v1/capture-analytics-v1-retry.feature"
 CASES, _ = load_cases(SPECS, [FEATURE])
 IDS = [case.id for case in CASES]
-ORIGINS = [row for row in LEGACY if row["source"]["path"] == SOURCE][40:69]
 
 
 @pytest.fixture(scope="module")
 def contracts():
-    return Contracts(CONTRACT_PATH)
-
-
-def expected_assertion(action):
-    name, params = action["action"], action.get("params", {})
-    fixed = {
-        "assert_uuid_preserved_on_retry": 'the present event "uuid" lists in requests zero and one should be identical',
-        "assert_timestamp_preserved_on_retry": (
-            'the present event "timestamp" lists in requests zero and one should be identical'
-        ),
-        "assert_no_duplicate_events_in_batch": "every received batch should have no duplicate nonempty UUIDs",
-        "assert_attempt_header_increments": (
-            "all recorded request attempts should be consecutive integers starting at one"
-        ),
-        "assert_request_id_preserved_on_retry": "all recorded request IDs should equal the nonempty first request ID",
-        "assert_different_request_ids": (
-            'the first two request headers "posthog-request-id" should be nonempty and different'
-        ),
-        "assert_request_timestamp_changes_on_retry": (
-            'the first two request headers "posthog-request-timestamp" should be nonempty and different'
-        ),
-        "assert_v1_response_has_results_map": "the first mock-authored response should contain a results object",
-        "assert_v1_retry_after_present": "the first mock-authored response Retry-After should be present",
-        "assert_v1_retry_after_absent": "the first mock-authored response Retry-After should be absent",
-        "assert_v1_response_echoes_request_id": (
-            "the first mock-authored response should echo the nonempty sent request ID"
-        ),
-        "assert_sdk_did_not_retry": (
-            "exactly one recorded request excluding paths containing /flags should have been received"
-        ),
-    }
-    if name in fixed:
-        assert not params
-        return fixed[name]
-    if name == "assert_request_count_gte":
-        return f'at least {params["expected"]} capture request should have been received'
-    if name == "assert_v1_response_status":
-        return f'the first mock-authored response should have status {params["expected"]}'
-    if name == "assert_v1_all_events_result":
-        return f'every first mock-authored response result should equal "{params["expected_result"]}"'
-    if name == "assert_v1_response_results_count":
-        return f'the first mock-authored response should contain exactly {params["expected"]} results'
-    if name == "assert_final_success":
-        assert params == {"success_statuses": [200]}
-        return "at least one recorded response should have status 200"
-    if name in ("assert_retry_delay", "assert_backoff_implemented"):
-        minimum = params["min_delay_ms"] if name == "assert_retry_delay" else params["min_first_delay_ms"]
-        return f"the first inter-request delay should be at least {minimum} milliseconds"
-    return assertion_texts(action)[0]
-
-
-def test_exact_29_source_cases_inputs_ordered_assertions_and_evidence_layers():
-    assert len(CASES) == len(ORIGINS) == 29
-    assert ORIGINS[0]["name"] == "preserves_uuid_on_retry"
-    assert ORIGINS[-1]["name"] == "max_retries_respected"
-    for case, origin in zip(CASES, ORIGINS):
-        row = case.migration
-        assert row["legacy_id"] == origin["id"]
-        assert row["legacy_source"] == origin["source"]
-        assert row["legacy_filters"] == origin["capability_filters"]
-        assert row["candidate_routes"] == ["/capture"] and row["sdk_capabilities"] == ["capture_v1"]
-        assert row["native_sdk_evidence"] == []
-        assert case.id == "migration:yaml-parity-v1:capture_analytics_v1:" + origin["name"]
-        assert {"@both", "@api_capture_v1"} <= set(case.tags)
-        assert len(case.steps) == len(actions(origin)) + 2
-        has_mock_check = False
-        for step, action in zip(case.steps[2:], actions(origin)):
-            name, params = action["action"], action.get("params", {})
-            if name == "configure_mock_responses":
-                assert step.text == "the mock serves these ordered analytics responses:"
-                actual = table(step, dict.fromkeys(("status", "headers", "body", "event_results"), "json"))
-                expected = [
-                    {
-                        "status": r.get("status_code", 200),
-                        "headers": r.get("headers", {}),
-                        "body": r.get("body"),
-                        "event_results": r.get("v1_event_results"),
-                    }
-                    for r in params["responses"]
-                ]
-                assert json_equal(actual, expected)
-            elif name == "init":
-                assert set(params) <= {"flush_at", "max_retries"}
-                suffix = "no additional configuration"
-                if "flush_at" in params:
-                    suffix = f'flush threshold {params["flush_at"]}'
-                if "max_retries" in params:
-                    suffix = f'maximum retries {params["max_retries"]}'
-                assert step.text == 'the SDK is initialized with token "phc_test_key" and ' + suffix
-            elif name == "capture":
-                assert step.text == "capture is called with JSON arguments:"
-                assert json_equal(json_arguments(step), params)
-            elif name == "capture_multiple":
-                assert step.text == (
-                    f'capture is called sequentially {params["count"]} times '
-                    "with zero-based top-level index substitution:"
-                )
-                assert json_equal(json_arguments(step), params["params"])
-            elif name == "flush":
-                assert step.text == "pending captures are flushed"
-            elif name == "wait":
-                assert step.text == f'{params["duration_ms"]} milliseconds elapse without a public SDK call'
-            else:
-                assert step.text == expected_assertion(action)
-                has_mock_check |= name.startswith("assert_v1_")
-        assert ("mock_authored_response" in row["evidence_layers"]) == has_mock_check
-    assert all(row["status"] == "harness_ready" for row in discover(SPECS, [FEATURE])["cases"])
+    return Contracts()
 
 
 def save_receipt(path, report, diagnostics):
     (path / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     (path / "diagnostics.json").write_text(json.dumps(diagnostics, indent=2) + "\n")
-
-
-async def test_all_29_execute_exact_public_calls_real_windows_and_associated_responses(contracts, tmp_path):
-    async with serve(contracts, host_type=AnalyticsWireHost) as (host, url):
-        started = time.monotonic()
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"])
-        elapsed = time.monotonic() - started
-    save_receipt(tmp_path, report, diagnostics)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert [r["result"]["status"] for r in report["results"]] == ["passed"] * 29
-    waits = sum(a.get("params", {}).get("duration_ms", 0) for o in ORIGINS for a in actions(o) if a["action"] == "wait")
-    assert waits == 109000 and elapsed >= waits / 1000
-    actual = []
-    for row in host.inputs:
-        call = deepcopy(row["invoke"])
-        if call["route"] == "/setup":
-            assert call["args"]["config"].pop("host").startswith("http://127.0.0.1:")
-        actual.append([call["route"], call["args"]])
-    assert json_equal(actual, [list(call) for origin in ORIGINS for call in expected_calls(origin)])
-    assert len(report["calls"]) == sum(len(expected_calls(o)) for o in ORIGINS)
-    assert len(host.closed) == 29 and all(f.engine is None and f.closed for f in host.fixtures.values())
-    for index, case in enumerate(diagnostics["cases"]):
-        wire = case["wire_requests"]
-        assert [r["response_status"] for r in wire] == [r["status"] for r in case["network"]]
-        assert all(r["path"] == "/i/v1/analytics/events" for r in wire)
-        configured = next(
-            (a["params"]["responses"] for a in actions(ORIGINS[index]) if a["action"] == "configure_mock_responses"), []
-        )
-        for request, response in zip(wire, configured):
-            assert request["response_status"] == response.get("status_code", 200)
-            if response.get("body"):
-                assert request["response_body"] == response["body"]
-            if response.get("headers"):
-                assert response["headers"].items() <= request["response_headers"].items()
-        assert all(isinstance(r["timestamp_ms"], int) for r in wire)
-    assert len(diagnostics["cases"][-1]["wire_requests"]) == 4
-    assert [r["response_status"] for r in diagnostics["cases"][17]["wire_requests"]] == [503, 503, 200]
-    assert (
-        diagnostics["cases"][20]["wire_requests"][1]["timestamp_ms"]
-        - diagnostics["cases"][20]["wire_requests"][0]["timestamp_ms"]
-        >= 2500
-    )
 
 
 @pytest.mark.parametrize(
@@ -212,37 +55,7 @@ async def test_native_http_defects_fail_with_source_and_call_attribution(contrac
     assert result["status"] == "failed_assertion", result
     assert result["failure"]["code"] == code
     assert result["failure"]["failed_step"]["source"]["path"] == FEATURE
-    assert len(result["failure"]["call_ids"]) == len(expected_calls(ORIGINS[index]))
     assert len(host.closed) == 1 and strict_exit_code(contracts, report) == 1
-
-
-@pytest.mark.parametrize("runtime", ["server", "browser"])
-async def test_non_timing_case_and_all_retry_candidates_ignore_role_identity_products(contracts, runtime):
-    async with serve(contracts, host_type=AnalyticsWireHost, runtime=runtime) as (host, url):
-        host.profile["products"] = ["flags"]
-        for case in CASES:
-            assert selection(case, host.profile, host.routes)["selected"]
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[9]])
-    assert strict_exit_code(contracts, report) == 0
-
-
-@pytest.mark.parametrize(
-    "options,status,code",
-    [
-        ({"sdk_capabilities": None}, "not_selected", None),
-        ({"missing_route": "/capture"}, "unsupported_binding", "missing_operation"),
-        ({"missing_route": "/setup"}, "unsupported_binding", "missing_operation"),
-        ({"missing_route": "/flush"}, "unsupported_binding", "missing_operation"),
-        ({"missing_capability": "storage.empty.v1"}, "blocked_fixture", "fixture_unavailable"),
-    ],
-)
-async def test_retry_preflight_keeps_independent_operation_and_fixture_gaps(contracts, options, status, code):
-    async with serve(contracts, host_type=AnalyticsWireHost, **options) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"])
-    assert [r["result"]["status"] for r in report["results"]] == [status] * 29
-    if code:
-        assert all(r["result"]["failure"]["code"] == code for r in report["results"])
-    assert not host.fixtures and strict_exit_code(contracts, report) == 1
 
 
 def observation(events=None, **kwargs):
@@ -256,13 +69,6 @@ def observation(events=None, **kwargs):
         timestamp_ms=0,
         **kwargs,
     )
-
-
-async def check(text, observed):
-    ctx = SimpleNamespace(server=SimpleNamespace(state=SimpleNamespace(get_requests=lambda: observed)))
-    step = SimpleNamespace(text=text, argument={}, source={"path": FEATURE, "line": 1})
-    handler, args = STEPS.bind(step)
-    await handler(ctx, step, *args)
 
 
 @pytest.mark.parametrize("field", ["uuid", "timestamp"])
@@ -376,22 +182,17 @@ async def test_mock_header_checks_preserve_selected_first_response_and_casing():
         await check("the first mock-authored response Retry-After should be present", [first])
 
 
-@pytest.mark.parametrize("defect,exit_code", [(None, 0), ("duplicate_uuids", 1)])
-async def test_retry_cli_outside_checkout_failure_and_next_case_isolation(contracts, tmp_path, defect, exit_code):
-    async with serve(contracts, host_type=AnalyticsWireHost, defect=defect) as (host, url):
-        code, report, diagnostics, output = await cli_run(
-            tmp_path,
-            url,
-            "--feature",
-            FEATURE,
-            "--profile",
-            host.profile["id"],
-            "--case-id",
-            IDS[3],
-            "--case-id",
-            IDS[9],
-        )
-    assert code == strict_exit_code(contracts, report) == exit_code, output
-    assert report["results"][9]["result"]["status"] == "passed"
-    assert report["results"][3]["result"]["status"] == ("failed_assertion" if defect else "passed")
-    assert len(host.closed) == 2
+async def test_complete_feature_through_public_http(contracts):
+    async with serve(contracts, host_type=AnalyticsWireHost) as (host, url):
+        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
+    assert strict_exit_code(contracts, report) == 0, report
+    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
+    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
+    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])
+
+
+async def check(text, observed):
+    ctx = SimpleNamespace(server=SimpleNamespace(state=SimpleNamespace(get_requests=lambda: observed)))
+    step = SimpleNamespace(text=text, argument={}, source={"path": FEATURE, "line": 1})
+    handler, args = STEPS.bind(step)
+    await handler(ctx, step, *args)

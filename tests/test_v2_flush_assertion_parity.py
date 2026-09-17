@@ -7,7 +7,7 @@ import pytest
 from posthog_test_harness.v2.contracts import Contracts
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import CONTRACT_PATH, SPECS
+from tests.test_v2_gherkin import SPECS
 from tests.test_v2_legacy_capture import FEATURE, IDS
 from tests.v2_flush_host import serve
 from tests.v2_legacy_capture_host import LegacyCaptureHost
@@ -15,7 +15,7 @@ from tests.v2_legacy_capture_host import LegacyCaptureHost
 
 @pytest.fixture(scope="module")
 def contracts():
-    return Contracts(CONTRACT_PATH)
+    return Contracts()
 
 
 class RejectedFlushHost(LegacyCaptureHost):

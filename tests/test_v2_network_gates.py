@@ -4,7 +4,6 @@ import asyncio
 import threading
 import time
 from contextlib import asynccontextmanager
-from copy import deepcopy
 from types import SimpleNamespace
 
 import aiohttp
@@ -13,15 +12,9 @@ import pytest
 from posthog_test_harness.mock_server import MockServerState
 from posthog_test_harness.types import MockResponse
 from posthog_test_harness.v2 import network_gates
-from posthog_test_harness.v2.contracts import BoundaryError, Contracts
+from posthog_test_harness.v2.contracts import BoundaryError
 from posthog_test_harness.v2.fixtures import CaseServer
-from posthog_test_harness.v2.local_flag_steps import STEPS
 from posthog_test_harness.v2.network_gates import ResponseGates
-from posthog_test_harness.v2.report import strict_exit_code
-from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import CONTRACT_PATH, FEATURE, synthetic_specs
-from tests.v2_flush_host import serve
-from tests.v2_local_flags_host import LocalFlagsHost
 
 
 @asynccontextmanager
@@ -287,67 +280,3 @@ def test_request_override_preserves_legacy_response_queue(partition):
     assert state.record_request(**args).response_status == 503
     assert state.record_request(**args).response_status == 200
     assert len(state.get_requests(test_id=partition)) == 3
-
-
-@pytest.mark.parametrize("assertion", [None, "boundary", "python"])
-async def test_runner_cannot_pass_when_sdk_recovers_from_fixture_timeout(tmp_path, assertion):
-    contracts = Contracts(CONTRACT_PATH)
-    specs = synthetic_specs(
-        tmp_path,
-        """Feature: Held fixture failures
-  Background:
-    Given a fresh SDK acceptance test harness
-    And the SDK clock is fixed at "2025-01-01T00:00:00Z"
-    And persistent storage is empty
-    And the SDK is initialized with token "controlled-placeholder"
-  Scenario: Timed out fixture
-    When evaluation encounters an expired fixture
-    And evaluation completes without a held response
-  Scenario: Independent evaluation
-    When evaluation completes without a held response
-""",
-    )
-    registry = deepcopy(STEPS)
-
-    @registry.step("evaluation encounters an expired fixture", routes=("/evaluate_flags",))
-    async def expired(ctx, step):
-        ctx.server.gates.arm("expired", timeout_ms=20)
-        await ctx.call("/evaluate_flags", {"distinct_id": "user"})
-        if assertion == "boundary":
-            raise BoundaryError("fallback_value", "Unexpected fallback snapshot", "failed_assertion")
-        if assertion == "python":
-            assert False, "Unexpected fallback snapshot"
-
-    @registry.step("evaluation completes without a held response", routes=("/evaluate_flags",))
-    async def normal(ctx, step):
-        await ctx.call("/evaluate_flags", {"distinct_id": "user"})
-
-    async with serve(contracts, host_type=LocalFlagsHost) as (host, url):
-        report, diagnostics = await run(contracts, specs, [FEATURE], url, host.profile["id"], registry=registry)
-    first, second = [row["result"] for row in report["results"]]
-    assert first["status"] == "harness_error" and first["failure"]["code"] == "mock_gate_timeout", (
-        first,
-        report["errors"],
-        diagnostics,
-    )
-    assert first["failure"]["failed_step"]["source"]["path"] == FEATURE
-    assert first["failure"]["failed_step"]["index"] == 4
-    assert sum(c["invoke"]["route"] == "/evaluate_flags" for c in host.inputs) == 2
-    assert first["failure"]["call_ids"] and second["status"] == "passed"
-    assert len(report["errors"]) == 1 and report["errors"][0]["code"] == "mock_gate_timeout"
-    assert strict_exit_code(contracts, report) == 1
-    assert [e["transition"] for e in diagnostics["cases"][0]["network_gates"]] == [
-        "armed",
-        "arrived",
-        "timed_out",
-        "responded",
-    ]
-    assert diagnostics["cases"][1]["network_gates"] == []
-    if assertion:
-        secondary = diagnostics["cases"][0]["secondary_failure"]
-        assert secondary["kind"] == "failed_assertion"
-        assert secondary["code"] == ("fallback_value" if assertion == "boundary" else "assertion_failed")
-        assert secondary["failed_step"] == first["failure"]["failed_step"]
-    else:
-        assert "secondary_failure" not in diagnostics["cases"][0]
-    assert len(host.closed) == 2

@@ -2,16 +2,11 @@
 
 import asyncio
 import json
-from contextvars import ContextVar
-from copy import deepcopy
 
 import aiohttp
 
 from posthog_test_harness.v2.contracts import BoundaryError, decode_json
-from posthog_test_harness.v2.flag_fixtures import PROVENANCE_CAPABILITY
 from tests.v2_ai_host import AIEngine, AIHost
-
-OWNER = ContextVar("local_evaluation_owner", default=None)
 
 
 def truthy(value):
@@ -46,7 +41,6 @@ class LocalParityEngine(AIEngine):
         self.token, self.secret, self.path = token, config.get("secret_key"), path
         self.document = None
         self.ready = asyncio.Event()
-        self.provenance = {}
         self.reload_count = 0
         self.disposed = False
 
@@ -159,36 +153,14 @@ class LocalParityEngine(AIEngine):
 
     async def get_feature_flag(self, args):
         value = self.evaluate_local(args)
-        resolution = "local" if value is not None else "fallback"
         if self.defect == "remote_escape":
             await self.post("/flags", {"token": self.token, "distinct_id": args["distinct_id"]})
-            resolution = "remote"
         if self.defect == "wrong_bool":
             value = not value
         if self.defect == "wrong_string":
             value = "incorrect"
         if self.defect == "inconclusive":
-            value, resolution = None, "not_evaluated"
-        call_id = OWNER.get()
-        assert call_id is not None
-        if self.defect != "missing_observation":
-            record = {
-                "layer": "native_component",
-                "implementation": "tests.v2_local_parity_host.LocalParityEngine.get_feature_flag",
-                "call_id": call_id,
-                "key": args["key"],
-                "resolution": resolution,
-            }
-            if resolution in ("local", "remote"):
-                record["value"] = value
-            if self.defect == "wrong_call":
-                record["call_id"] = "another-call"
-            if self.defect == "wrong_key":
-                record["key"] = "another-flag"
-            if self.defect == "no_local_result":
-                record = {k: v for k, v in record.items() if k != "value"}
-                record["resolution"] = "fallback"
-            self.provenance[call_id] = record
+            value = None
         if value is not None and args.get("send_event", True):
             await self.capture(
                 {
@@ -200,7 +172,6 @@ class LocalParityEngine(AIEngine):
         return value
 
     def dispose(self):
-        self.provenance.clear()
         self.document = None
         self.ready.clear()
         self.disposed = True
@@ -208,23 +179,17 @@ class LocalParityEngine(AIEngine):
 
 class LocalParityHost(AIHost):
     def __init__(self, contracts, *, definition_path="/flags/definitions", **options):
-        missing = options.get("missing_capability") == PROVENANCE_CAPABILITY
-        if missing:
-            options.pop("missing_capability")
         options.setdefault("sdk_capabilities", ("feature_flags_local_evaluation_v1",))
         super().__init__(contracts, **options)
         self.definition_path = definition_path
         self.profile["id"] = "controlled-local-parity-v1"
         self.profile["products"] = ["flags"]
         self.profile["module"]["entry"] = "tests.v2_local_parity_host.LocalParityEngine"
-        if not missing:
-            self.profile["fixture_capabilities"].append(PROVENANCE_CAPABILITY)
         self.routes = [
             r
             for r in ("/setup", "/get_feature_flag", "/reload_feature_flags", "/wait_for_local_evaluation_ready")
             if r != options.get("missing_route")
         ]
-        self.extensions["fixtures/flags"] = ("FlagState", self.control_flags)
         self.engines = []
 
     async def handle(self, request):
@@ -238,31 +203,6 @@ class LocalParityHost(AIHost):
             engine.dispose()
         return response
 
-    async def control_flags(self, fixture_id, fixture, data):
-        command = data["command"]
-        self.controls.append(deepcopy(data))
-        base = {"fixture_id": fixture_id, "command": command["kind"]}
-        record = None
-        if command["kind"] == "evaluation_provenance" and PROVENANCE_CAPABILITY in self.profile["fixture_capabilities"]:
-            record = fixture.engine.provenance.get(command["call_id"]) if fixture.engine else None
-        if record is None:
-            return self.response(
-                "FlagStateResponse",
-                {
-                    **base,
-                    "kind": "failed",
-                    "failure": {
-                        "kind": "blocked_fixture",
-                        "code": "local_observation_unavailable",
-                        "message": "No native evaluation observation for this fixture and invocation",
-                    },
-                },
-            )
-        response = {**base, "kind": "provenance", "observation": deepcopy(record)}
-        if fixture.defect == "wrong_fixture":
-            response["fixture_id"] = "another-fixture"
-        return self.response("FlagStateResponse", response)
-
     def outcome(self, call, result):
         if call["route"] in ("/get_feature_flag", "/wait_for_local_evaluation_ready"):
             if call["route"] == "/get_feature_flag" and self.defect == "wrong_public_value":
@@ -271,32 +211,28 @@ class LocalParityHost(AIHost):
         return super().outcome(call, result)
 
     async def invoke(self, fixture, call):
-        token = OWNER.set(call["call_id"])
-        try:
-            args, route = call["args"], call["route"]
-            if route == "/setup":
-                assert fixture.storage_prepared and fixture.engine is None
-                fixture.engine = LocalParityEngine(
-                    fixture.storage,
-                    args["config"]["host"],
-                    args["config"],
-                    self.profile["protocol"],
-                    fixture.defect,
-                    args["project_token"],
-                    self.definition_path,
-                )
-                self.engines.append(fixture.engine)
-                return await fixture.engine.setup()
-            if route == "/reload_feature_flags":
-                return await fixture.engine.reload_feature_flags()
-            if route == "/get_feature_flag":
-                return await fixture.engine.get_feature_flag(args)
-            if route == "/wait_for_local_evaluation_ready":
-                try:
-                    await asyncio.wait_for(fixture.engine.ready.wait(), args["timeout_ms"] / 1000)
-                    return True
-                except TimeoutError:
-                    return False
-            return await super().invoke(fixture, call)
-        finally:
-            OWNER.reset(token)
+        args, route = call["args"], call["route"]
+        if route == "/setup":
+            assert fixture.storage_prepared and fixture.engine is None
+            fixture.engine = LocalParityEngine(
+                fixture.storage,
+                args["config"]["host"],
+                args["config"],
+                self.profile["protocol"],
+                fixture.defect,
+                args["project_token"],
+                self.definition_path,
+            )
+            self.engines.append(fixture.engine)
+            return await fixture.engine.setup()
+        if route == "/reload_feature_flags":
+            return await fixture.engine.reload_feature_flags()
+        if route == "/get_feature_flag":
+            return await fixture.engine.get_feature_flag(args)
+        if route == "/wait_for_local_evaluation_ready":
+            try:
+                await asyncio.wait_for(fixture.engine.ready.wait(), args["timeout_ms"] / 1000)
+                return True
+            except TimeoutError:
+                return False
+        return await super().invoke(fixture, call)

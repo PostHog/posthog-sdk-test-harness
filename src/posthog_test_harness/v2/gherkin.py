@@ -1,4 +1,4 @@
-"""Official Gherkin AST/pickle discovery with the frozen phase-1 case identities."""
+"""Official Gherkin AST/pickle discovery directly from feature files."""
 
 import hashlib
 from dataclasses import dataclass
@@ -7,8 +7,8 @@ from pathlib import Path
 from gherkin.parser import Parser
 from gherkin.pickles.compiler import Compiler
 
-from .contracts import BoundaryError, decode_json, require
-from .migration import SUITE, migration_cases, migration_manifest
+from .contracts import BoundaryError, require
+from .migration import SUITE
 
 
 @dataclass
@@ -72,20 +72,39 @@ def compile_feature(text, path, revision):
             for step in pickle["steps"]
         ]
         require(bool(steps), "empty_case", f"Scenario has no executable steps: {case_id}")
-        cases.append(
-            Case(
-                case_id, source(pickle["location"]["line"]), pickle["name"], [t["name"] for t in pickle["tags"]], steps
+        tags = [t["name"] for t in pickle["tags"]]
+        if len(pickle["astNodeIds"]) > 1:
+            examples = next(n for n in nodes.values() if row in n.get("tableBody", []))
+            values = dict(
+                zip((c["value"] for c in examples["tableHeader"]["cells"]), (c["value"] for c in row["cells"]))
             )
+            tags = [tag.replace("<case_id>", values.get("case_id", "<case_id>")) for tag in tags]
+        identities = [tag.removeprefix("@case:") for tag in tags if tag.startswith("@case:")]
+        require(
+            len(identities) <= 1 and all(x and "<" not in x for x in identities),
+            "invalid_source",
+            "Expected one literal stable case ID",
         )
+        if path.startswith(SUITE + "/"):
+            require(
+                len(identities) == 1 and identities[0].startswith("migration:yaml-parity-v1:"),
+                "invalid_source",
+                "Migrated scenario requires a stable @case: tag",
+            )
+        if identities:
+            case_id = identities[0]
+        metadata = None
+        if path.startswith(SUITE + "/"):
+            metadata = {"sdk_capabilities": [t.removeprefix("@requires:") for t in tags if t.startswith("@requires:")]}
+        cases.append(Case(case_id, source(pickle["location"]["line"]), pickle["name"], tags, steps, metadata))
     require(seen == declarations, "empty_outline", f"Scenario declaration has no compiled cases: {path}")
     return cases
 
 
 def load_cases(specs, paths):
-    """Read explicit local spec inputs, checking their frozen manifest digests first."""
+    """Load explicit features, recording content identities without an external ledger."""
     root = Path(specs).resolve()
     try:
-        manifest = decode_json((root / "coverage/harness-v2/manifest.json").read_bytes())
         require(len(set(paths)) == len(paths), "invalid_selector", "Duplicate feature selector")
         inputs, cases = [], []
         for path in paths:
@@ -96,29 +115,13 @@ def load_cases(specs, paths):
                 "Expected a relative feature path inside the specs directory",
             )
             canonical_path = file.relative_to(root).as_posix()
-            migrated = canonical_path.startswith(SUITE + "/")
-            selected_manifest = migration_manifest(root) if migrated else manifest
-            sources = [s for s in selected_manifest["sources"] if s["path"] == canonical_path]
-            require(len(sources) == 1, "unknown_source", f"Feature has no unique frozen source: {canonical_path}")
-            source = sources[0]
             text = file.read_bytes()
-            require(
-                hashlib.sha256(text).hexdigest() == source["sha256"],
-                "source_mismatch",
-                f"Feature differs from its frozen source: {canonical_path}",
-            )
-            compiled = compile_feature(text.decode("utf-8"), canonical_path, source["revision"])
-            if migrated:
-                compiled = migration_cases(root, selected_manifest, compiled)
-            cases.extend(compiled)
-            inputs.append(source)
-            if migrated:
-                ledger_source = {"revision": source["revision"], **selected_manifest["ledger"]}
-                if ledger_source not in inputs:
-                    inputs.append(ledger_source)
+            digest = hashlib.sha256(text).hexdigest()
+            cases.extend(compile_feature(text.decode("utf-8"), canonical_path, digest))
+            inputs.append({"path": canonical_path, "sha256": digest})
         require(len({case.id for case in cases}) == len(cases), "invalid_selector", "Duplicate source case")
         return cases, inputs
     except BoundaryError:
         raise
     except (OSError, KeyError, TypeError, ValueError) as error:
-        raise BoundaryError("invalid_source", "Missing or malformed feature/manifest input") from error
+        raise BoundaryError("invalid_source", "Missing or malformed feature input") from error
