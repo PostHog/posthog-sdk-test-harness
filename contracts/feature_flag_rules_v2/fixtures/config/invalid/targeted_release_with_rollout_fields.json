@@ -17,7 +17,11 @@
         ]
       },
       "value": true,
-      "rollout_percentage": 25
+      "rollout_percentage": 25,
+      "on_rollout_miss": "continue",
+      "assignment_algorithm": "sha1_60_v1",
+      "seed": "release-preview",
+      "assign_by": "person"
     }
   ]
 }

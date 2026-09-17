@@ -232,6 +232,11 @@ def test_invalid_config_fixtures_fail_for_the_declared_reason(fixture: dict[str,
     )
 
 
+def test_readme_names_the_published_contract_version() -> None:
+    readme = (CONTRACT_ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"Contract package {_manifest()['contract']['version']} contains" in readme
+
+
 def test_checksum_index_is_complete_and_valid() -> None:
     manifest = _manifest()
     checksum_text = CHECKSUMS_PATH.read_text(encoding="utf-8")

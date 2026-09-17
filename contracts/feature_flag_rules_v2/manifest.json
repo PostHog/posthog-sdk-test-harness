@@ -139,6 +139,17 @@
       }
     },
     {
+      "path": "fixtures/config/invalid/missing_rollout_seed.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.missing_rollout_seed",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "required",
+        "instance_path": "/rules/0",
+        "message_contains": "seed"
+      }
+    },
+    {
       "path": "fixtures/config/invalid/missing_experiment_paused.json",
       "kind": "fixture",
       "fixture_id": "config.invalid.missing_experiment_paused",

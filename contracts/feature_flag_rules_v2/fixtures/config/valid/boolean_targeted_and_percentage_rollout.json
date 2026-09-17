@@ -42,6 +42,18 @@
       "assignment_algorithm": "sha1_60_v1",
       "seed": "release-fallback",
       "assign_by": "person"
+    },
+    {
+      "id": "d4d4d4d4-d4d4-4d4d-8d4d-d4d4d4d4d4d4",
+      "rule_type": "percentage_rollout",
+      "targeting": {
+        "properties": []
+      },
+      "value": true,
+      "rollout_percentage": 0,
+      "on_rollout_miss": "continue",
+      "assignment_algorithm": "sha1_60_v1",
+      "seed": "release-disabled"
     }
   ]
 }
