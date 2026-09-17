@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "contract": {
     "name": "feature_flag_rules_v2",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "config_version": 2
   },
   "corpus": {
@@ -136,6 +136,17 @@
         "keyword": "required",
         "instance_path": "/rules/0",
         "message_contains": "on_rollout_miss"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/missing_rollout_seed.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.missing_rollout_seed",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "required",
+        "instance_path": "/rules/0",
+        "message_contains": "seed"
       }
     },
     {
@@ -301,6 +312,115 @@
       "kind": "fixture",
       "fixture_id": "config.valid.group_all_rule_types",
       "expected": "valid"
+    },
+    {
+      "path": "fixtures/config/valid/boolean_targeted_and_percentage_rollout.json",
+      "kind": "fixture",
+      "fixture_id": "config.valid.boolean_targeted_and_percentage_rollout",
+      "expected": "valid"
+    },
+    {
+      "path": "fixtures/config/invalid/targeted_release_with_rollout_fields.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.targeted_release_with_rollout_fields",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "additionalProperties",
+        "instance_path": "/rules/0",
+        "message_contains": "rollout_percentage"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/rollout_percentage_below_minimum.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.rollout_percentage_below_minimum",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "minimum",
+        "instance_path": "/rules/0/rollout_percentage"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/unknown_rollout_miss_policy.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.unknown_rollout_miss_policy",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "enum",
+        "instance_path": "/rules/0/on_rollout_miss"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/unknown_assignment_algorithm.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.unknown_assignment_algorithm",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "const",
+        "instance_path": "/rules/0/assignment_algorithm"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/assign_by_not_person.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.assign_by_not_person",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "const",
+        "instance_path": "/rules/0/assign_by"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/null_rule_value.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.null_rule_value",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "type",
+        "instance_path": "/rules/0/value",
+        "message_contains": "boolean"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/default_value_type_mismatch.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.default_value_type_mismatch",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "type",
+        "instance_path": "/default_value"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/unknown_property_field.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.unknown_property_field",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "additionalProperties",
+        "instance_path": "/rules/0/targeting/properties/0",
+        "message_contains": "implicit_default"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/unknown_property_operator.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.unknown_property_operator",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "enum",
+        "instance_path": "/rules/0/targeting/properties/0/operator"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/unknown_property_type.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.unknown_property_type",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "enum",
+        "instance_path": "/rules/0/targeting/properties/0/type"
+      }
     },
     {
       "path": "schemas/hash_sha1_60_v1.schema.json",
