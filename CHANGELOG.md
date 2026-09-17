@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.6.0 — 2026-09-17
+
+### Minor changes
+
+- [b6f033a](https://github.com/posthog/posthog-sdk-test-harness/commit/b6f033ae40460b8ac1d7d1ba451ce0549fe0d22f) Add Feature Flag Rules v2 config fixtures for the targeted-release and percentage-rollout family as contract package 2.1.0: one canonical boolean configuration and ten schema-rejected shapes (rollout fields on a targeted release, a percentage below the minimum, unknown miss policy, assignment algorithm, assignment target, property field, property operator and property type, a null rule value, and a default value of the wrong type). Published schema, registry, corpus and fixture bytes are unchanged. — Thanks @andehen!
+
 ## 1.5.0 — 2026-09-15
 
 ### Minor changes
