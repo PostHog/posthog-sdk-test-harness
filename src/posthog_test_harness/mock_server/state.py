@@ -119,13 +119,16 @@ class MockServerState:
         headers: Dict[str, str],
         query_params: Dict[str, str],
         body_raw: bytes,
+        *,
+        response_override: Optional[MockResponse] = None,
     ) -> RecordedRequest:
         """Record an incoming request and return the response to send.
 
         The test_id is extracted from the X-Test-Id header. When present,
         the request is recorded in the partition for that test_id and the
         response is taken from that partition's queue. When absent, uses
-        global state.
+        global state. An explicit response_override applies to this request only
+        and leaves the configured response queue untouched.
         """
         with self._lock:
             # Extract test_id from headers (already lowercased by server.py)
@@ -147,9 +150,13 @@ class MockServerState:
             # Try to parse events from body
             parsed_events = self._parse_events(body_decompressed)
 
-            # Get response from the appropriate queue
+            # Get response from the appropriate queue, unless this request has
+            # its own response (for example, an isolated delayed fixture).
             if test_id is not None:
                 self._ensure_partition(test_id)
+            if response_override is not None:
+                response_config = response_override
+            elif test_id is not None:
                 if self._partitioned_response_queue[test_id]:
                     response_config = self._partitioned_response_queue[test_id].popleft()
                 else:

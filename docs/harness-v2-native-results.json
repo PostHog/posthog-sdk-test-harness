@@ -1,0 +1,142 @@
+{
+  "format": "harness-v2-native-results-v1",
+  "evidence_kind": "Historical local replay of dirty development snapshots; not commit-only, current-main or GitHub CI validation",
+  "raw_receipts": "Retained locally, not distributed in this repository; hashes below identify the original reports without providing retrieval links.",
+  "source": {
+    "harness_base_commit": "029a94a3861c79f5e99d656b03648ba903eb6e7e",
+    "harness_dirty": true,
+    "helper_sha256": "c483cdade912893442723fedbe5a67ac7b82692f01749f7b23591d9f8658334a",
+    "specs": {
+      "commit": "9cb330e3bac8868f39cc7dd665e42817285c9493",
+      "dirty": true
+    },
+    "node_base_commit": "e96852dbe48690a18e40afe4bb423afb260a28d4",
+    "node_dirty": true,
+    "node_source_snapshot_sha256": "ffa222cf73af2aa688823a6c5f98ca313bcc4d9e0803de647a84ac98777b06d0",
+    "node_provenance_sha256": "b2e048b1ac64e874d4df310bc4d6af354961640abdd96e42dec9a7536fe9a024"
+  },
+  "runtime": {
+    "platform": "linux",
+    "arch": "arm64",
+    "node": "24.21.0",
+    "python": "3.12.12",
+    "package_manager": "pnpm@11.7.0",
+    "packages": [
+      {
+        "name": "posthog-node",
+        "version": "5.52.4",
+        "metadata_sha256": "d90351463124822b72df61448ef3e1a4d94921d1660dc1f2ccffdbc139f12891",
+        "entry_sha256": "84e31f03051a13bc36f0807a6359cada4b7d422f6d9cdce01267b383398e6970"
+      },
+      {
+        "name": "@posthog/core",
+        "version": "1.54.2",
+        "metadata_sha256": "2b93295162fd247ff1a86b8e335f30d12df7eec50bc3215f2cfc0caaee5a2773",
+        "entry_sha256": "75bba1eb5821a0929790f5418cee960d9539b632d6e31d5b5bb6ca1f509f5633"
+      },
+      {
+        "name": "@posthog/types",
+        "version": "1.412.1",
+        "metadata_sha256": "79968dd2b8dd9cfd33f763d284a3ea401fa66dc5638b3f48c1fde68fe53b4286",
+        "entry_sha256": "27dcc2b5f9fd4a0a841612a3a4f087e61d309867de337d514189d2ad43e5492f"
+      }
+    ],
+    "tarball_sha256": {
+      "core.tgz": "7a86195dac804b536454779903f1052b972c1c7809984259366fdbfd188f04ad",
+      "posthog-node.tgz": "51c61ebe69ffddbcc8fdea4149f98f062996100b55c94affd611195f5bf53997",
+      "types.tgz": "5798d5e33632bc3353d8ba7be4accccfa2ea846a98b7f5c1611a0e82eb543891"
+    }
+  },
+  "distribution": {
+    "mode": "packaged",
+    "runner_version": "1.4.0",
+    "format": "posthog-specs-bundle-v1",
+    "bundle_sha256": "2ec6041e382bc83e86a615c93d6c2da8119917b24541aa1b91b218f795b0f6e2",
+    "catalog_sha256": "c52ae7fac46f0395a78276bbc6c3b97ea83538005bcee11b60b2dc33879adfaa",
+    "source": {
+      "commit": "9cb330e3bac8868f39cc7dd665e42817285c9493",
+      "dirty": true
+    }
+  },
+  "profiles": [
+    {
+      "profile": "node-legacy",
+      "capture_mode": "v0",
+      "cli_exit": 1,
+      "run_id": "1b3a1b17-2b0e-43dc-99fa-36ffcc9fe117",
+      "scope_id": "gherkin-selection-v1:41e9a8a9d83cbc0adba07852c1396d66eeadfd6ebc690a3eeda84abbb7e58110",
+      "counts": {
+        "passed": 53,
+        "not_selected": 101,
+        "failed_assertion": 3
+      },
+      "report_sha256": "7c69f17c750f292a54779d40a6acceffc921fbca358d93d44deeaed5d04bff7d",
+      "diagnostics_sha256": "4cb63918fdb66c040b1ff0ec8ef846d4a246fc6ecddaf0b848780c133539f4f4",
+      "errors": []
+    },
+    {
+      "profile": "node-analytics-v1",
+      "capture_mode": "v1",
+      "cli_exit": 1,
+      "run_id": "ae606006-0f12-41d3-82ba-33c8f021b9b5",
+      "scope_id": "gherkin-selection-v1:41e9a8a9d83cbc0adba07852c1396d66eeadfd6ebc690a3eeda84abbb7e58110",
+      "counts": {
+        "passed": 118,
+        "not_selected": 36,
+        "failed_assertion": 3
+      },
+      "report_sha256": "c4a9c7fa8e1fb90667b126f52ce2ed76e7fcfd75becb4cec9b151176b2be30af",
+      "diagnostics_sha256": "cd0c2c8474f1debe4e16846db0ad6a03e1b7a630a10c46b179762971e79d4da1",
+      "errors": []
+    }
+  ],
+  "aggregate": {
+    "helper_exit": 1,
+    "tests_passed": false,
+    "profile_executions": 177,
+    "unique_executed_origins": 151,
+    "unique_passed": 148,
+    "unique_sdk_assertion_failures": 3,
+    "unsupported_origins": 6,
+    "infrastructure_errors": []
+  },
+  "sdk_assertion_failures": {
+    "migration:yaml-parity-v1:feature_flags:disable_geoip_omitted_defaults_to_false": "flag_request_field",
+    "migration:yaml-parity-v1:feature_flags_local_evaluation:matching_version_2": "local_flag_value",
+    "migration:yaml-parity-v1:feature_flags_local_evaluation:version_only_reload_1_2_1_2_missing": "local_flag_value"
+  },
+  "unsupported_case_ids": [
+    "migration:yaml-parity-v1:capture:distinct_id_is_string_client",
+    "migration:yaml-parity-v1:capture:event_has_required_fields_client",
+    "migration:yaml-parity-v1:capture:token_is_present_client",
+    "migration:yaml-parity-v1:capture_analytics_v1:sends_br_content_encoding",
+    "migration:yaml-parity-v1:capture_analytics_v1:sends_deflate_content_encoding",
+    "migration:yaml-parity-v1:capture_analytics_v1:sends_zstd_content_encoding"
+  ],
+  "unsupported_status": "not_selected; no execution credit",
+  "negative_adapter_control": {
+    "helper_exit": 1,
+    "profile_cli_exits": [
+      null,
+      null
+    ],
+    "reason": "Readiness failed before either CLI invocation; missing reports retained as errors",
+    "cleanup": "No owned containers or networks remained"
+  },
+  "historical_focused_validation": {
+    "ci_helper_and_legacy_regressions": 123,
+    "ci_helper_tests_added": 46,
+    "source_build_harness_regressions": 301,
+    "source_build_host_tests": 72,
+    "source_build_node_tests": 22,
+    "actionlint_version": "1.7.11",
+    "actionlint_exit": 0
+  },
+  "remaining_gates": [
+    "Reconcile current-main drift and validate integration",
+    "Publish reviewed immutable images and explicitly enable the caller",
+    "Run the GitHub Ubuntu/amd64 pilot",
+    "Resolve three SDK assertion failures and six unsupported origins before claiming full SDK conformance",
+    "Agree release/channel policy and YAML retirement separately"
+  ]
+}
