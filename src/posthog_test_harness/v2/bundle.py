@@ -7,10 +7,10 @@ from contextlib import contextmanager
 from importlib.resources import as_file, files
 from pathlib import Path, PurePosixPath
 
-from .contracts import BoundaryError, Contracts, decode_json, require
+from .contracts import VERSION, BoundaryError, decode_json, require
 
 MANIFEST = "bundle-manifest.json"
-FORMAT = "posthog-specs-bundle-v1"
+FORMAT = "posthog-specs-bundle-v2"
 
 
 def identity(manifest):
@@ -19,7 +19,7 @@ def identity(manifest):
 
 
 def validate_bundle(root):
-    """Verify the whole bundle, including generated schemas, before discovery or RPC."""
+    """Verify the whole bundle, including scenario data, before discovery or RPC."""
     root = Path(root).resolve()
     try:
         manifest = decode_json((root / MANIFEST).read_bytes())
@@ -55,12 +55,7 @@ def validate_bundle(root):
                 "bundle_mismatch",
                 f"Bundle resource differs: {name}",
             )
-        contracts = Contracts(root / "contracts/v2")
-        require(
-            manifest["catalog_sha256"] == contracts.catalog_hash,
-            "bundle_mismatch",
-            "Bundle and contract identities differ",
-        )
+        require(manifest["protocol"] == VERSION, "bundle_mismatch", "Bundle protocol differs")
         return manifest
     except BoundaryError:
         raise

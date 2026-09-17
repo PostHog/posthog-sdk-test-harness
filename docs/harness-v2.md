@@ -1,109 +1,52 @@
-# Opt-in Gherkin v2 harness
+# Gherkin compliance harness
 
-The `posthog-test-harness-v2` command runs Gherkin through the negotiated
-`http-json-v2` transport. It is separate from the existing YAML runner and adapter
-interface. Existing v1 Docker and shared-workflow entry points remain available.
+The opt-in `posthog-test-harness-v2` entry point runs SDK-independent Gherkin over HTTP. The SDK repository owns its native adapter, package build, and compliance caller. The harness owns mock services, input selection, assertions, deadlines, and reports. Existing YAML/v1 commands remain available.
 
-## Scope and inputs
-
-The migration suite covers 157 YAML-origin cases: 33 legacy capture, 98 analytics
-v1, five AI capture, 17 remote flags and four local flags. All 157 have controlled
-host execution coverage; that is not 157 SDK passes. The separate canonical
-inventory has 728 cases, with 57 harness-ready and 671 missing bindings. Discovery
-is not execution. The original 518 assertion-action crosswalk rows remain
-unresolved; case-level migration does not close that assertion-level audit.
-
-Specifications, generated transport schemas, fixture contracts and checksummed
-migration/coverage ledgers are authored in the companion `sdk-specs` checkout.
-Source tests expect it beside this repository as `../specs`; see
-`tests/test_v2_gherkin.py` and `tests/test_v2_boundary.py`. It must contain the v2
-contracts and `migration/yaml-parity-v1` work, not only the older base revision.
-The Node binding and source-package builder live separately in
-`PostHog/posthog-js`, under `compliance/node/v2/`.
+## Run
 
 ```sh
-uv sync --locked --extra dev
-uv run --locked posthog-test-harness-v2 discover \
-  --specs ../specs --migration-suite --require-ready \
-  --report /tmp/migration-discovery.json
-uv run --locked posthog-test-harness-v2 run \
-  --specs ../specs --migration-suite \
-  --adapter-url "$ADAPTER_URL" --profile "$PROFILE_ID" \
-  --report /tmp/migration-report.json
+posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
+  --migration-suite --require-ready --report discovery.json
+posthog-test-harness-v2 run --specs /path/to/sdk-specs \
+  --migration-suite --adapter-url http://127.0.0.1:8080 \
+  --profile PROFILE --timeout-ms 60000 --report report.json
 ```
 
-`--case-id` selects exact cases while retaining others as `not_selected`.
-`discover` without `--migration-suite` inventories canonical cases; `run
---all-features` selects that full inventory. The default run feature is flush.
-Installed artifacts instead default to a verified bundle; see
-[distribution](harness-v2-distribution.md). Local specs are explicit overrides,
-not runtime downloads. Controlled Brotli/Zstd tests require `brotli` and `zstd`
-executables; gzip/deflate use the Python standard library.
+Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--feature` selects relative feature paths; `--all-features` includes unresolved canonical cases. `--case-id` explicitly selects stable identities, retaining missing prerequisites as failures rather than exclusions.
 
-## Execution contract
+The official Cucumber parser expands backgrounds, rules and outlines. Scenario data uses inline tables and JSON doc strings; no file-data binding or generated inventory is needed. Migrated scenarios use `@case:<complete-id>`, or `@case:<case_id>` with a `case_id` Examples column. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability. Capabilities select candidates; a missing required route does not exclude a declared capability. Required routes come from step bindings. Non-migrated cases without explicit identities use content digest, path, declaration line and example line.
 
-Public-operation declarations select candidate cases. Independent feature/API
-capabilities and explicit SDK type refine applicability; runtime does not imply
-SDK type. Missing required operations and unavailable fixture observations remain
-gaps, not passing exclusions. Reports preserve native void, undefined, values and
-errors, individual calls, fixture ownership and actual failing exits.
+The migrated scope contains 157 cases. Canonical features are discoverable but many require operations or fixtures not yet implemented. Discovery readiness means steps are bound, not SDK conformance. Missing public operations are `unsupported_binding`; unavailable fixture controls are `blocked_fixture`; undefined steps are harness errors. Public getters such as `pending_events()` are legitimate future bindings when shared event/queued/in-flight/retry semantics are defined. Queue snapshots, evaluator hooks and fabricated counters are not substitutes. Retention and delivery may instead be proved by public flush/retry behavior and observed traffic where that preserves the scenario's assertion.
 
-Effective catalog identity includes the frozen base and ordered amendments:
+## Draft HTTP adapter contract
 
-- `capture-amendment-v1`: optional setup GeoIP control and capture-v1 event-root
-  options; six compression inputs explicitly select the algorithm being tested.
-- `flag-semantics-v1`: ordinary native getters replace forcing remote behavior;
-  callback values, loading context and unsubscribe behavior remain observable.
-- `local-evaluation-v1`: declared local evaluation uses genuine definitions
-  loading, a fresh authenticated HTTP 200 and public readiness after each reload
-  within one five-second deadline. Per-call local provenance requires actual
-  evaluator instrumentation, not inference from input or HTTP silence.
+Protocol identity: **`sdk-compliance-v2-draft2`**. All routes below use POST with uncompressed JSON, maximum body 1 MiB, no redirects. These unauthenticated services belong on loopback or an isolated private network.
 
-These are intentional input/contract amendments, not byte-identical migration.
-The executable fixtures and source-parity tests reconcile them against pinned
-YAML. The v2 runner does not execute YAML at runtime. Historical evidence pointers
-in the frozen migration ledgers resolve to the [capture/YAML summary](harness-v2-yaml-parity-evidence.md),
-[remote flags summary](harness-v2-remote-flags-evidence.md) and
-[local evaluation summary](harness-v2-local-parity-evidence.md). These retain
-controlled-test scope without replacing the checksummed source audit; raw
-per-run receipts remain local.
+- `/v2/negotiate`: `{ "protocol": "sdk-compliance-v2-draft2" }` → `{ "protocol": "sdk-compliance-v2-draft2", "supported_routes": ["/setup", "..."], "profiles": [{ "id": "PROFILE", "sdk_type": "server", "sdk_capabilities": [], "fixture_capabilities": ["storage.empty.v1"] }], "max_timeout_ms": 60000 }`. SDK type is `server` or `client`. Capability and profile IDs must be unique. Declare only genuine support.
+- `/v2/fixtures/allocate`: `{fixture_id, case_id, profile_id, timeout_ms}` → `{fixture_id}`. IDs are strings; timeout is a positive integer within the negotiated bound. Each allocation creates a fresh isolated receiver. `storage.empty.v1` means the receiver starts with empty per-case persistent storage; allocation establishes this, not a private reset call.
+- `/v2/invoke`: `{fixture_id, call_id, route, args, timeout_ms}` → `{fixture_id, call_id, completion}`. Invocation IDs cannot be reused. `args` is a JSON object. Route support is negotiated, not inferred from an SDK name.
+- `/v2/fixtures/close`: `{fixture_id, timeout_ms}` → `{fixture_id}` after bounded public cleanup. Failed shutdown is an infrastructure failure, not successful cancellation. An isolated worker may be terminated after its deadline, without mutating SDK internals.
 
-## Real Node results and validation boundary
+Completion is exactly one of:
 
-The [native result ledger](harness-v2-native-results.json) summarizes the final
-local helper replay against source-built public packages: Node 5.52.4, core 1.54.2
-and types 1.412.1, on Linux/arm64 with Node 24.21.0 and Python 3.12.12.
+```json
+{"kind":"sdk","outcome":{"kind":"void"}}
+{"kind":"sdk","outcome":{"kind":"undefined"}}
+{"kind":"sdk","outcome":{"kind":"value","value":null}}
+{"kind":"sdk","outcome":{"kind":"thrown","error":{"name":"Error","message":"native error"}}}
+{"kind":"harness","failure":{"kind":"timeout","code":"deadline","message":"Operation timed out"}}
+```
 
-| Profile | Pass | SDK assertion failures | Not selected | CLI exit |
-| --- | ---: | ---: | ---: | ---: |
-| `node-legacy` / v0 | 53 | 3 | 101 | 1 |
-| `node-analytics-v1` / v1 | 118 | 3 | 36 | 1 |
+`value` accepts JSON data including false, zero and null. Omitted arguments remain omitted. Native SDK throws are not transport errors, and scenario assertions determine whether a throw is acceptable. Adapters must pass representable invalid inputs to the SDK, faithfully translate native argument names, and avoid injected defaults, hidden flushes or corrective retries. Malformed requests, duplicate IDs and nonexistent fixtures produce non-200 JSON errors. The client retains bounded error detail. Request transport permits one second beyond the native deadline for a failure response; negotiation defaults to five seconds. No SDK result catalog is enforced globally.
 
-Across profiles: **151 unique origins executed, 148 passed, three failed, six
-unsupported**. Failures are GeoIP defaulting and two version-2 local boolean
-matching cases. Client-style capture and deflate/Brotli/Zstd origins account for
-the six unsupported cases. Neither unsupported cases nor unit/build checks are
-SDK conformance passes. The helper aggregate exit is also **1**.
+The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag`, `/reload_feature_flags` and `/wait_for_local_evaluation_ready`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
-These historical native results describe dirty development snapshots based on
-harness `029a94a3861c79f5e99d656b03648ba903eb6e7e`, specs
-`9cb330e3bac8868f39cc7dd665e42817285c9493` and Node
-`e96852dbe48690a18e40afe4bb423afb260a28d4`, not those commits alone. The ledger
-records snapshot/package/report identities. Raw logs and machine-specific
-receipts remain local and are not included; their hashes identify evidence but
-do not make it retrievable from this repository. These results do not validate
-a rebased revision or current main.
+## Black-box local evaluation
 
-Further bounded evidence and reproduction commands:
+A fresh receiver loads controlled definitions through the mock definitions service using public SDK configuration. Scenarios explicitly reload and await readiness, require fresh authenticated HTTP 200 definitions within five seconds, then compare conclusive public getter results with exact expectations. Different properties and changed definitions detect constants, defaults and stale reloads. Definitions downloads are allowed; `/flags` and `/decide` requests are forbidden throughout setup, loading, evaluation and public cleanup. No private evaluator observation is required.
 
-- [Wheel, sdist and Docker distribution](harness-v2-distribution.md)
-- [Separate-container network smoke](harness-v2-network-evidence.md)
-- [Source-built public SDK integration](harness-v2-source-build-evidence.md)
-- [Strict reusable Node CI pilot](harness-v2-node-ci.md)
+## Isolation, networks and results
 
-A historical full harness run at the local-parity milestone passed 963 tests with
-one optional skip; later increments used focused regressions, not another full
-suite. A pre-existing canonical L280 uncoordinated-probe defect-detection flake
-remains unresolved. Published immutable images, explicit caller enablement,
-Ubuntu/amd64 GitHub execution, current-base integration, release/channel policy
-and YAML retirement remain separate gates. The Node pilot is not yet enabled.
+Every case receives a distinct ephemeral mock URL. Retired listeners remain bound until run teardown and reject late requests, so traffic cannot enter a later case. Configure `--mock-bind-host` and `--mock-advertised-host` independently for separate containers. `--allow-private-network` permits an operator-selected adapter DNS/IP address; it does not prove privacy. Use separate network namespaces, an internal network, and no published host ports. Bare IPv6 addresses are accepted and bracketed in constructed URLs.
+
+The CLI writes a report and `<report>.diagnostics.json` with actual calls, traffic, source identities, selection and failures. Exit 0 requires at least one passed case and no selected failures or infrastructure errors; exit 1 means failed/empty scope; exit 2 means malformed report or CLI/input failure. SDK callers should independently run `posthog-test-harness-v2 check-report --report report.json --profile PROFILE` after execution. It applies the same strict result gate and verifies matching run, profile and case identities in the diagnostics. Missing/malformed artifacts or startup errors cannot pass; callers must also preserve the original process exit and bound their own subprocess/cleanup commands. Keep artifacts outside the repository. Controlled test adapters validate the harness, not SDK conformance. Publication, production caller enablement and v1 retirement are separate release decisions.

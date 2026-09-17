@@ -10,7 +10,7 @@ from .client import Client
 from .contracts import VERSION, BoundaryError, require
 from .fixtures import CaseServer
 from .gherkin import load_cases
-from .local_parity_steps import STEPS
+from .local_parity_steps import STEPS, no_remote
 from .migration import selection
 from .steps import Context
 
@@ -33,11 +33,16 @@ def failure(error, executed, step, call_ids):
 
 
 def native_flag_sdk_type(case):
-    if case.migration and case.migration.get("amendment") == "flag-semantics-v1":
-        return "server"
+    types = [tag.removeprefix("@sdk:") for tag in case.tags if tag.startswith("@sdk:")]
+    # This existing canonical feature predates explicit @sdk applicability tags.
     if case.source["path"] == "acceptance/public/on-feature-flags.feature":
-        return "client"
-    return None
+        types.append("client")
+    require(
+        len(set(types)) <= 1 and all(t in ("client", "server") for t in types),
+        "invalid_source",
+        "Conflicting or unknown SDK applicability",
+    )
+    return types[0] if types else None
 
 
 async def run_case(client, case, profile, server, timeout_ms, diagnostics, report, registry):
@@ -57,42 +62,35 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
         for index, step in enumerate(case.steps):
             current = {"index": index, "source": step.source}
             bindings.append(registry.bind(step))
-        if case.migration:
-            current = None
-            missing = set(case.migration["candidate_routes"]) - set(client.negotiation["supported_routes"])
+        for index, (handler, _) in enumerate(bindings):
+            current = {"index": index, "source": case.steps[index].source}
+            requirements = registry.requirements[handler]
+            missing = set(requirements["routes"]) - set(client.negotiation["supported_routes"])
             if missing:
                 raise BoundaryError(
                     "missing_operation",
-                    "Required public candidate operation unavailable: " + ", ".join(sorted(missing)),
+                    "Required public operation unavailable: " + ", ".join(sorted(missing)),
                     "unsupported_binding",
                 )
-            for index, (handler, _) in enumerate(bindings):
-                current = {"index": index, "source": case.steps[index].source}
-                requirements = registry.requirements[handler]
-                missing = set(requirements["routes"]) - set(client.negotiation["supported_routes"])
-                if missing:
-                    raise BoundaryError(
-                        "missing_operation",
-                        "Required public operation unavailable: " + ", ".join(sorted(missing)),
-                        "unsupported_binding",
-                    )
-            missing = set(case.migration["sdk_capabilities"]) - set(profile.get("sdk_capabilities", []))
+            # Draft2 allocation guarantees storage isolation. Other prototype controls
+            # have no public binding yet, even if an adapter claims their old names.
+            missing = set(requirements["fixtures"]) - {"storage.empty.v1"}
+            missing |= set(requirements["fixtures"]) - set(profile["fixture_capabilities"])
             if missing:
-                current = None
                 raise BoundaryError(
-                    "sdk_capability_unavailable",
-                    "Required SDK feature/API declaration unavailable: " + ", ".join(sorted(missing)),
-                    "unsupported_binding",
+                    "fixture_unavailable",
+                    "Required harness fixture unavailable: " + ", ".join(sorted(missing)),
+                    "blocked_fixture",
                 )
-            for index, (handler, _) in enumerate(bindings):
-                current = {"index": index, "source": case.steps[index].source}
-                missing = set(registry.requirements[handler]["fixtures"]) - set(profile["fixture_capabilities"])
-                if missing:
-                    raise BoundaryError(
-                        "fixture_unavailable",
-                        "Required harness fixture unavailable: " + ", ".join(sorted(missing)),
-                        "blocked_fixture",
-                    )
+        capabilities = {tag.removeprefix("@requires:") for tag in case.tags if tag.startswith("@requires:")}
+        missing = capabilities - set(profile["sdk_capabilities"])
+        if missing:
+            current = None
+            raise BoundaryError(
+                "sdk_capability_unavailable",
+                "Required SDK capability unavailable: " + ", ".join(sorted(missing)),
+                "unsupported_binding",
+            )
         for index, (step, (handler, args)) in enumerate(zip(case.steps, bindings)):
             current = {"index": index, "source": step.source}
             ctx.step_index = index
@@ -150,6 +148,12 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
             report["errors"].append(error_record(error, case_id=case.id))
             if problem is None:
                 problem = error
+        if getattr(ctx, "local_evaluation", False):
+            try:
+                no_remote(ctx)
+            except BoundaryError as error:
+                if problem is None:
+                    problem = error
         for error in server.gates.failures():
             report["errors"].append(error_record(error, case_id=case.id))
             if problem is None or problem.kind == "failed_assertion":
@@ -212,7 +216,6 @@ async def run(
     run_id = str(uuid4())
     report = {
         "contract_version": VERSION,
-        "catalog_sha256": contracts.catalog_hash,
         "run_id": run_id,
         "scope_id": "gherkin-selection-v1:"
         + hashlib.sha256(
@@ -258,7 +261,7 @@ async def run(
             profiles = {p["id"]: p for p in report["profiles"]}
             require(profile_id in profiles, "unknown_profile", "Requested profile was not negotiated")
             profile = profiles[profile_id]
-            diagnostics["adapter"] = client.negotiation["adapter"]
+            diagnostics["adapter"] = client.negotiation
             client.deadline(timeout_ms)
             invalid_selector = len(set(case_ids)) != len(case_ids) or bool(set(case_ids) - {c.id for c in cases})
             if invalid_selector:

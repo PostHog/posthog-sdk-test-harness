@@ -38,12 +38,6 @@ async def finish(ctx, invokes):
     if failures:
         failure = next((f for f in failures if f["kind"] == "unsupported_binding"), failures[0])
         raise BoundaryError(failure["code"], failure["message"], failure["kind"])
-    for receipt in receipts:
-        expect(
-            ctx.client.contracts.target_result_matches(receipt["route"], receipt["completion"]["outcome"]),
-            "incorrect_result",
-            "Concurrent native result differs from the catalog target",
-        )
     return receipts
 
 

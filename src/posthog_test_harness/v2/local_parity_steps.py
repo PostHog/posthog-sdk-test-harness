@@ -4,8 +4,7 @@ import asyncio
 import time
 
 from .ai_steps import json_arguments
-from .contracts import BoundaryError, decode_json, json_equal
-from .flag_fixtures import PROVENANCE_CAPABILITY, FlagStateControls
+from .contracts import BoundaryError, decode_json
 from .remote_flag_steps import STEPS as PREVIOUS_STEPS
 from .steps import Registry, expect
 
@@ -37,6 +36,7 @@ async def definitions(ctx, step):
 
 @STEPS.step("the SDK is initialized for native local evaluation with JSON arguments:", "docString", routes=("/setup",))
 async def setup(ctx, step):
+    ctx.local_evaluation = True
     args = json_arguments(step)
     await ctx.call("/setup", {**args, "config": {**args["config"], "host": ctx.server.url}})
     no_remote(ctx)
@@ -100,30 +100,20 @@ async def reload(ctx, step):
     "the local flag getter is called with JSON arguments:",
     "docString",
     routes=("/get_feature_flag",),
-    fixtures=(PROVENANCE_CAPABILITY,),
 )
 async def getter(ctx, step):
     args = json_arguments(step)
     outcome = await ctx.call("/get_feature_flag", args)
-    call_id = ctx.last_receipt["call_id"]
     no_remote(ctx)
     expect(
         outcome["kind"] == "value" and type(outcome["value"]) in (bool, str),
         "local_inconclusive",
         "Local getter must return a conclusive boolean or string",
     )
-    observation = await FlagStateControls(ctx).command("evaluation_provenance", call_id=call_id)
-    expect(observation["key"] == args["key"], "local_provenance_key", "Native observation belongs to another flag")
-    expect(observation["resolution"] == "local", "local_provenance", "Getter has no conclusive native local result")
-    expect(
-        json_equal(observation["value"], outcome["value"]),
-        "local_provenance_value",
-        "Native local observation differs from the public getter",
-    )
     ctx.local_flag_outcome = outcome
 
 
 @STEPS.step(r"the local flag getter should return JSON (.+)")
 async def result(ctx, step, encoded):
-    # Keep the source helper's equality after the conclusive-kind/provenance checks.
+    # Keep the source helper's equality after the conclusive-kind checks.
     expect(ctx.local_flag_outcome["value"] == decode_json(encoded), "local_flag_value", "Local getter value differs")

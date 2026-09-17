@@ -111,12 +111,6 @@ class Context:
         if completion["kind"] == "harness":
             failure = completion["failure"]
             raise BoundaryError(failure["code"], failure["message"], failure["kind"])
-        if check_result:
-            expect(
-                self.client.contracts.target_result_matches(route, completion["outcome"]),
-                "incorrect_result",
-                f"Native {route} result differs from the selected catalog target",
-            )
         return completion["outcome"]
 
     def ingestion(self):

@@ -90,6 +90,7 @@ class AIHost(Host):
         super().__init__(contracts, **options)
         self.profile["id"] = "controlled-ai-v1"
         self.profile["runtime"]["family"] = runtime
+        self.profile["sdk_type"] = "server" if runtime == "server" else "client"
         self.profile["identity"] = "stateful_installation" if runtime != "server" else "request_scoped"
         self.profile["protocol"] = protocol
         self.profile["products"] = ["analytics", "ai"]

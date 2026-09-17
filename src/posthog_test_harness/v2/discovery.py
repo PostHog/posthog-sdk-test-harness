@@ -2,19 +2,15 @@
 
 from pathlib import Path
 
-from .contracts import BoundaryError, decode_json, require
+from .contracts import BoundaryError, require
 from .gherkin import load_cases
 from .local_parity_steps import STEPS
 
 
 def feature_paths(specs):
-    try:
-        manifest = decode_json((Path(specs) / "coverage/harness-v2/manifest.json").read_bytes())
-        paths = [s["path"] for s in manifest["sources"] if s["path"].endswith(".feature")]
-    except (OSError, KeyError, TypeError) as error:
-        raise BoundaryError("invalid_source", "Missing or malformed frozen manifest") from error
-    require(bool(paths), "zero_cases", "No frozen Gherkin features")
-    return sorted(paths)
+    paths = sorted(p.relative_to(specs).as_posix() for p in Path(specs).rglob("*.feature"))
+    require(bool(paths), "zero_cases", "No Gherkin features")
+    return paths
 
 
 def execution_route(case, registry=STEPS):
@@ -39,8 +35,6 @@ def execution_route(case, registry=STEPS):
             routes.update(requirements["routes"])
             fixtures.update(requirements["fixtures"])
         steps.append(row)
-    if case.migration:
-        routes.update(case.migration["candidate_routes"])
     return {
         "case_id": case.id,
         "source": case.source,

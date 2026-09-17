@@ -11,7 +11,6 @@ from uuid import UUID
 
 from .contracts import json_equal, require
 from .data import doc_string
-from .fixtures import FlushControls
 from .probe_steps import STEPS as PREVIOUS_STEPS
 from .steps import Registry, expect, table
 
@@ -33,8 +32,6 @@ async def isolated(ctx, step):
     ctx.fixture = await ctx.client.allocate(
         ctx.diagnostics["fixture_id"], ctx.case.id, ctx.profile["id"], ctx.timeout_ms
     )
-    ctx.controls = FlushControls(ctx.fixture, ctx.profile, ctx.timeout_ms, ctx.diagnostics["controls"])
-    await ctx.controls.command("storage_empty")
 
 
 @STEPS.step(r'the SDK is initialized with token "([^"]*)" and flush threshold ([0-9]+)', routes=("/setup",))

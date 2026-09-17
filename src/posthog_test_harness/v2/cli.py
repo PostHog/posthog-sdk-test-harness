@@ -8,7 +8,7 @@ import click
 
 from .. import __version__
 from .bundle import specification_inputs
-from .contracts import BoundaryError, Contracts
+from .contracts import BoundaryError, Contracts, decode_json, require
 from .discovery import discover as discover_routes
 from .discovery import feature_paths
 from .migration import migration_paths
@@ -36,9 +36,8 @@ def main():
     type=click.Path(path_type=Path, file_okay=False),
     help="Explicit local inputs; defaults to the packaged specs bundle.",
 )
-@click.option("--contracts", type=click.Path(path_type=Path, file_okay=False), help="Defaults to SPECS/contracts/v2")
-@click.option("--feature", multiple=True, help="Frozen feature path; defaults to public/flush.feature")
-@click.option("--all-features", is_flag=True, help="Include every frozen feature, including missing harness routes")
+@click.option("--feature", multiple=True, help="Relative feature path; defaults to public/flush.feature")
+@click.option("--all-features", is_flag=True, help="Include every selected feature, including missing harness routes")
 @click.option(
     "--migration-suite", is_flag=True, help="Execute the versioned YAML-parity suite (adapter-driven selection)"
 )
@@ -66,11 +65,10 @@ def main():
 )
 @click.option("--profile", required=True, help="Exact negotiated execution profile ID")
 @click.option("--case-id", multiple=True, help="Exact source case ID; unselected cases remain in the report")
-@click.option("--timeout-ms", default=5000, type=click.IntRange(1, 300000), show_default=True)
+@click.option("--timeout-ms", default=5000, type=click.IntRange(1, 60000), show_default=True)
 @click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
 def run(
     specs,
-    contracts,
     feature,
     all_features,
     migration_suite,
@@ -83,11 +81,9 @@ def run(
     mock_advertised_host,
     allow_private_network,
 ):
-    """Execute a frozen feature scope and write a strict JSON report."""
+    """Execute a selected feature scope and write a strict JSON report."""
     if sum((bool(feature), all_features, migration_suite)) > 1:
         raise click.UsageError("Use only one of --feature, --all-features or --migration-suite")
-    if contracts is not None and specs is None:
-        raise click.UsageError("Use --specs with --contracts for explicit local inputs")
     try:
         with specification_inputs(specs) as (root, bundle):
             feature = (
@@ -95,7 +91,7 @@ def run(
                 if migration_suite
                 else feature_paths(root) if all_features else feature or ("acceptance/public/flush.feature",)
             )
-            schemas = Contracts(contracts or root / "contracts/v2")
+            schemas = Contracts()
             report, diagnostics = asyncio.run(
                 execute(
                     schemas,
@@ -137,7 +133,7 @@ def run(
     help="Explicit local inputs; defaults to the packaged specs bundle.",
 )
 @click.option(
-    "--feature", multiple=True, help="Limit discovery to explicit paths; defaults to the entire frozen corpus"
+    "--feature", multiple=True, help="Limit discovery to explicit paths; defaults to the entire selected corpus"
 )
 @click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
 @click.option("--require-ready", is_flag=True, help="Exit nonzero if any case has missing harness bindings")
@@ -167,8 +163,49 @@ def distribution(bundle):
     return {
         "mode": "packaged",
         "runner_version": __version__,
-        **{key: bundle[key] for key in ("format", "bundle_sha256", "catalog_sha256", "source")},
+        **{key: bundle[key] for key in ("format", "bundle_sha256", "source")},
     }
+
+
+@main.command("check-report")
+@click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
+@click.option("--profile", required=True, help="Expected execution profile")
+def check_report(report_path, profile):
+    """Validate saved results and matching diagnostics, then apply the strict gate."""
+    try:
+        report = decode_json(report_path.read_bytes())
+        diagnostics = decode_json(report_path.with_name(report_path.name + ".diagnostics.json").read_bytes())
+        status = strict_exit_code(Contracts(), report)
+        require(status != 2, "invalid_report", "Malformed compliance report")
+        require(
+            isinstance(report.get("run_id"), str)
+            and bool(report["run_id"])
+            and diagnostics["run_id"] == report["run_id"],
+            "invalid_report",
+            "Diagnostics run identity differs",
+        )
+        require(
+            profile in [p["id"] for p in report["profiles"]]
+            and profile in [p["id"] for p in diagnostics["adapter"]["profiles"]]
+            and all(row["profile_id"] == profile for row in report["inventory"]),
+            "invalid_report",
+            "Report profile differs",
+        )
+        expected = {
+            (r["case_id"], r["profile_id"])
+            for r in report["inventory"]
+            if r["selected"] and r["applicability"]["kind"] == "applicable"
+        }
+        actual = [(r["case_id"], r["profile_id"]) for r in diagnostics["cases"]]
+        require(
+            len(actual) == len(set(actual)) and set(actual) == expected,
+            "invalid_report",
+            "Diagnostics case inventory differs",
+        )
+    except (BoundaryError, OSError, KeyError, TypeError) as error:
+        raise click.ClickException(f"Invalid report artifacts: {error}") from error
+    click.echo("Strict saved-report gate: " + ("passed" if status == 0 else "not passed"))
+    raise SystemExit(status)
 
 
 @main.command("bundle-info")

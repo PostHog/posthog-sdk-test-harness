@@ -13,7 +13,8 @@ from posthog_test_harness.v2.client import Client
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.fixtures import CaseServer
 from posthog_test_harness.v2.network import url_host, validate_host
-from tests.test_v2_gherkin import CONTRACT_PATH, cli_run
+from tests.test_v2_gherkin import cli_run
+from tests.v2_ai_host import AIHost
 from tests.v2_flush_host import serve
 
 
@@ -143,9 +144,15 @@ async def test_cli_forwards_addresses_through_runner_to_each_case(tmp_path, expl
         else []
     )
     advertised = "localhost" if explicit else "127.0.0.1"
-    async with serve(Contracts(CONTRACT_PATH)) as (host, url):
+    async with serve(Contracts(), host_type=AIHost) as (host, url):
         code, report, diagnostics, output = await cli_run(
-            tmp_path, url.replace("127.0.0.1", "localhost") if explicit else url, *options
+            tmp_path,
+            url.replace("127.0.0.1", "localhost") if explicit else url,
+            "--feature",
+            "migration/yaml-parity-v1/capture-ai.feature",
+            "--profile",
+            host.profile["id"],
+            *options,
         )
     assert code == 0, output
     assert diagnostics["network_config"] == {
@@ -154,9 +161,9 @@ async def test_cli_forwards_addresses_through_runner_to_each_case(tmp_path, expl
         "allow_private_network": explicit,
     }
     urls = [case["mock_url"] for case in diagnostics["cases"]]
-    assert len(urls) == len(set(urls)) == 3
+    assert len(urls) == len(set(urls)) == 5
     assert all(urlsplit(url).hostname == advertised and urlsplit(url).port > 0 for url in urls)
-    assert [r["invoke"]["args"]["config"]["host"] for r in host.inputs if r["invoke"]["route"] == "/setup"] == urls
+    assert [r["args"]["config"]["host"] for r in host.inputs if r["route"] == "/setup"] == urls
     assert all(row["result"]["status"] == "passed" for row in report["results"])
 
 
@@ -204,7 +211,7 @@ def test_client_opt_in_preserves_transport_validation(url, opt_in):
 
 
 async def test_cli_default_rejects_non_loopback_adapter(tmp_path):
-    async with serve(Contracts(CONTRACT_PATH)) as (host, url):
+    async with serve(Contracts(), host_type=AIHost) as (host, url):
         code, report, diagnostics, output = await cli_run(tmp_path, url.replace("127.0.0.1", "localhost"))
     assert code == 1 and not host.fixtures
     assert report["errors"][0]["code"] == "invalid_transport"

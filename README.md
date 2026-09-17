@@ -247,76 +247,17 @@ test-harness-version: "1.0"  # Recommended: pin to major.minor
 
 ## Harness v2 development
 
-The opt-in `posthog-test-harness-v2 run` command executes Gherkin through a
-negotiated v2 transport. The [v2 overview](docs/harness-v2.md) describes the
-157-case migration suite, canonical discovery, explicit local specs inputs and
-known SDK failures. Controlled-host results are not SDK conformance results.
-Built artifacts default to a verified bundled snapshot; see
-[v2 distribution](docs/harness-v2-distribution.md) for wheel, sdist and opt-in
-Docker instructions, and the [Node CI pilot](docs/harness-v2-node-ci.md) for the
-separate reusable workflow. Existing v1 entry points remain available.
-
-### V2 network addresses
-
-V2 listeners remain local by default. `run --mock-bind-host HOST` selects the mock
-listener interface; `--mock-advertised-host HOST` selects the hostname sent to the
-SDK in setup. Both default independently to `127.0.0.1`. Each case still receives
-a fresh OS-allocated port. Retired URLs stay bound and reject late requests until
-run teardown, so traffic cannot leak into a later case. Diagnostics record both
-configured hosts and every case URL.
-
-These options accept a DNS name, IPv4 address, or **bare IPv6** address such as
-`::1`; IPv6 is bracketed when constructing URLs. Do not supply a scheme, port,
-credentials, path, query, fragment, brackets, or IPv6 zone identifier. Ports are
-always allocated by the harness, not supplied in the advertised host.
-
-For separate containers on a private Docker network, give the runner the network
-alias `runner` and the adapter the alias `adapter`, then run:
-
-```sh
-posthog-test-harness-v2 run --migration-suite \
-  --adapter-url http://adapter:8080 --allow-private-network --profile node-legacy \
-  --mock-bind-host 0.0.0.0 --mock-advertised-host runner \
-  --report /tmp/report.json
-```
-
-`--allow-private-network` permits operator-selected adapter DNS/IP hosts; it does
-**not** verify that a hostname or IP belongs to a private network. Without it, the
-adapter host must remain `127.0.0.1`. Adapter URLs require HTTP and an explicit port,
-without credentials, non-root paths, query, or fragment. Redirects and environment
-proxy settings are not used. Docker network isolation supplies the privacy boundary.
-
-The Node v2 host must explicitly opt in with `--listen-host 0.0.0.0 --listen-port 8080`.
-Use separate network namespaces, no published host ports, and a private network
-(e.g. `docker network create --internal NAME`). Wildcard binding is an explicit
-opt-in for that topology; it never changes the advertised host automatically.
-These unauthenticated mock services are not intended for public exposure.
-
-A bounded real-Node distribution smoke is available for prebuilt runner and
-calibration-host images. The adapter image must contain compatible native Linux
-Node, Python/harness, the pinned installed public SDK dependency closure, and a
-host entrypoint accepting the listen/capture-mode options (see the script docstring).
-It is not SDK-source production packaging:
-
-```sh
-uv run --locked python scripts/smoke_v2_network.py \
-  --runner-image posthog-harness-v2:network-dev \
-  --adapter-image posthog-node-v2:network-smoke \
-  --out /tmp/harness-v2-network-smoke
-```
-
-Choose a fresh output directory. The script creates and cleans up its own internal
-network and containers, retains topology/commands/reports, expects five real AI
-passes and the known GeoIP assertion failure in each capture mode, and checks that
-an intentionally loopback-advertised cross-container run cannot pass. That last
-run is a topology-negative control, not an additional SDK defect. This slice does
-not rerun or clear the known local flag boolean-matching failures.
+The opt-in `posthog-test-harness-v2` command executes Gherkin through a compact
+HTTP adapter using public SDK operations and observed mock traffic. SDK repositories
+own their native adapters, builds and compliance callers. Existing v1 commands remain
+available. See the [v2 interface and operating guide](docs/harness-v2.md) and
+[self-contained distribution instructions](docs/harness-v2-distribution.md).
 
 ## Documentation
 
 - [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) - Complete guide to implementing adapters
 - [EXTENDING.md](EXTENDING.md) - How to add new tests and actions
-- [Harness v2](docs/harness-v2.md) - Migration scope, execution contract, Node results and remaining gates
+- [Harness v2](docs/harness-v2.md) - Feature selection, adapter contract, isolation and reporting
 - [CONTRACT.yaml](CONTRACT.yaml) - Main contract (references modular contracts)
 - [Feature Flag Rules v2](contracts/feature_flag_rules_v2/README.md) - Versioned config, definitions, response and event schemas, fixtures, and evaluation corpus
 - [contracts/](contracts/) - Modular contract definitions:

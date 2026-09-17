@@ -23,7 +23,7 @@ async def main():
     assert not json.loads(installed.read_text('direct_url.json') or '{}').get('dir_info', {}).get('editable', False)
     outputs = []
     with specification_inputs() as (specs, bundle):
-        contracts = Contracts(specs / 'contracts/v2')
+        contracts = Contracts()
         for defect, expected_exit in [(None, 0), ('wrong_route', 1)]:
             async with serve(contracts, host_type=AIHost, defect=defect) as (host, url):
                 name = defect or 'healthy'

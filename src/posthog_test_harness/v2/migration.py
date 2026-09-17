@@ -1,72 +1,28 @@
-"""Versioned YAML-parity sources and adapter-driven selection, not canonical IDs."""
+"""Tagged migration scope and adapter capability selection."""
 
-import hashlib
 from pathlib import Path
 
-from .contracts import BoundaryError, decode_json, require
+from .contracts import require
 
 SUITE = "migration/yaml-parity-v1"
 
 
-def migration_manifest(root):
-    try:
-        manifest = decode_json((Path(root) / SUITE / "manifest.json").read_bytes())
-        require(manifest["format"] == "yaml-parity-v1", "invalid_source", "Unknown migration suite version")
-        require(bool(manifest["sources"]), "invalid_source", "Empty migration suite")
-        for source in manifest["sources"]:
-            require(source["path"].startswith(SUITE + "/"), "invalid_source", "Source outside migration suite")
-        return manifest
-    except BoundaryError:
-        raise
-    except (OSError, KeyError, TypeError, AttributeError) as error:
-        raise BoundaryError("invalid_source", "Missing or malformed migration manifest") from error
-
-
 def migration_paths(root):
-    return [source["path"] for source in migration_manifest(root)["sources"]]
-
-
-def migration_cases(root, manifest, cases):
-    """Attach a checked one-to-one legacy cross-reference without changing canonical IDs."""
-    ledger = manifest["ledger"]
-    require(ledger["path"] == SUITE + "/cases.json", "invalid_source", "Unexpected migration ledger path")
-    data = (Path(root) / ledger["path"]).read_bytes()
-    require(hashlib.sha256(data).hexdigest() == ledger["sha256"], "source_mismatch", "Migration ledger differs")
-    rows = decode_json(data)
-    require(len({r["id"] for r in rows}) == len(rows), "invalid_source", "Duplicate migration ID")
-    require(len({r["legacy_id"] for r in rows}) == len(rows), "invalid_source", "Duplicate legacy mapping")
-    paths = {c.source["path"] for c in cases}
-    selected_rows = [r for r in rows if r["source"]["path"] in paths]
-    require(len(selected_rows) == len(cases), "invalid_source", "Migration ledger/case count differs")
-    for case in cases:
-        matches = [r for r in selected_rows if r["source"] == case.source]
-        require(len(matches) == 1, "invalid_source", "Missing or ambiguous migration source")
-        row = matches[0]
-        require(row["id"].startswith("migration:yaml-parity-v1:"), "invalid_source", "Invalid migration identity")
-        case.id, case.migration = row["id"], row
-    return cases
+    paths = sorted(p.relative_to(root).as_posix() for p in (Path(root) / SUITE).glob("*.feature"))
+    require(bool(paths), "zero_cases", "No migrated features")
+    return paths
 
 
 def selection(case, profile, supported_routes, explicit=False):
-    """API candidates, then independent SDK features. Fixtures never filter candidates.
-
-    Concrete API declarations claim only their own public capture operation.
-    Explicit requests retain all prerequisites as gaps rather than exclusions.
-    """
+    """Capabilities select candidates; missing bindings stay visible as execution gaps."""
     requirements = case.migration
-    routes = requirements["candidate_routes"]
+    from .discovery import execution_route
+
+    routes = execution_route(case)["required_routes"]
     capabilities = requirements["sdk_capabilities"]
     missing_routes = sorted(set(routes) - set(supported_routes))
     missing_capabilities = sorted(set(capabilities) - set(profile.get("sdk_capabilities", [])))
-    claims = {
-        "capture_ai_v0": "/capture_ai",
-        "capture_v1": "/capture",
-        "capture_v0": "/capture",
-        "flags_v2": "/get_feature_flag",
-        "feature_flags_local_evaluation_v1": "/get_feature_flag",
-    }
-    claimed_routes = {claims[c] for c in capabilities if c in claims and c in profile.get("sdk_capabilities", [])}
-    selected = explicit or (not missing_capabilities and set(missing_routes) <= claimed_routes)
+    selected = explicit or not missing_capabilities
     if missing_routes:
         reason = "Public candidate operation unavailable: " + ", ".join(missing_routes)
     elif missing_capabilities:

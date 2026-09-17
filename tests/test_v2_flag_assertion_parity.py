@@ -9,7 +9,6 @@ from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from posthog_test_harness.v2.steps import Context
-from tests.test_v2_gherkin import CONTRACT_PATH
 from tests.test_v2_remote_flags import FEATURE, IDS, SPECS
 from tests.v2_flush_host import serve
 from tests.v2_remote_flags_host import RemoteFlagsHost
@@ -17,7 +16,7 @@ from tests.v2_remote_flags_host import RemoteFlagsHost
 
 @pytest.fixture(scope="module")
 def contracts():
-    return Contracts(CONTRACT_PATH)
+    return Contracts()
 
 
 class UndefinedGetterHost(RemoteFlagsHost):
@@ -93,7 +92,7 @@ async def test_context_preserves_harness_failures_with_or_without_result_check(c
     assert caught.value.code == "missing-parameter"
 
 
-async def test_default_context_still_enforces_catalog_result(contracts):
+async def test_context_preserves_undefined_without_imposing_sdk_assertions(contracts):
     step = SimpleNamespace(source={"path": "test.feature", "line": 1})
     context = Context(
         SimpleNamespace(contracts=contracts), SimpleNamespace(steps=[step]), {}, None, 5000, {"invocations": []}
@@ -101,6 +100,4 @@ async def test_default_context_still_enforces_catalog_result(contracts):
     context.fixture = SimpleNamespace(
         id="fixture", invoke=AsyncMock(return_value={"completion": {"kind": "sdk", "outcome": {"kind": "undefined"}}})
     )
-    with pytest.raises(BoundaryError) as caught:
-        await context.call("/get_feature_flag", {})
-    assert caught.value.code == "incorrect_result"
+    assert await context.call("/get_feature_flag", {}) == {"kind": "undefined"}

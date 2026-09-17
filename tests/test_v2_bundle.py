@@ -27,13 +27,12 @@ def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot):
     manifest = validate_bundle(snapshot)
     assert type(manifest["source"]["dirty"]) is bool
     assert len(manifest["source"]["commit"]) == 40
-    for paths, count in [(None, 728), (migration_paths(snapshot), 157)]:
+    for paths, count in [(None, 885), (migration_paths(snapshot), 157)]:
         packaged = discover(snapshot, paths)
         source = discover(SPECS, paths)
         assert packaged == source
         assert len(packaged["cases"]) == count
-    assert "contracts/v2/generated/protocol.schema.json" in manifest["files"]
-    assert "acceptance/private/exception-event-metadata.examples.json" in manifest["files"]
+    assert all(name.endswith(".feature") for name in manifest["files"])
 
 
 def test_bundle_generation_is_deterministic_and_requires_dirty_opt_in(snapshot, tmp_path, monkeypatch):
@@ -48,16 +47,14 @@ def test_bundle_generation_is_deterministic_and_requires_dirty_opt_in(snapshot, 
     assert first["source"] == {"commit": "a" * 40, "dirty": True}
 
 
-@pytest.mark.parametrize("mutation", ["feature", "schema", "missing", "extra", "manifest", "symlink"])
+@pytest.mark.parametrize("mutation", ["feature", "missing", "extra", "manifest", "symlink"])
 def test_bundle_rejects_incomplete_or_modified_resources(snapshot, tmp_path, mutation):
     root = tmp_path / "_bundle"
     shutil.copytree(snapshot, root)
-    target = root / "contracts/v2/generated/protocol.schema.json"
+    target = root / "migration/yaml-parity-v1/capture-ai.feature"
     if mutation == "feature":
         target = root / "migration/yaml-parity-v1/capture-ai.feature"
         target.write_text(target.read_text() + "\n")
-    elif mutation == "schema":
-        target.write_text("{}")
     elif mutation == "missing":
         target.unlink()
     elif mutation == "extra":
@@ -96,22 +93,3 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     result = runner.invoke(main, args)
     assert result.exit_code != 0 and "No packaged specs bundle" in result.output
     assert runner.invoke(main, [*args, "--specs", str(SPECS)]).exit_code == 0
-
-
-def test_run_cannot_mix_packaged_features_with_external_contracts(tmp_path):
-    result = CliRunner().invoke(
-        main,
-        [
-            "run",
-            "--contracts",
-            str(SPECS / "contracts/v2"),
-            "--adapter-url",
-            "http://127.0.0.1:1",
-            "--profile",
-            "unused",
-            "--report",
-            str(tmp_path / "report.json"),
-        ],
-    )
-    assert result.exit_code == 2
-    assert "Use --specs with --contracts" in result.output

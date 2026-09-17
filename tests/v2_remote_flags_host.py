@@ -2,12 +2,10 @@
 
 from contextvars import ContextVar
 from copy import deepcopy
-from urllib.parse import quote
-from uuid import uuid4
 
 import aiohttp
 
-from posthog_test_harness.v2.contracts import BoundaryError, decode_json
+from posthog_test_harness.v2.contracts import decode_json
 from tests.v2_ai_host import AIEngine, AIHost
 
 OWNER = ContextVar("flag_owner", default=None)
@@ -158,9 +156,6 @@ class RemoteFlagsHost(AIHost):
         options.setdefault(
             "sdk_capabilities", ("flags_v2", "flags_getter_remote_uncached") if not cached else ("flags_v2",)
         )
-        missing_callback = options.get("missing_capability") == "callbacks.continuation"
-        if missing_callback:
-            options.pop("missing_capability")
         super().__init__(contracts, **options)
         self.cached = cached
         if sdk_type is not None:
@@ -168,8 +163,6 @@ class RemoteFlagsHost(AIHost):
         self.profile["id"] = "controlled-remote-flags-v1"
         self.profile["products"] = ["flags", "analytics"]
         self.profile["module"]["entry"] = "tests.v2_remote_flags_host.RemoteFlagsEngine"
-        if not missing_callback:
-            self.profile["fixture_capabilities"].append("callbacks.continuation")
         self.routes = [
             r
             for r in (
@@ -185,7 +178,6 @@ class RemoteFlagsHost(AIHost):
             )
             if r != options.get("missing_route")
         ]
-        self.extensions["fixtures/references"] = ("Reference", self.reference)
         self.engines = []
 
     async def handle(self, request):
@@ -198,103 +190,6 @@ class RemoteFlagsHost(AIHost):
         if engine is not None and response.status == 200:
             engine.dispose()
         return response
-
-    async def reference(self, fixture_id, fixture, data):
-        spec = data["fixture"]
-        if spec["kind"] != "callback" or "callbacks.continuation" not in self.profile["fixture_capabilities"]:
-            return self.response(
-                "ReferenceResponse",
-                {
-                    "kind": "failed",
-                    "fixture_id": fixture_id,
-                    "failure": {
-                        "kind": "blocked_fixture",
-                        "code": "callback_unavailable",
-                        "message": "Native callback binding unavailable",
-                    },
-                },
-            )
-        plan = spec["plan"]
-        self.contracts.validate_plan(plan, fixture.references)
-        ref = {"kind": "callback", "id": data["reference_id"]}
-        fixture.references[ref["id"]] = "callback"
-        fixture.retained[ref["id"]] = self.callback(fixture_id, fixture, ref, plan)
-        return self.response("ReferenceResponse", {"kind": "created", "fixture_id": fixture_id, "reference": ref})
-
-    def callback(self, fixture_id, fixture, ref, plan):
-        index = 0
-
-        def invoke(*args):
-            nonlocal index
-            prefix = f"@callback/{quote(fixture_id, safe='-._~')}/{quote(ref['id'], safe='-._~')}/{index}"
-            outcomes = [
-                {"kind": "undefined"} if arg is UNDEFINED else {"kind": "value", "value": deepcopy(arg)} for arg in args
-            ]
-            call_ids, results = [], {}
-            try:
-                if index >= plan["max_invocations"]:
-                    raise BoundaryError("callback_limit", "Native callback exceeded bound", "blocked_fixture")
-                for call in plan["calls"]:
-                    # Only genuinely synchronous operations can run on this synchronous native stack.
-                    receiver = call["receiver"]
-                    if (
-                        call["route"] != "/get_feature_flags"
-                        or receiver != {"source": "reference", "reference": fixture.receiver}
-                        or call["args"]
-                        or call.get("references")
-                    ):
-                        raise BoundaryError(
-                            "synchronous_continuation_unavailable",
-                            "Continuation cannot run on native synchronous stack",
-                            "blocked_fixture",
-                        )
-                    result = {"kind": "value", "value": fixture.engine.get_feature_flags()}
-                    call_id = prefix + "/" + quote(call["step_id"], safe="-._~")
-                    receipt = {
-                        "fixture_id": fixture_id,
-                        "call_id": call_id,
-                        "parent_call_id": OWNER.get(),
-                        "callback_invocation_id": prefix,
-                        "route": call["route"],
-                        "completion": {"kind": "sdk", "outcome": result},
-                    }
-                    fixture.observations.append(
-                        {"kind": "call", "sequence": len(fixture.observations) + 1, "receipt": receipt}
-                    )
-                    results[call["step_id"]] = result
-                    call_ids.append(call_id)
-                returns = plan["returns"]
-                result = (
-                    returns["outcome"]
-                    if returns["source"] == "literal"
-                    else (
-                        outcomes[returns["index"]]
-                        if returns["source"] == "callback_argument"
-                        else results[returns["step_id"]]
-                    )
-                )
-                completion = {"kind": "sdk", "outcome": deepcopy(result)}
-            except BoundaryError as error:
-                completion = {"kind": "harness", "failure": error.failure()}
-            fixture.observations.append(
-                {
-                    "kind": "callback",
-                    "sequence": len(fixture.observations) + 1,
-                    "fixture_id": fixture_id,
-                    "callback": ref,
-                    "invocation_id": prefix,
-                    "invocation_index": index,
-                    "owner_call_id": OWNER.get(),
-                    "args": outcomes,
-                    "completion": completion,
-                    "call_ids": call_ids,
-                }
-            )
-            index += 1
-            if completion["kind"] == "sdk":
-                return result.get("value")
-
-        return invoke
 
     def outcome(self, call, result):
         if call["route"] in ("/get_feature_flag", "/get_feature_flags"):
@@ -327,15 +222,6 @@ class RemoteFlagsHost(AIHost):
                 return engine.update_flags(args)
             if route == "/reload_feature_flags":
                 return await engine.reload_feature_flags(args)
-            if route == "/on_feature_flags":
-                callback = fixture.retained[call["references"]["/callback"]["id"]]
-                unsubscribe = engine.on_feature_flags(callback)
-                ref = {"kind": "subscription", "id": str(uuid4())}
-                fixture.retained[ref["id"]] = unsubscribe
-                fixture.references[ref["id"]] = "subscription"
-                return ref
-            if route == "/subscription/unsubscribe":
-                return fixture.retained[call["receiver"]["id"]]()
             return await super().invoke(fixture, call)
         finally:
             OWNER.reset(token)
