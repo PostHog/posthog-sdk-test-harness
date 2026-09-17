@@ -1,0 +1,111 @@
+name: Opt-in v2 Node compliance
+
+on:
+  workflow_call:
+    inputs:
+      sdk-repository:
+        description: Exact SDK owner/repository to build
+        required: true
+        type: string
+      sdk-revision:
+        description: Full 40-character SDK commit SHA
+        required: true
+        type: string
+      harness-revision:
+        description: Full harness commit SHA containing this workflow's helper
+        required: true
+        type: string
+      runner-image:
+        description: Packaged v2 runner image pinned with @sha256 digest
+        required: true
+        type: string
+      node-image:
+        description: Node build image pinned with @sha256 digest
+        required: true
+        type: string
+    outputs:
+      tests-passed:
+        description: True only when both full profiles and infrastructure checks pass
+        value: ${{ jobs.node.outputs.tests-passed }}
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    outputs:
+      tests-passed: ${{ steps.pilot.outcome == 'success' && steps.cleanup.outcome == 'success' && steps.upload.outcome == 'success' }}
+    env:
+      SDK_REPOSITORY: ${{ inputs.sdk-repository }}
+      SDK_REVISION: ${{ inputs.sdk-revision }}
+      HARNESS_REVISION: ${{ inputs.harness-revision }}
+      RUNNER_IMAGE: ${{ inputs.runner-image }}
+      NODE_IMAGE: ${{ inputs.node-image }}
+    steps:
+      - name: Validate helper source pin
+        shell: bash
+        run: |
+          PILOT_OUT="$RUNNER_TEMP/node-v2-pilot"
+          echo "PILOT_OUT=$PILOT_OUT" >> "$GITHUB_ENV"
+          mkdir -p "$PILOT_OUT-bootstrap"
+          if [[ "$HARNESS_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'Helper source pin format validated' > "$PILOT_OUT-bootstrap/helper-source.log"
+          else
+            echo 'Invalid helper source commit pin' > "$PILOT_OUT-bootstrap/helper-source.log"
+            exit 1
+          fi
+      # Reusable workflows run in the caller's context, not the harness repository.
+      - name: Checkout pinned harness helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: PostHog/posthog-sdk-test-harness
+          ref: ${{ inputs.harness-revision }}
+          path: harness-tooling
+          persist-credentials: false
+      - name: Validate immutable pilot inputs
+        run: |
+          python3 harness-tooling/scripts/run_v2_node_ci.py validate \
+            --sdk-repository="$SDK_REPOSITORY" --sdk-revision="$SDK_REVISION" \
+            --harness-revision="$HARNESS_REVISION" \
+            --runner-image="$RUNNER_IMAGE" --node-image="$NODE_IMAGE" \
+            > "$PILOT_OUT-bootstrap/validation.log" 2>&1
+      - name: Checkout selected SDK source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.sdk-repository }}
+          ref: ${{ inputs.sdk-revision }}
+          path: sdk-repo
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Build selected source and enforce both full profiles
+        id: pilot
+        run: |
+          python3 harness-tooling/scripts/run_v2_node_ci.py build-run \
+            --sdk-root="$GITHUB_WORKSPACE/sdk-repo" --out="$PILOT_OUT" \
+            --sdk-repository="$SDK_REPOSITORY" --sdk-revision="$SDK_REVISION" \
+            --harness-revision="$HARNESS_REVISION" \
+            --runner-image="$RUNNER_IMAGE" --node-image="$NODE_IMAGE"
+      - name: Retry owned resource cleanup
+        id: cleanup
+        if: always()
+        run: |
+          if [ -f harness-tooling/scripts/run_v2_node_ci.py ]; then
+            python3 harness-tooling/scripts/run_v2_node_ci.py cleanup --out="$PILOT_OUT"
+          fi
+      - name: Retain reports and failure diagnostics
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: node-v2-pilot-${{ github.job }}-${{ github.run_attempt }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/node-v2-pilot-bootstrap/
+            ${{ runner.temp }}/node-v2-pilot/*.json
+            ${{ runner.temp }}/node-v2-pilot/*.log
+            ${{ runner.temp }}/node-v2-pilot/build/*.json
+            ${{ runner.temp }}/node-v2-pilot/build/*.log
