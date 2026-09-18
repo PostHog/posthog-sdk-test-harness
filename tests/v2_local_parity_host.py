@@ -40,13 +40,12 @@ class LocalParityEngine(AIEngine):
         super().__init__(storage, host, config, protocol, defect)
         self.token, self.secret, self.path = token, config.get("secret_key"), path
         self.document = None
-        self.ready = asyncio.Event()
         self.reload_count = 0
         self.disposed = False
 
     async def setup(self):
         await super().setup()
-        if self.secret is not None:
+        if self.secret is not None and self.defect != "no_initial_fetch":
             await self.load_definitions(initial=True)
 
     async def reload_feature_flags(self):
@@ -69,7 +68,7 @@ class LocalParityEngine(AIEngine):
                     return
                 document = await response.json()
         self.validate_document(document)
-        if self.defect == "ignored_reload" and self.reload_count > 1:
+        if self.defect == "ignored_reload" and self.reload_count > 0:
             return
         if self.defect == "ignored_version":
             document.pop("property_matching_version", None)
@@ -77,7 +76,6 @@ class LocalParityEngine(AIEngine):
             document["property_matching_version"] = self.document.get("property_matching_version", 1)
         if self.defect != "not_installed":
             self.document = document
-            self.ready.set()
 
     @staticmethod
     def validate_document(document):
@@ -173,7 +171,6 @@ class LocalParityEngine(AIEngine):
 
     def dispose(self):
         self.document = None
-        self.ready.clear()
         self.disposed = True
 
 
@@ -186,9 +183,7 @@ class LocalParityHost(AIHost):
         self.profile["products"] = ["flags"]
         self.profile["module"]["entry"] = "tests.v2_local_parity_host.LocalParityEngine"
         self.routes = [
-            r
-            for r in ("/setup", "/get_feature_flag", "/reload_feature_flags", "/wait_for_local_evaluation_ready")
-            if r != options.get("missing_route")
+            r for r in ("/setup", "/get_feature_flag", "/reload_feature_flags") if r != options.get("missing_route")
         ]
         self.engines = []
 
@@ -204,8 +199,8 @@ class LocalParityHost(AIHost):
         return response
 
     def outcome(self, call, result):
-        if call["route"] in ("/get_feature_flag", "/wait_for_local_evaluation_ready"):
-            if call["route"] == "/get_feature_flag" and self.defect == "wrong_public_value":
+        if call["route"] == "/get_feature_flag":
+            if self.defect == "wrong_public_value":
                 result = not result
             return {"kind": "value", "value": result}
         return super().outcome(call, result)
@@ -229,10 +224,4 @@ class LocalParityHost(AIHost):
             return await fixture.engine.reload_feature_flags()
         if route == "/get_feature_flag":
             return await fixture.engine.get_feature_flag(args)
-        if route == "/wait_for_local_evaluation_ready":
-            try:
-                await asyncio.wait_for(fixture.engine.ready.wait(), args["timeout_ms"] / 1000)
-                return True
-            except TimeoutError:
-                return False
         return await super().invoke(fixture, call)
