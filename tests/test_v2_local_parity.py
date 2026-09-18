@@ -28,9 +28,11 @@ def contracts():
 @pytest.mark.parametrize(
     "index,defect,status,code",
     [
-        (0, "no_new_fetch", "failed_assertion", "local_reload_fresh_fetch"),
-        (0, "auth_error", "failed_assertion", "local_reload_fresh_fetch"),
-        (0, "token_error", "failed_assertion", "local_reload_fresh_fetch"),
+        (0, "no_initial_fetch", "failed_assertion", "local_initial_fetch"),
+        (0, "not_installed", "failed_assertion", "local_inconclusive"),
+        (3, "no_new_fetch", "failed_assertion", "local_reload_fresh_fetch"),
+        (3, "auth_error", "failed_assertion", "local_reload_fresh_fetch"),
+        (3, "token_error", "failed_assertion", "local_reload_fresh_fetch"),
         (2, "ignored_version", "failed_assertion", "local_flag_value"),
         (3, "ignored_reload", "failed_assertion", "local_flag_value"),
         (3, "omission_retains_version", "failed_assertion", "local_flag_value"),
@@ -52,7 +54,6 @@ async def test_defects_fail_at_the_actual_observation_layer(contracts, tmp_path,
     assert len(host.closed) == 1 and host.engines[0].disposed
     if defect in ("auth_error", "token_error", "no_new_fetch"):
         barrier = diagnostics["cases"][0]["definition_reloads"][0]
-        assert barrier["ready"] == {"kind": "value", "value": True}
         assert not barrier["requests"] or barrier["requests"][0]["status"] == 401
 
 
@@ -91,7 +92,7 @@ async def test_evaluator_uses_arbitrary_loaded_rules_properties_and_cohorts_not_
     assert await engine.get_feature_flag(args) is None
 
 
-async def test_http_304_and_old_public_readiness_do_not_satisfy_fresh_reload(contracts, monkeypatch):
+async def test_http_304_and_previously_loaded_definitions_do_not_satisfy_fresh_reload(contracts, monkeypatch):
     from flask import request
 
     from posthog_test_harness.v2 import runner
@@ -110,12 +111,11 @@ async def test_http_304_and_old_public_readiness_do_not_satisfy_fresh_reload(con
 
     monkeypatch.setattr(runner, "CaseServer", NotModifiedServer)
     async with serve(contracts, host_type=LocalParityHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[0]])
-    assert report["results"][0]["result"]["failure"]["code"] == "local_reload_fresh_fetch"
+        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[3]])
+    assert report["results"][3]["result"]["failure"]["code"] == "local_reload_fresh_fetch"
     barrier = diagnostics["cases"][0]["definition_reloads"][0]
-    assert barrier["ready"] == {"kind": "value", "value": True}
     assert barrier["requests"][0]["status"] == 304
-    assert diagnostics["cases"][0]["network"][-1]["status"] == 304
+    assert any(r["status"] == 304 for r in diagnostics["cases"][0]["network"])
 
 
 async def test_complete_feature_through_public_http(contracts):
@@ -125,6 +125,35 @@ async def test_complete_feature_through_public_http(contracts):
     assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
     assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
     assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])
+
+
+async def test_initial_evaluation_can_load_definitions_without_an_explicit_reload(contracts, monkeypatch):
+    original_getter = LocalParityEngine.get_feature_flag
+    calls = []
+
+    async def setup(self):
+        pass
+
+    async def get_feature_flag(self, args):
+        calls.append(args)
+        if self.document is None:
+            await self.load_definitions(initial=True)
+        return await original_getter(self, args)
+
+    monkeypatch.setattr(LocalParityEngine, "setup", setup)
+    monkeypatch.setattr(LocalParityEngine, "get_feature_flag", get_feature_flag)
+    async with serve(contracts, host_type=LocalParityHost, missing_route="/reload_feature_flags") as (host, url):
+        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[0]])
+    assert strict_exit_code(contracts, report) == 0, report
+    expected_calls = [
+        json_arguments(step)
+        for step in CASES[0].steps
+        if step.text == "the local flag getter is called with JSON arguments:"
+    ]
+    assert calls == expected_calls
+    assert host.engines[0].reload_count == 0
+    requests = diagnostics["cases"][0]["initial_definitions"]["requests"]
+    assert len(requests) == 1 and requests[0]["authenticated"] and requests[0]["status"] == 200
 
 
 async def test_remote_evaluation_during_public_cleanup_cannot_pass(contracts):
