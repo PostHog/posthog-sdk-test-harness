@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
-Contract package 2.1.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, and wire schemas/fixtures 1.0.0.
+Contract package 2.2.0 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, wire schemas/fixtures 1.0.0, and person boolean evaluation corpus 1.0.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -161,3 +161,39 @@ python3 bin/update-feature-flag-rules-v2-checksums.py --verify-sdist dist/postho
 ```
 
 The verifier reads the archive without extraction, requires its checksum index to match the checkout, and checks exact file coverage and every digest against that index.
+
+## Person boolean evaluation corpus
+
+Contract 2.2.0 adds `corpus/v2_boolean_evaluation.json` and its schema as a separate 1.0.0 component.
+The frozen v1 corpus, hash/variant vectors, schemas, registry, and wire fixtures keep their published bytes and versions.
+A minor harness changeset requests the next release; an unreleased commit pin does not establish a released dependency.
+
+Each case supplies a full config, explicit person identifier and property completeness, team timezone, exact-matching setting, and fixed evaluation time.
+The core consumes the resolved person distinct ID without device or experience-continuity overrides.
+A complete property map can establish absence; a partial map cannot establish absence for an unknown key.
+An unavailable map fails only when evaluation reaches a predicate.
+Predicates are ANDed in stored order and short-circuit on a conclusive miss or an error.
+Negation applies once to conclusive results.
+Malformed regex syntax and backtracking failures are evaluation errors, including under negation; this avoids turning an invalid pattern into a successful negative match.
+This is stricter than v1's invalid-pattern non-match behavior and does not change v1 expectations.
+Other operators reuse the existing property language, including null presence, case handling, semver normalization, and team-timezone date comparisons.
+
+`expected` is exhaustive: compare every field and reject unexpected fields.
+Success with a null value delegates to the caller default; success with false remains a configured result.
+`no_rule_match` carries no rule, while terminal matches and rollout misses carry the original UUID, kind, and zero-based index.
+Errors carry no successful value or rule context.
+The corpus does not define a new response protocol.
+
+Hash evidence records UTF-8 bytes, the real SHA1 digest, its first 60 bits, and binary64 hash/threshold bits.
+The meta-tests independently recompute these values with Python hashlib and binary64 arithmetic.
+Identifiers truncate to 200 Unicode scalar values without normalization; predicate values remain intact.
+Empty identifiers miss even at 100%; nonempty 100% bypasses hashing.
+At 0%, the inclusive zero-hash edge remains included.
+`white_box` rows prescribe a hash only through a consumer's private test seam and record equal, below, or next-binary64-above threshold evidence.
+They supplement real digest cases and must not become a public override API.
+
+Consumers must report the `ordering`, `properties`, `context`, `errors`, `hashing`, `white_box`, `eligibility`, and `parser` families separately.
+Eligibility cases run through the existing request boundary and require omission, without calling the core.
+Parser cases require whole-document rejection, separately from evaluation support.
+The existing published variant/experiment/holdout/group/dependency vectors remain outside this component's evaluator scope.
+A passing boolean corpus does not establish those families or production reachability.
