@@ -81,15 +81,21 @@ def test_manifest_declares_corpus_component_versions() -> None:
         "corpus/hash_sha1_60_v1.json",
         "corpus/v1_evaluation.json",
         "corpus/legacy_projection.json",
+        "corpus/v2_boolean_evaluation.json",
     ]
     schema_versions = {a["path"]: a["version"] for a in manifest["artifacts"] if a["kind"] == "schema"}
     for artifact in artifacts:
-        assert artifact["version"] == corpus_version
-        assert schema_versions[artifact["schema"]] == corpus_version
+        component_version = (
+            manifest["v2_boolean_evaluation"]["version"]
+            if artifact["path"].endswith("v2_boolean_evaluation.json")
+            else corpus_version
+        )
+        assert artifact["version"] == component_version
+        assert schema_versions[artifact["schema"]] == component_version
         data = _load_json(CONTRACT_ROOT / artifact["path"])
-        assert data["corpus_version"] == corpus_version
+        assert data["corpus_version"] == component_version
         schema = _load_json(CONTRACT_ROOT / artifact["schema"])
-        assert schema["$id"].endswith(":" + corpus_version)
+        assert schema["$id"].endswith(":" + component_version)
 
 
 def test_corpus_files_match_their_companion_schemas() -> None:
