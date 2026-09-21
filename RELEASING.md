@@ -25,8 +25,8 @@ The workflow then:
 1. Notifies `#approvals-client-libraries` in Slack and pings the client-libraries approvers
 2. Waits for explicit approval in the GitHub `Release` environment
 3. Once approved: runs `sampo release` to bump `pyproject.toml` and write `CHANGELOG.md`, syncs `src/posthog_test_harness/__init__.py` and `uv.lock`, and commits the result
-4. Tags the release commit `X.Y.Z` (bare, matching the other Sampo SDKs) and creates a GitHub Release
-5. Builds a clean v2 wheel/sdist with pinned specs, smoke-tests the installed wheel and local v2 image, then publishes both images for `linux/amd64` and `linux/arm64`:
+4. Builds a clean v2 wheel/sdist with pinned specs and smoke-tests the installed wheel plus local amd64 and arm64 v2 images. All checks must pass before creating the version tag or GitHub Release.
+5. Tags the release commit `X.Y.Z` (bare, matching the other Sampo SDKs), creates a GitHub Release, then publishes both images for `linux/amd64` and `linux/arm64`:
    - `ghcr.io/posthog/sdk-test-harness` — existing v1 entrypoint and consumers
    - `ghcr.io/posthog/sdk-test-harness-v2` — `posthog-test-harness-v2` entrypoint with bundled specs
 
@@ -47,10 +47,12 @@ The workflow checks out specs and writes distribution/smoke outputs under
 requires clean harness/specs commits and uses `uv export --locked`; the release
 commit must therefore include the Sampo version's updated `uv.lock`.
 
-Before either image is pushed, the installed-wheel smoke runs a controlled healthy
-host and a deliberately defective host (not SDK conformance), and the local amd64
-v2 image verifies its bundle and migration-suite discovery readiness. Both images
-are then built/pushed for amd64 and arm64; arm64 is not runtime-smoked.
+Before release metadata or either image is published, the installed-wheel smoke
+runs a controlled healthy host and a deliberately defective host (not SDK
+conformance). Separate amd64 and arm64 v2 images verify their bundles and
+migration-suite discovery readiness; arm64 runs under QEMU on the amd64 release
+runner. Each architecture retains its own smoke reports. Both images are then
+built/pushed for amd64 and arm64.
 
 The Actions job summary and `harness-release-X.Y.Z-<attempt>` artifact contain
 `release-images.json`: version, release/specs commits, each publish outcome, and
@@ -98,8 +100,10 @@ GitHub's environment approval has a 30-day deadline. If it expires, re-run the w
 
 ### Release approved but Docker push failed
 
-The release commit, tag, and GitHub Release are created before distribution checks
-and Docker publishing. Their presence does not prove either image was published.
+The Sampo release commit consumes changesets before validation. A validation
+failure prevents tag, GitHub Release and image publication, but does not undo that
+commit. The tag and GitHub Release are created only after the validation checks
+pass; their presence still does not prove either image was published.
 The pushes are sequential (v1, then v2), not transactional: v1 can succeed while v2
 fails, and even a failed push can leave some tags moved. Nothing rolls back an
 already-published tag. Inspect the job summary, handoff artifact, build logs, and

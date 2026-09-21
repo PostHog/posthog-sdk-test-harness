@@ -168,41 +168,6 @@ jobs:
           git fetch origin main
           git reset --hard "$COMMIT_HASH"
 
-      # We create the tag ourselves rather than via `sampo publish` (we don't
-      # publish to a package registry — the release artifact is a Docker image).
-      #
-      # Tags are BARE (`0.8.0`, no `v` prefix) to match the Sampo siblings
-      # (posthog-python, posthog-elixir). NOTE: this repo's pre-Sampo tags were
-      # `v`-prefixed (…v0.7.0), so the series is intentionally discontinuous from
-      # this version onward (v0.7.0 → 0.8.0).
-      - name: Tag release
-        if: steps.commit-release.outputs.commit-hash != ''
-        env:
-          GH_TOKEN: ${{ steps.releaser.outputs.token }}
-          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
-          COMMIT_HASH: ${{ steps.commit-release.outputs.commit-hash }}
-        run: |
-          gh api "repos/${{ github.repository }}/git/refs" \
-            -f "ref=refs/tags/${NEW_VERSION}" \
-            -f "sha=${COMMIT_HASH}"
-
-      - name: Create GitHub Release
-        if: steps.commit-release.outputs.commit-hash != ''
-        env:
-          GH_TOKEN: ${{ steps.releaser.outputs.token }}
-          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
-        run: |
-          CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md | sed '/[^[:space:]]/,$!d' | tac | sed '/[^[:space:]]/,$!d' | tac)
-          # Mark 0.x.y versions as pre-releases (we are not yet committing to a
-          # stable API). Mirrors the previous workflow's pre-release behavior
-          # for versions starting with 0., and drops automatically once we tag
-          # 1.0.0+.
-          PRERELEASE_FLAG=""
-          case "$NEW_VERSION" in
-            0.*) PRERELEASE_FLAG="--prerelease" ;;
-          esac
-          gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY" $PRERELEASE_FLAG
-
       # Keep both the specs checkout and distribution outputs outside the
       # harness tree: the packager requires clean committed source provenance.
       - name: Checkout pinned SDK specs
@@ -251,20 +216,66 @@ jobs:
           file: ./Dockerfile.v2
           load: true
           push: false
-          tags: sdk-test-harness-v2:release-smoke
+          tags: sdk-test-harness-v2:release-smoke-amd64
           platforms: linux/amd64
+          cache-from: type=gha,scope=v2
+          cache-to: type=gha,scope=v2,mode=max
+
+      - name: Build arm64 v2 image for smoke
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ runner.temp }}/v2-distribution
+          file: ./Dockerfile.v2
+          load: true
+          push: false
+          tags: sdk-test-harness-v2:release-smoke-arm64
+          platforms: linux/arm64
           cache-from: type=gha,scope=v2
           cache-to: type=gha,scope=v2,mode=max
 
       - name: Smoke v2 image
         if: steps.commit-release.outputs.commit-hash != ''
         run: |
-          mkdir -p "$RUNNER_TEMP/v2-image-smoke"
-          docker run --rm sdk-test-harness-v2:release-smoke bundle-info \
-            > "$RUNNER_TEMP/v2-image-smoke/bundle-info.json"
-          docker run --rm -v "$RUNNER_TEMP/v2-image-smoke:/reports" \
-            sdk-test-harness-v2:release-smoke discover --migration-suite --require-ready \
-            --report /reports/discovery.json
+          for arch in amd64 arm64; do
+            reports="$RUNNER_TEMP/v2-image-smoke/$arch"
+            mkdir -p "$reports"
+            docker run --rm --platform "linux/$arch" "sdk-test-harness-v2:release-smoke-$arch" bundle-info \
+              > "$reports/bundle-info.json"
+            docker run --rm --platform "linux/$arch" -v "$reports:/reports" \
+              "sdk-test-harness-v2:release-smoke-$arch" discover --migration-suite --require-ready \
+              --report /reports/discovery.json
+          done
+
+      # Publish release metadata only after distribution and both image smokes pass.
+      # Tags are bare X.Y.Z, matching the other Sampo SDKs.
+      - name: Tag release
+        if: steps.commit-release.outputs.commit-hash != ''
+        env:
+          GH_TOKEN: ${{ steps.releaser.outputs.token }}
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+          COMMIT_HASH: ${{ steps.commit-release.outputs.commit-hash }}
+        run: |
+          gh api "repos/${{ github.repository }}/git/refs" \
+            -f "ref=refs/tags/${NEW_VERSION}" \
+            -f "sha=${COMMIT_HASH}"
+
+      - name: Create GitHub Release
+        if: steps.commit-release.outputs.commit-hash != ''
+        env:
+          GH_TOKEN: ${{ steps.releaser.outputs.token }}
+          NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+        run: |
+          CHANGELOG_ENTRY=$(awk -v defText="see CHANGELOG.md" '/^## /{if (flag) exit; flag=1; next} flag; END{if (!flag) print defText}' CHANGELOG.md | sed '/[^[:space:]]/,$!d' | tac | sed '/[^[:space:]]/,$!d' | tac)
+          # Mark 0.x.y versions as pre-releases (we are not yet committing to a
+          # stable API). Mirrors the previous workflow's pre-release behavior
+          # for versions starting with 0., and drops automatically once we tag
+          # 1.0.0+.
+          PRERELEASE_FLAG=""
+          case "$NEW_VERSION" in
+            0.*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY" $PRERELEASE_FLAG
 
       - name: Log in to Container Registry
         if: steps.commit-release.outputs.commit-hash != ''

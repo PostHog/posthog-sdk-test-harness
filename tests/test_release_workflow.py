@@ -37,6 +37,68 @@ def test_release_keeps_both_publishes_under_existing_approval_gate():
     assert publishes[1]["with"]["file"] == "./Dockerfile.v2"
 
 
+def test_validation_precedes_release_metadata_and_publishing():
+    checks = [
+        "Build v2 distribution",
+        "Smoke installed v2 distribution",
+        "Build v2 image for smoke",
+        "Build arm64 v2 image for smoke",
+        "Smoke v2 image",
+    ]
+    publications = [
+        "Tag release",
+        "Create GitHub Release",
+        "Build and push Docker image",
+        "Build and push v2 Docker image",
+    ]
+    for name in publications:
+        publication = step(name)
+        assert publication["if"] == "steps.commit-release.outputs.commit-hash != ''"
+        assert all(STEPS.index(step(check)) < STEPS.index(publication) for check in checks)
+    for arch, name in [("amd64", "Build v2 image for smoke"), ("arm64", "Build arm64 v2 image for smoke")]:
+        build = step(name)
+        assert build["with"]["platforms"] == f"linux/{arch}"
+        assert build["with"]["tags"] == f"sdk-test-harness-v2:release-smoke-{arch}"
+        assert build["with"]["load"] is True
+        assert build["with"]["push"] is False
+        assert STEPS.index(step("Set up QEMU")) < STEPS.index(build) < STEPS.index(step("Smoke v2 image"))
+    assert step("Set up QEMU")["with"]["platforms"] == "arm64"
+
+
+@pytest.mark.parametrize("failed_arch,expected_calls", [("", 4), ("amd64", 1), ("arm64", 3)])
+def test_image_smoke_runs_both_platforms_and_propagates_failure(tmp_path, failed_arch, expected_calls):
+    docker = tmp_path / "docker"
+    docker.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$*" >> "$DOCKER_CALLS"\n'
+        'if [[ -n "$FAILED_ARCH" && "$*" == *"linux/$FAILED_ARCH"* ]]; then exit 7; fi\n'
+    )
+    docker.chmod(0o755)
+    calls = tmp_path / "calls"
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", step("Smoke v2 image")["run"]],
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "RUNNER_TEMP": str(tmp_path),
+            "DOCKER_CALLS": str(calls),
+            "FAILED_ARCH": failed_arch,
+        },
+    )
+    assert result.returncode == (7 if failed_arch else 0)
+    observed = calls.read_text().splitlines()
+    assert len(observed) == expected_calls
+    for index, call in enumerate(observed):
+        arch = "amd64" if index < 2 else "arm64"
+        assert f"--platform linux/{arch}" in call
+        assert f"sdk-test-harness-v2:release-smoke-{arch}" in call
+        if index % 2 == 0:
+            assert call.endswith("bundle-info")
+        else:
+            assert f"{tmp_path}/v2-image-smoke/{arch}:/reports" in call
+            assert "discover --migration-suite --require-ready --report /reports/discovery.json" in call
+
+
 @pytest.mark.parametrize("version,major,minor", [("0.9.3", "0", "0.9"), ("1.7.0", "1", "1.7")])
 def test_release_images_share_sampo_tags(tmp_path, version, major, minor):
     output = tmp_path / "outputs"
