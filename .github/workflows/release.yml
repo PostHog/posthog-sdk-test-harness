@@ -19,6 +19,8 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: posthog/sdk-test-harness
+  V2_IMAGE_NAME: posthog/sdk-test-harness-v2
+  SDK_SPECS_COMMIT: 8583749b4a634ec5881fa6af20057f39c89b0c64
 
 jobs:
   check-changesets:
@@ -70,6 +72,8 @@ jobs:
       packages: write       # ghcr.io push
     outputs:
       new-version: ${{ steps.sampo-release.outputs.new_version }}
+      v1-digest: ${{ steps.publish-v1.outputs.digest }}
+      v2-digest: ${{ steps.publish-v2.outputs.digest }}
     steps:
       - name: Notify Slack - Approved
         if: needs.notify-approval-needed.outputs.slack_ts != ''
@@ -117,6 +121,12 @@ jobs:
         if: steps.cache-sampo.outputs.cache-hit != 'true'
         run: cargo install sampo@0.17.4
 
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.9.26"
+          python-version: "3.12.12"
+
       - name: Prepare release with Sampo
         id: sampo-release
         env:
@@ -131,6 +141,11 @@ jobs:
           NEW_VERSION: ${{ steps.sampo-release.outputs.new_version }}
         run: |
           sed -i "s/^__version__ = .*/__version__ = \"$NEW_VERSION\"/" src/posthog_test_harness/__init__.py
+
+      # The project version is also recorded in uv.lock. Commit the updated
+      # lock before the clean, --locked v2 distribution build.
+      - name: Sync release lockfile
+        run: uv lock
 
       - name: Commit release changes
         id: commit-release
@@ -188,16 +203,68 @@ jobs:
           esac
           gh release create "$NEW_VERSION" --notes "$CHANGELOG_ENTRY" $PRERELEASE_FLAG
 
-      # ---------------------------------------------------------------------
-      # Docker image publish. This block is copy-pasted from the previous
-      # publish.yml workflow with one difference: it now runs only inside
-      # this gated `Release` environment job. The `latest` and SHA tags that
-      # publish.yml previously pushed on every commit to main are gone — all
-      # Docker tags now only move via this approved-release path.
-      # ---------------------------------------------------------------------
+      # Keep both the specs checkout and distribution outputs outside the
+      # harness tree: the packager requires clean committed source provenance.
+      - name: Checkout pinned SDK specs
+        if: steps.commit-release.outputs.commit-hash != ''
+        run: |
+          git init "$RUNNER_TEMP/sdk-specs"
+          git -C "$RUNNER_TEMP/sdk-specs" remote add origin https://github.com/PostHog/sdk-specs.git
+          git -C "$RUNNER_TEMP/sdk-specs" fetch --depth=1 origin "$SDK_SPECS_COMMIT"
+          git -C "$RUNNER_TEMP/sdk-specs" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/sdk-specs" rev-parse HEAD)" = "$SDK_SPECS_COMMIT"
+
+      - name: Build v2 distribution
+        if: steps.commit-release.outputs.commit-hash != ''
+        run: |
+          uv sync --locked --no-dev
+          uv run --locked --no-dev python scripts/build_v2_distribution.py \
+            --specs "$RUNNER_TEMP/sdk-specs" --out "$RUNNER_TEMP/v2-distribution"
+
+      - name: Smoke installed v2 distribution
+        if: steps.commit-release.outputs.commit-hash != ''
+        run: |
+          uv venv --python 3.12.12 "$RUNNER_TEMP/v2-smoke-venv"
+          uv pip install --python "$RUNNER_TEMP/v2-smoke-venv/bin/python" \
+            --require-hashes -r "$RUNNER_TEMP/v2-distribution/requirements.lock"
+          uv pip install --python "$RUNNER_TEMP/v2-smoke-venv/bin/python" \
+            --no-deps "$RUNNER_TEMP"/v2-distribution/*.whl
+          uv run --locked --no-dev python scripts/smoke_v2_distribution.py \
+            --python "$RUNNER_TEMP/v2-smoke-venv/bin/python" --out "$RUNNER_TEMP/v2-smoke"
+
+      # Both image paths remain inside the approved Release environment.
+      - name: Set up QEMU
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         if: steps.commit-release.outputs.commit-hash != ''
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build v2 image for smoke
+        if: steps.commit-release.outputs.commit-hash != ''
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ runner.temp }}/v2-distribution
+          file: ./Dockerfile.v2
+          load: true
+          push: false
+          tags: sdk-test-harness-v2:release-smoke
+          platforms: linux/amd64
+          cache-from: type=gha,scope=v2
+          cache-to: type=gha,scope=v2,mode=max
+
+      - name: Smoke v2 image
+        if: steps.commit-release.outputs.commit-hash != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/v2-image-smoke"
+          docker run --rm sdk-test-harness-v2:release-smoke bundle-info \
+            > "$RUNNER_TEMP/v2-image-smoke/bundle-info.json"
+          docker run --rm -v "$RUNNER_TEMP/v2-image-smoke:/reports" \
+            sdk-test-harness-v2:release-smoke discover --migration-suite --require-ready \
+            --report /reports/discovery.json
 
       - name: Log in to Container Registry
         if: steps.commit-release.outputs.commit-hash != ''
@@ -248,7 +315,20 @@ jobs:
             type=raw,value=${{ steps.docker-tags.outputs.major }},enable=${{ steps.docker-tags.outputs.major != '0' }}
             type=raw,value=latest
 
+      - name: Extract v2 metadata
+        if: steps.commit-release.outputs.commit-hash != ''
+        id: meta-v2
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.V2_IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.docker-tags.outputs.exact }}
+            type=raw,value=${{ steps.docker-tags.outputs.major_minor }}
+            type=raw,value=${{ steps.docker-tags.outputs.major }},enable=${{ steps.docker-tags.outputs.major != '0' }}
+            type=raw,value=latest
+
       - name: Build and push Docker image
+        id: publish-v1
         if: steps.commit-release.outputs.commit-hash != ''
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -260,6 +340,70 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+
+      - name: Build and push v2 Docker image
+        if: steps.commit-release.outputs.commit-hash != ''
+        id: publish-v2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ runner.temp }}/v2-distribution
+          file: ./Dockerfile.v2
+          push: true
+          tags: ${{ steps.meta-v2.outputs.tags }}
+          labels: ${{ steps.meta-v2.outputs.labels }}
+          cache-from: type=gha,scope=v2
+          cache-to: type=gha,scope=v2,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      # Preserve successful outputs even when a later push fails. The registry
+      # updates are not atomic; a failed push may also have moved some tags.
+      - name: Record image handoff
+        if: always() && steps.commit-release.outputs.commit-hash != ''
+        env:
+          RELEASE_VERSION: ${{ steps.sampo-release.outputs.new_version }}
+          RELEASE_COMMIT: ${{ steps.commit-release.outputs.commit-hash }}
+          V1_DIGEST: ${{ steps.publish-v1.outputs.digest }}
+          V2_DIGEST: ${{ steps.publish-v2.outputs.digest }}
+          V1_OUTCOME: ${{ steps.publish-v1.outcome }}
+          V2_OUTCOME: ${{ steps.publish-v2.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          images = {}
+          for key, name in [("v1", "IMAGE_NAME"), ("v2", "V2_IMAGE_NAME")]:
+              image = os.environ["REGISTRY"] + "/" + os.environ[name]
+              digest = os.environ[key.upper() + "_DIGEST"]
+              images[key] = {
+                  "image": image,
+                  "digest": digest or None,
+                  "reference": image + "@" + digest if digest else None,
+                  "outcome": os.environ[key.upper() + "_OUTCOME"],
+              }
+          record = {
+              "version": os.environ["RELEASE_VERSION"],
+              "release_commit": os.environ["RELEASE_COMMIT"],
+              "specs_commit": os.environ["SDK_SPECS_COMMIT"],
+              "images": images,
+          }
+          Path(os.environ["RUNNER_TEMP"], "release-images.json").write_text(json.dumps(record, indent=2) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("## Image handoff\n\n```json\n" + json.dumps(record, indent=2) + "\n```\n")
+          PY
+
+      - name: Upload release handoff artifacts
+        if: always() && steps.commit-release.outputs.commit-hash != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: harness-release-${{ steps.sampo-release.outputs.new_version }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/release-images.json
+            ${{ runner.temp }}/v2-distribution/
+            ${{ runner.temp }}/v2-smoke/
+            ${{ runner.temp }}/v2-image-smoke/
+          if-no-files-found: error
 
       - name: Send failure event to PostHog
         if: ${{ failure() }}
