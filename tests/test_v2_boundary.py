@@ -13,7 +13,6 @@ from posthog_test_harness.v2.client import Client
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts, decode_json, encode_json
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import SPECS
 from tests.v2_ai_host import AIHost
 from tests.v2_flush_host import Host, serve
 
@@ -153,21 +152,21 @@ async def test_cancelled_request_is_not_successful_cancellation():
 
 
 @pytest.mark.parametrize("defect", ["teardown", "rejected"])
-async def test_startup_and_cleanup_failures_cannot_pass(defect):
+async def test_startup_and_cleanup_failures_cannot_pass(defect, specs):
     async with serve(Contracts(), host_type=AIHost, defect=defect) as (host, url):
         report, _ = await run(
-            Contracts(), SPECS, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
+            Contracts(), specs, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
         )
     assert report["errors"]
     assert strict_exit_code(Contracts(), report) == 1
 
 
-async def test_missing_or_forged_report_cannot_pass():
+async def test_missing_or_forged_report_cannot_pass(specs):
     contracts = Contracts()
     assert strict_exit_code(contracts, {}) == 2
     async with serve(contracts, host_type=AIHost) as (host, url):
         report, _ = await run(
-            contracts, SPECS, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
+            contracts, specs, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
         )
     assert strict_exit_code(contracts, report) == 0
     for field in ("results", "calls", "inventory", "fixtures"):
@@ -179,10 +178,10 @@ async def test_missing_or_forged_report_cannot_pass():
     assert strict_exit_code(contracts, broken) == 2
 
 
-async def test_saved_report_gate_checks_results_and_diagnostics(tmp_path):
+async def test_saved_report_gate_checks_results_and_diagnostics(tmp_path, specs):
     async with serve(Contracts(), host_type=AIHost) as (host, url):
         report, diagnostics = await run(
-            Contracts(), SPECS, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
+            Contracts(), specs, ["migration/yaml-parity-v1/capture-ai.feature"], url, host.profile["id"]
         )
     path = tmp_path / "report.json"
     diagnostic_path = tmp_path / "report.json.diagnostics.json"
@@ -218,10 +217,10 @@ async def test_saved_report_gate_checks_results_and_diagnostics(tmp_path):
     assert CliRunner().invoke(main, command[:-1] + ["wrong-profile"]).exit_code != 0
 
 
-async def test_existing_callback_cases_remain_client_only_for_server_profile():
+async def test_existing_callback_cases_remain_client_only_for_server_profile(specs):
     async with serve(Contracts(), host_type=AIHost) as (host, url):
         report, _ = await run(
-            Contracts(), SPECS, ["acceptance/public/on-feature-flags.feature"], url, host.profile["id"]
+            Contracts(), specs, ["acceptance/public/on-feature-flags.feature"], url, host.profile["id"]
         )
     assert len(report["results"]) == 3
     assert all(row["result"]["status"] == "not_applicable" for row in report["results"])

@@ -148,6 +148,61 @@ class Contracts:
                 require(isinstance(value.get(key), list), "invalid_report", f"Missing {key}")
             for call in value["calls"]:
                 self.completion(call["completion"])
+            for row in value["results"]:
+                require(isinstance(row, dict), "invalid_report", "Expected result row")
+                self.result(row.get("result"))
+
+    def result(self, value):
+        require(isinstance(value, dict), "invalid_report", "Expected case result")
+        status = value.get("status")
+        fields = {
+            "passed": {"call_ids"},
+            "not_selected": {"reason"},
+            "not_applicable": {"reason", "applicability_rule"},
+            **{
+                status: {"failure"}
+                for status in (
+                    "failed_assertion",
+                    "blocked_fixture",
+                    "blocked_contract",
+                    "unsupported_binding",
+                    "harness_error",
+                )
+            },
+        }
+        require(isinstance(status, str) and status in fields, "invalid_report", "Unknown status")
+        require(
+            set(value) == {"status", "executed"} | fields[status],
+            "invalid_report",
+            f"Invalid fields for {status} result",
+        )
+        require(type(value["executed"]) is bool, "invalid_report", "Expected execution flag")
+        if status in ("passed", "not_selected", "not_applicable"):
+            require(value["executed"] == (status == "passed"), "invalid_report", "Invalid execution flag")
+        for key in fields[status] & {"reason", "applicability_rule"}:
+            require(isinstance(value[key], str) and bool(value[key]), "invalid_report", f"Expected {key}")
+        failure = value.get("failure")
+        if "failure" in fields[status]:
+            require(
+                isinstance(failure, dict) and set(failure) == {"code", "message", "failed_step", "call_ids"},
+                "invalid_report",
+                "Invalid result failure",
+            )
+            for key in ("code", "message"):
+                require(
+                    isinstance(failure[key], str) and bool(failure[key]), "invalid_report", f"Expected failure {key}"
+                )
+            require(
+                isinstance(failure["failed_step"], dict) or (not value["executed"] and failure["failed_step"] is None),
+                "invalid_report",
+                "Invalid failing step",
+            )
+        ids = failure["call_ids"] if failure is not None else value.get("call_ids", [])
+        require(
+            isinstance(ids, list) and all(isinstance(identity, str) and bool(identity) for identity in ids),
+            "invalid_report",
+            "Expected call identities",
+        )
 
     def completion(self, value):
         require(isinstance(value, dict), "invalid_envelope", "Expected completion")

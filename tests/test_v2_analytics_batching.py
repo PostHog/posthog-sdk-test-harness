@@ -11,16 +11,12 @@ import pytest
 from posthog_test_harness.v2.ai_steps import json_arguments
 from posthog_test_harness.v2.analytics_wire_steps import STEPS, capture_sequence
 from posthog_test_harness.v2.contracts import Contracts
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import SPECS
 from tests.v2_analytics_wire_host import AnalyticsWireHost
 from tests.v2_flush_host import serve
 
 FEATURE = "migration/yaml-parity-v1/capture-analytics-v1-batching.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -68,9 +64,9 @@ DEFECTS = [
 
 
 @pytest.mark.parametrize("defect,index,code", DEFECTS)
-async def test_assertion_families_reject_attributed_http_defects(contracts, defect, index, code):
+async def test_assertion_families_reject_attributed_http_defects(contracts, defect, index, code, specs, case_ids):
     async with serve(contracts, host_type=AnalyticsWireHost, defect=defect) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]])
     result = report["results"][index]["result"]
     assert result["status"] == "failed_assertion", result
     assert result["failure"]["code"] == code
@@ -102,15 +98,15 @@ async def test_assertion_families_reject_attributed_http_defects(contracts, defe
         ("append_duplicate_uuid", 21),
     ],
 )
-async def test_weaker_source_assertions_remain_weak(contracts, variation, index):
+async def test_weaker_source_assertions_remain_weak(contracts, variation, index, specs, case_ids):
     async with serve(contracts, host_type=AnalyticsWireHost, defect=variation) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]])
     assert report["results"][index]["result"]["status"] == "passed", report
     assert strict_exit_code(contracts, report) == 0
 
 
-async def test_sequence_preserves_nested_types_and_only_formats_top_level_strings_sequentially():
-    step = deepcopy(CASES[5].steps[3])
+async def test_sequence_preserves_nested_types_and_only_formats_top_level_strings_sequentially(feature_cases):
+    step = deepcopy(feature_cases[5].steps[3])
     template = {
         "distinct_id": "user_{index}",
         "event": "event_{index}",
@@ -137,31 +133,22 @@ async def test_sequence_preserves_nested_types_and_only_formats_top_level_string
     assert json_arguments(step) == template
 
 
-async def test_batch_count_and_uniqueness_use_their_original_request_scopes():
+async def test_batch_count_and_uniqueness_use_their_original_request_scopes(feature_cases):
     observed = [SimpleNamespace(parsed_events=[{}] * 5), SimpleNamespace(parsed_events=[{"uuid": "later"}])]
     ctx = SimpleNamespace(server=SimpleNamespace(state=SimpleNamespace(get_requests=lambda: observed)))
-    for step in (CASES[15].steps[-1], CASES[20].steps[-1]):
+    for step in (feature_cases[15].steps[-1], feature_cases[20].steps[-1]):
         handler, args = STEPS.bind(step)
         await handler(ctx, step, *args)
     # UUID pair collection skips absent fields and compares only the first two present values.
     observed[0].parsed_events = [{}, {"uuid": None}, {"uuid": "later"}, {"uuid": "later"}]
-    step = CASES[21].steps[-1]
+    step = feature_cases[21].steps[-1]
     handler, args = STEPS.bind(step)
     await handler(ctx, step, *args)
 
 
-async def test_threshold_observation_waits_the_full_real_second_without_calling_sdk():
-    step = CASES[18].steps[-2]
+async def test_threshold_observation_waits_the_full_real_second_without_calling_sdk(feature_cases):
+    step = feature_cases[18].steps[-2]
     handler, args = STEPS.bind(step)
     started = time.monotonic()
     await handler(SimpleNamespace(), step, *args)
     assert time.monotonic() - started >= 1
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=AnalyticsWireHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])

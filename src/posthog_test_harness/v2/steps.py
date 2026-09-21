@@ -111,7 +111,10 @@ class Context:
         if completion["kind"] == "harness":
             failure = completion["failure"]
             raise BoundaryError(failure["code"], failure["message"], failure["kind"])
-        return completion["outcome"]
+        outcome = completion["outcome"]
+        if check_result:
+            expect(outcome["kind"] != "thrown", "unexpected_throw", f"SDK call threw: {route}")
+        return outcome
 
     def ingestion(self):
         require(self.flush_requests is not None, "invalid_state", "No flush observation window")
@@ -190,7 +193,7 @@ async def flush(ctx, step):
     request_start = len(ctx.server.state.get_requests())
     ctx.diagnostics["flush_window_start"] = traffic_start
     try:
-        await ctx.call("/flush", {})
+        await ctx.call("/flush", {}, check_result=False)
     finally:
         ctx.flush_traffic = ctx.server.requests()[traffic_start:]
         ctx.flush_requests = ctx.server.state.get_requests()[request_start:]

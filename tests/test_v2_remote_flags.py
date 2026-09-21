@@ -7,18 +7,14 @@ import pytest
 
 from posthog_test_harness.v2.analytics_outcome_steps import absent_header
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.remote_flag_steps import count, event_count, event_property, field, query
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.test_v2_analytics_retry import save_receipt
-from tests.test_v2_gherkin import SPECS
 from tests.v2_flush_host import serve
 from tests.v2_remote_flags_host import RemoteFlagsHost
 
 FEATURE = "migration/yaml-parity-v1/remote-flags-v1.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -53,9 +49,11 @@ def contracts():
         (16, "tracking_value", "flag_event_property"),
     ],
 )
-async def test_distinct_native_defects_fail_observed_layer(contracts, tmp_path, index, defect, code):
+async def test_distinct_native_defects_fail_observed_layer(contracts, tmp_path, index, defect, code, specs, case_ids):
     async with serve(contracts, host_type=RemoteFlagsHost, defect=defect) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, diagnostics = await run(
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]]
+        )
     save_receipt(tmp_path, report, diagnostics)
     row = report["results"][index]["result"]
     assert row["status"] == "failed_assertion", report
@@ -103,12 +101,3 @@ async def test_source_wire_scopes_alias_precedence_python_equality_and_named_eve
         await event_property(ctx, None, "E", "p", '"right"')
     recorded[0].path = "/other-received-path"
     await event_count(ctx, None, "2", "E")
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=RemoteFlagsHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])

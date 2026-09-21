@@ -37,23 +37,6 @@ def validate_report(contracts, report):
         require(result["source"] == entry["source"], "invalid_report", "Source identity mismatch")
         disposition = result["result"]
         status = disposition["status"]
-        require(
-            status
-            in (
-                "passed",
-                "not_selected",
-                "not_applicable",
-                "failed_assertion",
-                "blocked_fixture",
-                "blocked_contract",
-                "unsupported_binding",
-                "harness_error",
-            ),
-            "invalid_report",
-            "Unknown status",
-        )
-        require(type(disposition["executed"]) is bool, "invalid_report", "Expected execution flag")
-        require(status != "passed" or disposition["executed"], "invalid_report", "Unexecuted pass")
         if not entry["selected"]:
             require(status == "not_selected", "invalid_report", "Unselected case executed")
         elif entry["applicability"]["kind"] == "not_applicable":
@@ -65,8 +48,6 @@ def validate_report(contracts, report):
         else:
             require(status not in ("not_selected", "not_applicable"), "invalid_report", "Applicable case hidden")
         failure = disposition.get("failure")
-        if failure and disposition["executed"]:
-            require(failure["failed_step"] is not None, "invalid_report", "Missing failing step")
         ids = disposition.get("call_ids", failure["call_ids"] if failure else [])
         require(status != "passed" or bool(ids), "invalid_report", "Passed case has no SDK calls")
         require(disposition["executed"] or not ids, "invalid_report", "Unexecuted case has calls")

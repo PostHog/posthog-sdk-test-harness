@@ -9,7 +9,7 @@ from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from posthog_test_harness.v2.steps import Context
-from tests.test_v2_remote_flags import FEATURE, IDS, SPECS
+from tests.test_v2_remote_flags import FEATURE
 from tests.v2_flush_host import serve
 from tests.v2_remote_flags_host import RemoteFlagsHost
 
@@ -35,9 +35,13 @@ class UndefinedGetterHost(RemoteFlagsHost):
         (1, "wrong_version", "failed_assertion", "flag_request_query", 1),
     ],
 )
-async def test_undefined_preserves_original_assertions(contracts, index, defect, status, code, getters):
+async def test_undefined_preserves_original_assertions(
+    contracts, index, defect, status, code, getters, specs, case_ids
+):
     async with serve(contracts, host_type=UndefinedGetterHost, defect=defect) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, diagnostics = await run(
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]]
+        )
     result = report["results"][index]["result"]
     assert result["status"] == status
     if code:
@@ -57,9 +61,9 @@ class ThrowingGetterHost(RemoteFlagsHost):
         return result
 
 
-async def test_native_throw_still_fails_getter_action(contracts):
+async def test_native_throw_still_fails_getter_action(contracts, specs, case_ids):
     async with serve(contracts, host_type=ThrowingGetterHost) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[1]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[1]])
     assert report["results"][1]["result"]["failure"]["code"] == "flag_getter_thrown"
     assert report["calls"][-1]["completion"]["outcome"]["kind"] == "thrown"
     assert strict_exit_code(contracts, report) == 1

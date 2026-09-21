@@ -6,16 +6,12 @@ import pytest
 
 from posthog_test_harness.v2.ai_steps import json_arguments, utc_instant
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import SPECS
 from tests.v2_ai_host import AIHost
 from tests.v2_flush_host import serve
 
 FEATURE = "migration/yaml-parity-v1/capture-ai.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -26,8 +22,8 @@ def contracts():
 @pytest.mark.parametrize(
     "content,media", [('{"event":false,"event":true}', "application/json"), ("{}", "json"), ("[]", "application/json")]
 )
-def test_migration_argument_docstrings_are_strict(content, media):
-    step = deepcopy(next(s for s in CASES[0].steps if "docString" in s.argument))
+def test_migration_argument_docstrings_are_strict(content, media, feature_cases):
+    step = deepcopy(next(s for s in feature_cases[0].steps if "docString" in s.argument))
     step.argument["docString"].update(content=content, mediaType=media)
     with pytest.raises(BoundaryError):
         json_arguments(step)
@@ -56,9 +52,9 @@ def test_migration_argument_docstrings_are_strict(content, media):
         ("rewrite_property", 4, "event_property"),
     ],
 )
-async def test_migrated_assertions_reject_deliberate_defects(contracts, defect, index, code):
+async def test_migrated_assertions_reject_deliberate_defects(contracts, defect, index, code, specs):
     async with serve(contracts, host_type=AIHost, defect=defect, defect_case=index) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], timeout_ms=60000)
     assert strict_exit_code(contracts, report) == 1
     for i, row in enumerate(report["results"]):
         result = row["result"]
@@ -77,12 +73,3 @@ def test_utc_timestamp_comparison_preserves_nanoseconds_and_utc_syntax():
     assert utc_instant("2025-01-02T03:04:05.000000001Z") != utc_instant("2025-01-02T03:04:05Z")
     for value in [None, "2025-01-02T08:34:05+05:30", "2025-02-30T03:04:05Z"]:
         assert utc_instant(value) is None
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=AIHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])

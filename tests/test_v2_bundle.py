@@ -13,36 +13,35 @@ from posthog_test_harness.v2.contracts import BoundaryError
 from posthog_test_harness.v2.discovery import discover
 from posthog_test_harness.v2.migration import migration_paths
 from scripts.build_v2_distribution import create_bundle
-from tests.test_v2_gherkin import SPECS
 
 
 @pytest.fixture(scope="module")
-def snapshot(tmp_path_factory):
+def snapshot(tmp_path_factory, specs):
     path = tmp_path_factory.mktemp("distribution") / "_bundle"
-    create_bundle(SPECS, path, allow_dirty=True)
+    create_bundle(specs, path, allow_dirty=True)
     return path
 
 
-def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot):
+def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot, specs):
     manifest = validate_bundle(snapshot)
     assert type(manifest["source"]["dirty"]) is bool
     assert len(manifest["source"]["commit"]) == 40
     for paths, count in [(None, 885), (migration_paths(snapshot), 157)]:
         packaged = discover(snapshot, paths)
-        source = discover(SPECS, paths)
+        source = discover(specs, paths)
         assert packaged == source
         assert len(packaged["cases"]) == count
     assert all(name.endswith(".feature") for name in manifest["files"])
 
 
-def test_bundle_generation_is_deterministic_and_requires_dirty_opt_in(snapshot, tmp_path, monkeypatch):
+def test_bundle_generation_is_deterministic_and_requires_dirty_opt_in(snapshot, tmp_path, monkeypatch, specs):
     from scripts import build_v2_distribution as builder
 
     monkeypatch.setattr(builder, "source_state", lambda _: {"commit": "a" * 40, "dirty": True})
     with pytest.raises(ValueError, match="dirty"):
-        create_bundle(SPECS, tmp_path / "rejected")
-    first = create_bundle(SPECS, tmp_path / "first", allow_dirty=True)
-    second = create_bundle(SPECS, tmp_path / "second", allow_dirty=True)
+        create_bundle(specs, tmp_path / "rejected")
+    first = create_bundle(specs, tmp_path / "first", allow_dirty=True)
+    second = create_bundle(specs, tmp_path / "second", allow_dirty=True)
     assert first == second
     assert first["source"] == {"commit": "a" * 40, "dirty": True}
 
@@ -72,7 +71,7 @@ def test_bundle_rejects_incomplete_or_modified_resources(snapshot, tmp_path, mut
         validate_bundle(root)
 
 
-def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path, monkeypatch):
+def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path, monkeypatch, specs):
     monkeypatch.setattr(resources, "files", lambda _: snapshot.parent)
     runner = CliRunner()
     report = tmp_path / "report.json"
@@ -85,11 +84,11 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     info = runner.invoke(main, ["bundle-info"])
     assert info.exit_code == 0, info.output
     assert json.loads(info.output) == validate_bundle(snapshot)
-    result = runner.invoke(main, [*args, "--specs", str(SPECS)])
+    result = runner.invoke(main, [*args, "--specs", str(specs)])
     assert result.exit_code == 0, result.output
     assert json.loads(report.read_text())["distribution"]["mode"] == "explicit-local-inputs"
     assert json.loads(report.read_text())["distribution"]["runner_version"]
     monkeypatch.setattr(resources, "files", lambda _: tmp_path / "absent")
     result = runner.invoke(main, args)
     assert result.exit_code != 0 and "No packaged specs bundle" in result.output
-    assert runner.invoke(main, [*args, "--specs", str(SPECS)]).exit_code == 0
+    assert runner.invoke(main, [*args, "--specs", str(specs)]).exit_code == 0

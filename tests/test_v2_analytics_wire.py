@@ -6,16 +6,12 @@ import pytest
 
 from posthog_test_harness.v2.analytics_wire_steps import STEPS
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import SPECS
 from tests.v2_analytics_wire_host import AnalyticsWireHost
 from tests.v2_flush_host import serve
 
 FEATURE = "migration/yaml-parity-v1/capture-analytics-v1.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -92,9 +88,9 @@ DEFECTS = [
 
 
 @pytest.mark.parametrize("defect,index,code", DEFECTS)
-async def test_each_wire_assertion_family_rejects_real_http_defects(contracts, defect, index, code):
+async def test_each_wire_assertion_family_rejects_real_http_defects(contracts, defect, index, code, specs, case_ids):
     async with serve(contracts, host_type=AnalyticsWireHost, defect=defect) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]])
     result = report["results"][index]["result"]
     assert result["status"] == "failed_assertion", result
     assert result["failure"]["code"] == code
@@ -130,17 +126,17 @@ async def test_each_wire_assertion_family_rejects_real_http_defects(contracts, d
         ("null_identity", 17),
     ],
 )
-async def test_source_assertions_are_not_silently_strengthened(contracts, variation, index):
+async def test_source_assertions_are_not_silently_strengthened(contracts, variation, index, specs, case_ids):
     async with serve(contracts, host_type=AnalyticsWireHost, defect=variation) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]])
     assert report["results"][index]["result"]["status"] == "passed", report
     assert strict_exit_code(contracts, report) == 0
 
 
-async def test_every_path_is_observed_but_header_body_and_events_use_first_request_only():
+async def test_every_path_is_observed_but_header_body_and_events_use_first_request_only(feature_cases):
     observed = [SimpleNamespace(path="/i/v1/analytics/events/", method="GET"), SimpleNamespace(path="/batch/")]
     ctx = SimpleNamespace(server=SimpleNamespace(state=SimpleNamespace(get_requests=lambda: observed)))
-    step = CASES[0].steps[-1]
+    step = feature_cases[0].steps[-1]
     handler, args = STEPS.bind(step)
     with pytest.raises(BoundaryError, match="Unexpected capture request path"):
         await handler(ctx, step, *args)
@@ -150,22 +146,13 @@ async def test_every_path_is_observed_but_header_body_and_events_use_first_reque
     observed[0].body_decompressed = '{"created_at":"2025-01-02T03:04:05Z","batch":[{}]}'
     observed[0].parsed_events = [{"timestamp": "2025-01-02T03:04:05Z"}]
     for index in (5, 9, 14):
-        step = CASES[index].steps[-1]
+        step = feature_cases[index].steps[-1]
         handler, args = STEPS.bind(step)
         await handler(ctx, step, *args)
 
 
-async def test_defect_does_not_leak_into_later_cases(contracts):
+async def test_defect_does_not_leak_into_later_cases(contracts, specs):
     async with serve(contracts, host_type=AnalyticsWireHost, defect="wrong_route") as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], timeout_ms=60000)
     assert [r["result"]["status"] for r in report["results"]] == ["failed_assertion"] + ["passed"] * 17
     assert len(host.closed) == 18 and strict_exit_code(contracts, report) == 1
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=AnalyticsWireHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])

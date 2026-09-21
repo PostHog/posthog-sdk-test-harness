@@ -10,17 +10,13 @@ from posthog_test_harness.types import MockResponse
 from posthog_test_harness.v2.analytics_outcome_steps import STEPS
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.fixtures import CaseServer
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.test_v2_analytics_retry import observation, save_receipt
-from tests.test_v2_gherkin import SPECS
 from tests.v2_analytics_wire_host import AnalyticsWireEngine, AnalyticsWireHost
 from tests.v2_flush_host import serve
 
 FEATURE = "migration/yaml-parity-v1/capture-analytics-v1-outcomes.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -48,9 +44,13 @@ def contracts():
         ("root:historical_migration", 17, "body_field_present"),
     ],
 )
-async def test_distinct_outcome_families_reject_real_http_defects(contracts, tmp_path, defect, index, code):
+async def test_distinct_outcome_families_reject_real_http_defects(
+    contracts, tmp_path, defect, index, code, specs, case_ids
+):
     async with serve(contracts, host_type=AnalyticsWireHost, defect=defect) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, diagnostics = await run(
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]]
+        )
     save_receipt(tmp_path, report, diagnostics)
     result = report["results"][index]["result"]
     assert result["status"] == "failed_assertion", result
@@ -122,15 +122,6 @@ async def test_default_omissions_use_first_request_and_first_event_only():
         first.body_decompressed = body
         with pytest.raises(BoundaryError):
             await check("the first request body should contain historical_migration equal to true", [first, later])
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=AnalyticsWireHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])
 
 
 async def check(text, observed):

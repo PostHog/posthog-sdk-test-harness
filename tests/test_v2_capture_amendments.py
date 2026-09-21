@@ -13,18 +13,14 @@ import pytest
 from posthog_test_harness.v2.capture_amendment_steps import STEPS
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.fixtures import CaseServer
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.test_v2_analytics_retry import observation, save_receipt
-from tests.test_v2_gherkin import SPECS
 from tests.v2_analytics_wire_host import AnalyticsWireEngine, AnalyticsWireHost
 from tests.v2_flush_host import serve
 from tests.v2_legacy_capture_host import LegacyCaptureHost
 
 FEATURE = "migration/yaml-parity-v1/capture-amendment-v1.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -51,11 +47,13 @@ CAPABILITIES = ["capture_v1", *["encoding_" + e for e in ENCODINGS]]
         (10, "omit_geoip", "event_property"),
     ],
 )
-async def test_real_http_defects_reject_each_new_case(contracts, tmp_path, index, defect, code):
+async def test_real_http_defects_reject_each_new_case(contracts, tmp_path, index, defect, code, specs, case_ids):
     host_type = LegacyCaptureHost if index == 11 else AnalyticsWireHost
     caps = ["capture_v0", "encoding_gzip"] if index == 11 else CAPABILITIES
     async with serve(contracts, host_type=host_type, sdk_capabilities=caps, defect=defect) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, diagnostics = await run(
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]]
+        )
     save_receipt(tmp_path, report, diagnostics)
     result = report["results"][index]["result"]
     assert result["status"] == "failed_assertion", result
@@ -165,11 +163,11 @@ async def test_original_wire_scopes_not_strengthened_by_compression_or_options()
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-async def test_complete_feature_through_public_http(contracts, legacy):
+async def test_complete_feature_through_public_http(contracts, legacy, specs):
     host_type = LegacyCaptureHost if legacy else AnalyticsWireHost
     caps = ["capture_v0", "encoding_gzip"] if legacy else CAPABILITIES
     async with serve(contracts, host_type=host_type, sdk_capabilities=caps) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], timeout_ms=60000)
     assert strict_exit_code(contracts, report) == 0, report
     assert sum(r["result"]["status"] == "passed" for r in report["results"]) == (1 if legacy else 11)
 

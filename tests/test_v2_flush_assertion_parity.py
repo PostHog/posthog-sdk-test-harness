@@ -7,8 +7,7 @@ import pytest
 from posthog_test_harness.v2.contracts import Contracts
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
-from tests.test_v2_gherkin import SPECS
-from tests.test_v2_legacy_capture import FEATURE, IDS
+from tests.test_v2_legacy_capture import FEATURE
 from tests.v2_flush_host import serve
 from tests.v2_legacy_capture_host import LegacyCaptureHost
 
@@ -37,12 +36,14 @@ class RejectedFlushHost(LegacyCaptureHost):
         ("hang_flush", "harness_error", "host_deadline"),
     ],
 )
-async def test_rejected_flush_preserves_request_assertions_and_harness_failures(contracts, defect, status, code):
-    case_id = next(identity for identity in IDS if identity.endswith(":does_not_retry_on_400"))
+async def test_rejected_flush_preserves_request_assertions_and_harness_failures(
+    contracts, defect, status, code, specs, case_ids
+):
+    case_id = next(identity for identity in case_ids if identity.endswith(":does_not_retry_on_400"))
     async with serve(contracts, host_type=RejectedFlushHost, defect=defect) as (host, url):
         report, diagnostics = await run(
             contracts,
-            SPECS,
+            specs,
             [FEATURE],
             url,
             host.profile["id"],

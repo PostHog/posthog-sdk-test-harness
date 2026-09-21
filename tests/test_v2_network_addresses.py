@@ -137,7 +137,7 @@ async def test_ipv6_literal_listener_and_url():
 
 
 @pytest.mark.parametrize("explicit", [False, True])
-async def test_cli_forwards_addresses_through_runner_to_each_case(tmp_path, explicit):
+async def test_cli_forwards_addresses_through_runner_to_each_case(tmp_path, explicit, specs):
     options = (
         ["--mock-bind-host", "localhost", "--mock-advertised-host", "localhost", "--allow-private-network"]
         if explicit
@@ -153,6 +153,7 @@ async def test_cli_forwards_addresses_through_runner_to_each_case(tmp_path, expl
             "--profile",
             host.profile["id"],
             *options,
+            specs=specs,
         )
     assert code == 0, output
     assert diagnostics["network_config"] == {
@@ -211,8 +212,11 @@ def test_client_opt_in_preserves_transport_validation(url, opt_in):
 
 
 async def test_cli_default_rejects_non_loopback_adapter(tmp_path):
+    (tmp_path / "local.feature").write_text("Feature: Local\n Scenario: One\n  Given unbound step\n")
     async with serve(Contracts(), host_type=AIHost) as (host, url):
-        code, report, diagnostics, output = await cli_run(tmp_path, url.replace("127.0.0.1", "localhost"))
+        code, report, diagnostics, output = await cli_run(
+            tmp_path, url.replace("127.0.0.1", "localhost"), "--feature", "local.feature", specs=tmp_path
+        )
     assert code == 1 and not host.fixtures
     assert report["errors"][0]["code"] == "invalid_transport"
     assert diagnostics["network_config"]["allow_private_network"] is False

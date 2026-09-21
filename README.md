@@ -208,8 +208,11 @@ bin/test
 # Format code
 bin/fmt
 
-# Run tests
+# Run self-contained tests
 uv run pytest
+
+# Also run tests backed by a companion SDK specifications checkout
+SDK_V2_SPECS=/path/to/specs uv run pytest
 ```
 
 ### Contributing

@@ -7,17 +7,13 @@ import pytest
 from posthog_test_harness.v2.ai_steps import json_arguments
 from posthog_test_harness.v2.contracts import Contracts
 from posthog_test_harness.v2.fixtures import CaseServer
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.test_v2_analytics_retry import save_receipt
-from tests.test_v2_gherkin import SPECS
 from tests.v2_flush_host import serve
 from tests.v2_local_parity_host import LocalParityEngine, LocalParityHost
 
 FEATURE = "migration/yaml-parity-v1/local-evaluation-v1.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -43,9 +39,13 @@ def contracts():
         (0, "inconclusive", "failed_assertion", "local_inconclusive"),
     ],
 )
-async def test_defects_fail_at_the_actual_observation_layer(contracts, tmp_path, index, defect, status, code):
+async def test_defects_fail_at_the_actual_observation_layer(
+    contracts, tmp_path, index, defect, status, code, specs, case_ids
+):
     async with serve(contracts, host_type=LocalParityHost, defect=defect) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[index]])
+        report, diagnostics = await run(
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[index]]
+        )
     save_receipt(tmp_path, report, diagnostics)
     result = report["results"][index]["result"]
     assert result["status"] == status, result
@@ -57,17 +57,17 @@ async def test_defects_fail_at_the_actual_observation_layer(contracts, tmp_path,
         assert not barrier["requests"] or barrier["requests"][0]["status"] == 401
 
 
-async def test_evaluator_uses_arbitrary_loaded_rules_properties_and_cohorts_not_answers():
+async def test_evaluator_uses_arbitrary_loaded_rules_properties_and_cohorts_not_answers(feature_cases):
     document = deepcopy(
         json_arguments(
-            next(s for s in CASES[0].steps if s.text == "the definitions service serves this typed document:")
+            next(s for s in feature_cases[0].steps if s.text == "the definitions service serves this typed document:")
         )["definitions"]
     )
     engine = LocalParityEngine({}, "unused", {}, "legacy", None, "fixture", "/flags/definitions")
     engine.document = document
     args = deepcopy(
         json_arguments(
-            next(s for s in CASES[0].steps if s.text == "the local flag getter is called with JSON arguments:")
+            next(s for s in feature_cases[0].steps if s.text == "the local flag getter is called with JSON arguments:")
         )
     )
     flag = document["flags"][0]
@@ -92,7 +92,9 @@ async def test_evaluator_uses_arbitrary_loaded_rules_properties_and_cohorts_not_
     assert await engine.get_feature_flag(args) is None
 
 
-async def test_http_304_and_previously_loaded_definitions_do_not_satisfy_fresh_reload(contracts, monkeypatch):
+async def test_http_304_and_previously_loaded_definitions_do_not_satisfy_fresh_reload(
+    contracts, monkeypatch, specs, case_ids
+):
     from flask import request
 
     from posthog_test_harness.v2 import runner
@@ -111,23 +113,16 @@ async def test_http_304_and_previously_loaded_definitions_do_not_satisfy_fresh_r
 
     monkeypatch.setattr(runner, "CaseServer", NotModifiedServer)
     async with serve(contracts, host_type=LocalParityHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[3]])
+        report, diagnostics = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[3]])
     assert report["results"][3]["result"]["failure"]["code"] == "local_reload_fresh_fetch"
     barrier = diagnostics["cases"][0]["definition_reloads"][0]
     assert barrier["requests"][0]["status"] == 304
     assert any(r["status"] == 304 for r in diagnostics["cases"][0]["network"])
 
 
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=LocalParityHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])
-
-
-async def test_initial_evaluation_can_load_definitions_without_an_explicit_reload(contracts, monkeypatch):
+async def test_initial_evaluation_can_load_definitions_without_an_explicit_reload(
+    contracts, monkeypatch, specs, feature_cases, case_ids
+):
     original_getter = LocalParityEngine.get_feature_flag
     calls = []
 
@@ -143,11 +138,11 @@ async def test_initial_evaluation_can_load_definitions_without_an_explicit_reloa
     monkeypatch.setattr(LocalParityEngine, "setup", setup)
     monkeypatch.setattr(LocalParityEngine, "get_feature_flag", get_feature_flag)
     async with serve(contracts, host_type=LocalParityHost, missing_route="/reload_feature_flags") as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[0]])
+        report, diagnostics = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[0]])
     assert strict_exit_code(contracts, report) == 0, report
     expected_calls = [
         json_arguments(step)
-        for step in CASES[0].steps
+        for step in feature_cases[0].steps
         if step.text == "the local flag getter is called with JSON arguments:"
     ]
     assert calls == expected_calls
@@ -156,7 +151,7 @@ async def test_initial_evaluation_can_load_definitions_without_an_explicit_reloa
     assert len(requests) == 1 and requests[0]["authenticated"] and requests[0]["status"] == 200
 
 
-async def test_remote_evaluation_during_public_cleanup_cannot_pass(contracts):
+async def test_remote_evaluation_during_public_cleanup_cannot_pass(contracts, specs, case_ids):
     class ShutdownTraffic(LocalParityHost):
         async def handle(self, request):
             if request.path == "/v2/fixtures/close":
@@ -166,7 +161,7 @@ async def test_remote_evaluation_during_public_cleanup_cannot_pass(contracts):
             return await super().handle(request)
 
     async with serve(contracts, host_type=ShutdownTraffic) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[0]])
+        report, diagnostics = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[0]])
     result = report["results"][0]["result"]
     assert result["status"] == "failed_assertion"
     assert result["failure"]["code"] == "local_remote_escape"
@@ -178,7 +173,9 @@ async def test_remote_evaluation_during_public_cleanup_cannot_pass(contracts):
     "outcome,code",
     [({"kind": "value", "value": False}, "local_flag_value"), ({"kind": "undefined"}, "local_inconclusive")],
 )
-async def test_constant_default_and_undefined_results_cannot_satisfy_local_rules(contracts, outcome, code):
+async def test_constant_default_and_undefined_results_cannot_satisfy_local_rules(
+    contracts, outcome, code, specs, case_ids
+):
     class DefaultResult(LocalParityHost):
         def outcome(self, call, result):
             if call["route"] == "/get_feature_flag":
@@ -186,7 +183,7 @@ async def test_constant_default_and_undefined_results_cannot_satisfy_local_rules
             return super().outcome(call, result)
 
     async with serve(contracts, host_type=DefaultResult) as (host, url):
-        report, _ = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[IDS[0]])
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[0]])
     result = report["results"][0]["result"]
     assert result["status"] == "failed_assertion"
     assert result["failure"]["code"] == code

@@ -1,7 +1,6 @@
 """Direct official Gherkin parsing, case isolation, and CLI helpers."""
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -15,10 +14,8 @@ from posthog_test_harness.v2.gherkin import compile_feature
 from posthog_test_harness.v2.steps import contains_events, table
 from tests.v2_flush_host import PROFILE
 
-SPECS = Path(os.environ.get("SDK_V2_SPECS", Path(__file__).resolve().parents[2] / "specs"))
 
-
-async def cli_run(tmp_path, url, *extra, specs=SPECS):
+async def cli_run(tmp_path, url, *extra, specs):
     report_path = tmp_path / "report.json"
     process = await asyncio.create_subprocess_exec(
         str(Path(sys.executable).with_name("posthog-test-harness-v2")),

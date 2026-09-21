@@ -207,7 +207,7 @@ class AnalyticsWireEngine(AIEngine):
                 events[0]["options"] = {defect.split(":", 1)[1]: False}
         path, payload, headers = self.encode_request(path, payload, headers)
         async with aiohttp.ClientSession(trust_env=False, skip_auto_headers={"User-Agent", "Content-Type"}) as session:
-            data = self.encode_body(payload, headers)
+            data = await asyncio.to_thread(self.encode_body, payload, headers)
             if defect in ("empty_body", "non_json_body"):
                 data = {"data": b"" if defect == "empty_body" else b"not-json"}
             async with session.post(self.host + path, headers=headers, **data) as response:

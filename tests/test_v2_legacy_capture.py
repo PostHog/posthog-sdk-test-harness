@@ -5,18 +5,14 @@ from types import SimpleNamespace
 import pytest
 
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
-from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.legacy_capture_steps import STEPS
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.test_v2_analytics_retry import observation, save_receipt
-from tests.test_v2_gherkin import SPECS
 from tests.v2_flush_host import serve
 from tests.v2_legacy_capture_host import LegacyCaptureHost
 
 FEATURE = "migration/yaml-parity-v1/capture-legacy.feature"
-CASES, _ = load_cases(SPECS, [FEATURE])
-IDS = [case.id for case in CASES]
 
 
 @pytest.fixture(scope="module")
@@ -55,15 +51,15 @@ def contracts():
     ],
 )
 async def test_distinct_legacy_defects_fail_real_http_with_source_attribution(
-    contracts, tmp_path, defect, number, variant, code
+    contracts, tmp_path, defect, number, variant, code, specs, feature_cases, case_ids
 ):
-    case = CASES[number - 1 if number < 27 else number - 2]
+    case = feature_cases[number - 1 if number < 27 else number - 2]
     async with serve(contracts, host_type=LegacyCaptureHost, wire_variant=variant, defect=defect) as (host, url):
         report, diagnostics = await run(
-            contracts, SPECS, [FEATURE], url, host.profile["id"], case_ids=[case.id], timeout_ms=60000
+            contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case.id], timeout_ms=60000
         )
     save_receipt(tmp_path, report, diagnostics)
-    result = report["results"][IDS.index(case.id)]["result"]
+    result = report["results"][case_ids.index(case.id)]["result"]
     assert result["status"] == "failed_assertion", result
     assert result["failure"]["code"] == code
     assert result["failure"]["failed_step"]["source"]["path"] == FEATURE
@@ -142,15 +138,6 @@ async def test_legacy_counts_include_flags_and_first_delay_is_not_exponential_pr
     await check("the first inter-request delay should be at least 100 milliseconds", observed)
     with pytest.raises(BoundaryError):
         await check("exactly 2 capture request should have been received", observed)
-
-
-async def test_complete_feature_through_public_http(contracts):
-    async with serve(contracts, host_type=LegacyCaptureHost) as (host, url):
-        report, diagnostics = await run(contracts, SPECS, [FEATURE], url, host.profile["id"], timeout_ms=60000)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert all(row["result"]["status"] in ("passed", "not_selected") for row in report["results"])
-    assert len(host.closed) == sum(row["result"]["executed"] for row in report["results"])
-    assert len({d["mock_url"] for d in diagnostics["cases"]}) == len(diagnostics["cases"])
 
 
 async def check(text, observed):

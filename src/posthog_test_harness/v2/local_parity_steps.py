@@ -105,7 +105,7 @@ def definition_requests(ctx, before):
 )
 async def getter(ctx, step):
     args = json_arguments(step)
-    outcome = await ctx.call("/get_feature_flag", args)
+    outcome = await ctx.call("/get_feature_flag", args, check_result=False)
     no_remote(ctx)
     if ctx.local_initial_definitions_before is not None:
         fresh, requests = definition_requests(ctx, ctx.local_initial_definitions_before)
