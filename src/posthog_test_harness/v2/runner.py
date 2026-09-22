@@ -32,6 +32,15 @@ def failure(error, executed, step, call_ids):
     }
 
 
+def failure_diagnostics(error, step, case):
+    record = {**error.failure(), "failed_step": step}
+    if step is not None:
+        record["step_text"] = case.steps[step["index"]].text
+    if error.details is not None:
+        record["details"] = error.details
+    return record
+
+
 def native_flag_sdk_type(case):
     types = [tag.removeprefix("@sdk:") for tag in case.tags if tag.startswith("@sdk:")]
     # This existing canonical feature predates explicit @sdk applicability tags.
@@ -158,7 +167,7 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
             report["errors"].append(error_record(error, case_id=case.id))
             if problem is None or problem.kind == "failed_assertion":
                 if problem is not None:
-                    diagnostics["secondary_failure"] = {**problem.failure(), "failed_step": current}
+                    diagnostics["secondary_failure"] = failure_diagnostics(problem, current, case)
                 problem = error
         diagnostics["network_gates"] = server.gates.diagnostics()
         diagnostics["network"] = server.requests()
@@ -193,6 +202,7 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
         raise caller_cancellation
     call_ids = [identity for identity, call in client.calls.items() if call["fixture_id"] == diagnostics["fixture_id"]]
     if problem:
+        diagnostics["failure"] = failure_diagnostics(problem, current, case)
         if problem.code in ("undefined_step", "ambiguous_step", "runner_exception"):
             report["errors"].append(error_record(problem, case_id=case.id))
         return failure(problem, executed, current, call_ids)

@@ -5,7 +5,7 @@ from copy import deepcopy
 import pytest
 
 from posthog_test_harness.v2.ai_steps import json_arguments
-from posthog_test_harness.v2.contracts import Contracts
+from posthog_test_harness.v2.contracts import Contracts, decode_json
 from posthog_test_harness.v2.fixtures import CaseServer
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
@@ -40,7 +40,7 @@ def contracts():
     ],
 )
 async def test_defects_fail_at_the_actual_observation_layer(
-    contracts, tmp_path, index, defect, status, code, specs, case_ids
+    contracts, tmp_path, index, defect, status, code, specs, case_ids, feature_cases
 ):
     async with serve(contracts, host_type=LocalParityHost, defect=defect) as (host, url):
         report, diagnostics = await run(
@@ -51,6 +51,25 @@ async def test_defects_fail_at_the_actual_observation_layer(
     assert result["status"] == status, result
     assert result["failure"]["code"] == code, result
     assert strict_exit_code(contracts, report) == 1
+    evidence = diagnostics["cases"][0]["failure"]
+    assert evidence["code"] == code
+    assert evidence["failed_step"] == result["failure"]["failed_step"]
+    step_index = evidence["failed_step"]["index"]
+    step = feature_cases[index].steps[step_index]
+    assert evidence["step_text"] == step.text
+    if code == "local_flag_value":
+        getter = feature_cases[index].steps[step_index - 1]
+        actual_call = next(call for call in reversed(report["calls"]) if call["route"] == "/get_feature_flag")
+        assert evidence["details"] == {
+            "operation": "/get_feature_flag",
+            "arguments": json_arguments(getter),
+            "expected": decode_json(step.text.removeprefix("the local flag getter should return JSON ")),
+            "actual": actual_call["completion"]["outcome"],
+        }
+    if code == "local_inconclusive":
+        assert evidence["details"]["arguments"] == json_arguments(step)
+        assert evidence["details"]["expected"] == "conclusive boolean or string value"
+        assert evidence["details"]["actual"] == {"kind": "value", "value": None}
     assert len(host.closed) == 1 and host.engines[0].disposed
     if defect in ("auth_error", "token_error", "no_new_fetch"):
         barrier = diagnostics["cases"][0]["definition_reloads"][0]
@@ -183,8 +202,10 @@ async def test_constant_default_and_undefined_results_cannot_satisfy_local_rules
             return super().outcome(call, result)
 
     async with serve(contracts, host_type=DefaultResult) as (host, url):
-        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[0]])
+        report, diagnostics = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_ids[0]])
     result = report["results"][0]["result"]
     assert result["status"] == "failed_assertion"
     assert result["failure"]["code"] == code
     assert strict_exit_code(contracts, report) == 1
+    details = diagnostics["cases"][0]["failure"]["details"]
+    assert details["actual"] == outcome

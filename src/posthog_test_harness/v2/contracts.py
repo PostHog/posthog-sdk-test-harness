@@ -10,9 +10,11 @@ MAX_BODY = 1024 * 1024
 class BoundaryError(ValueError):
     """A protocol/fixture failure, never a native SDK exception."""
 
-    def __init__(self, code, message, kind="harness_error"):
+    def __init__(self, code, message, kind="harness_error", *, details=None):
         super().__init__(message)
         self.code, self.kind = code, kind
+        # Rich assertion evidence belongs in diagnostics, not transport envelopes.
+        self.details = details
 
     def failure(self):
         return {"kind": self.kind, "code": self.code, "message": str(self)}
