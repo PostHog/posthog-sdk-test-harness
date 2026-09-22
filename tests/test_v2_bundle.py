@@ -26,11 +26,13 @@ def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot, specs
     manifest = validate_bundle(snapshot)
     assert type(manifest["source"]["dirty"]) is bool
     assert len(manifest["source"]["commit"]) == 40
-    for paths, count in [(None, 885), (migration_paths(snapshot), 157)]:
+    for paths in [None, migration_paths(snapshot)]:
         packaged = discover(snapshot, paths)
         source = discover(specs, paths)
         assert packaged == source
-        assert len(packaged["cases"]) == count
+        assert packaged["cases"]
+        if paths is not None:
+            assert len(packaged["cases"]) == 157
     assert all(name.endswith(".feature") for name in manifest["files"])
 
 

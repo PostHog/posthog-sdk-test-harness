@@ -28,6 +28,7 @@ DEFECTS = [
     ('property_value:0:custom_string:"wrong"', 0, "event_property"),
     ('property_value:0:custom_number:"42"', 0, "event_property"),
     ("property_value:0:custom_bool:false", 0, "event_property"),
+    ("property_value:0:custom_bool:1", 0, "event_property"),
     ("missing_property:custom_bool", 0, "event_property"),
     ("property_value:0:$set:[]", 1, "event_property_object"),
     ("property_value:0:$set_once:null", 2, "event_property_object"),
@@ -77,7 +78,6 @@ async def test_assertion_families_reject_attributed_http_defects(contracts, defe
 @pytest.mark.parametrize(
     "variation,index",
     [
-        ("property_value:0:custom_bool:1", 0),
         ("property_value:0:custom_number:42.0", 0),
         ("property_value:0:$set:{}", 1),
         ('property_value:0:$set_once:{"other":false}', 2),

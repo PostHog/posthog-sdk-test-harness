@@ -41,6 +41,27 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
+## Black-box server identify and alias
+
+Explicitly select `--feature black-box/public/identify.feature` and
+`--feature black-box/public/alias.feature` from a companion specs checkout to run
+these four server-only cases. They are separate from the 157-case migration suite.
+The steps `identify is called with JSON arguments:` and
+`alias is called with JSON arguments:` forward JSON doc strings unchanged to the
+negotiated `/identify` and `/alias` routes:
+
+- `/identify`: `{ "distinct_id": "user-123", "set": { "active": false, "score": 0, "note": null } }`
+- `/alias`: `{ "distinct_id": "anon-123", "alias": "user-123" }`
+
+Adapters translate these arguments to their public SDK methods. Unexpected operation
+throws fail the scenario. After public setup, operation and explicit flush, received
+events must have the exact event name (`$identify` or `$create_alias`), root
+`distinct_id`, and `$set` or `alias` property. For alias, root `distinct_id` is the
+previous identity and `properties.alias` is the target. JSON property assertions
+preserve boolean, numeric and null types and require the property to be present.
+These delivery cases require no private queue observations or identity persistence
+controls and do not establish broader client-side identity behavior.
+
 ## Black-box local evaluation
 
 A fresh receiver loads controlled definitions through the mock definitions service using public SDK configuration. Scenarios call the local-only getter directly after initialization and compare conclusive results with exact expectations, recording authenticated HTTP 200 definitions fetched during setup or initial evaluation. When definitions change, scenarios explicitly reload through the public SDK method, require fresh authenticated HTTP 200 definitions within five seconds, and evaluate again. Different properties and changed definitions detect constants, defaults and stale reloads. Definitions downloads are allowed; `/flags` and `/decide` requests are forbidden throughout setup, loading, evaluation and public cleanup. No private evaluator observation is required.

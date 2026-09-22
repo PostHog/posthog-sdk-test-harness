@@ -124,8 +124,12 @@ async def test_presence_identity_batch_and_uuid_assertions_retain_source_weaknes
         await check(text, [first, observation([{}]), observation([{"uuid": "later"}])])
     first.parsed_events = [{"uuid": "0198c0de-0000-4000-8000-000000000abc"}, {"uuid": "invalid"}]
     await check("the first received event UUID should be valid", [first])
-    first.parsed_events = [{"properties": {"custom_number": True}}]
-    await check('the first received event property "custom_number" should equal JSON 1', [first])
+
+
+async def test_legacy_property_assertion_rejects_boolean_for_number():
+    observed = observation([{"properties": {"custom_number": True}}])
+    with pytest.raises(BoundaryError):
+        await check('the first received event property "custom_number" should equal JSON 1', [observed])
 
 
 async def test_legacy_counts_include_flags_and_first_delay_is_not_exponential_proof():

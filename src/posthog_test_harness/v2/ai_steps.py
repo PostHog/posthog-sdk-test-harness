@@ -49,6 +49,16 @@ async def capture(ctx, step):
     await ctx.call("/capture", json_arguments(step))
 
 
+@STEPS.step("identify is called with JSON arguments:", "docString", routes=("/identify",))
+async def identify(ctx, step):
+    await ctx.call("/identify", json_arguments(step))
+
+
+@STEPS.step("alias is called with JSON arguments:", "docString", routes=("/alias",))
+async def alias(ctx, step):
+    await ctx.call("/alias", json_arguments(step))
+
+
 @STEPS.step("pending captures are flushed", routes=("/flush",))
 async def flush(ctx, step):
     # YAML flush actions do not assert delivery success or a native return value.
