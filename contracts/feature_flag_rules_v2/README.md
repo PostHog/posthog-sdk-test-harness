@@ -47,6 +47,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - corpus/v1_evaluation.json contains lock-down fixtures for the frozen version 1 evaluation arm.
 - corpus/legacy_projection.json records how a version 1 outcome projects into each response protocol version.
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
+- corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - manifest.json assigns stable fixture and case IDs and declares the compatibility policy.
 - SHA256SUMS records the SHA-256 digest for each package file except itself.
 
@@ -173,9 +174,10 @@ The core consumes the resolved person distinct ID without device or experience-c
 A complete property map can establish absence; a partial map cannot establish absence for an unknown key.
 An unavailable map fails only when evaluation reaches a predicate.
 Predicates are ANDed in stored order and short-circuit on a conclusive miss or an error.
-Negation applies once to conclusive results.
+Negation applies once to conclusive results; an absent or null `negation` means false.
 Malformed regex syntax and backtracking failures are evaluation errors, including under negation; this avoids turning an invalid pattern into a successful negative match.
 This is stricter than v1's invalid-pattern non-match behavior and does not change v1 expectations.
+A consumer may compile patterns when it loads a config, but an invalid pattern in a predicate that evaluation never reaches is not a parse error; the error surfaces only when evaluation reaches the predicate.
 Other operators reuse the existing property language, including null presence, case handling, semver normalization, and team-timezone date comparisons.
 
 ### Regex coverage
@@ -217,12 +219,14 @@ The corpus uses the explicit formats above; it does not require the reference co
 Success with a null value delegates to the caller default; success with false remains a configured result.
 `no_rule_match` carries no rule, while terminal matches and rollout misses carry the original UUID, kind, and zero-based index.
 Errors carry no successful value or rule context.
+The evaluation error kinds `missing_context`, `invalid_property`, and `invalid_regex` refine the registry's `error` reason code and share its OpenFeature mapping.
+Parse errors reject the document before evaluation: `malformed` for a document the config schema rejects, and `unsupported` for an unknown config version, the registry's `unknown_version_result`.
 The corpus does not define a new response protocol.
 
 Hash evidence records UTF-8 bytes, the real SHA1 digest, its first 60 bits, and binary64 hash/threshold bits.
 The meta-tests independently recompute these values with Python hashlib and binary64 arithmetic.
 Identifiers truncate to 200 Unicode scalar values without normalization; predicate values remain intact.
-Empty identifiers miss even at 100%; nonempty 100% bypasses hashing.
+Empty identifiers are rollout misses even at 100%, so `on_rollout_miss` decides whether evaluation continues or returns the default; nonempty 100% bypasses hashing.
 At 0%, the inclusive zero-hash edge remains included.
 `white_box` rows prescribe a hash only through a consumer's private test seam and record equal, below, or next-binary64-above threshold evidence.
 They supplement real digest cases and must not become a public override API.

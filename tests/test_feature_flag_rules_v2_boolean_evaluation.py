@@ -1,8 +1,8 @@
+import calendar
 import hashlib
 import math
 import operator
 import re
-import struct
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -11,14 +11,22 @@ import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 
 from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _load_json
+from tests.test_feature_flag_rules_v2_corpus import MAX_IDENTIFIER_SCALAR_VALUES, SCALE, _binary64_hex
 
 CORPUS = _load_json(CONTRACT_ROOT / "corpus/v2_boolean_evaluation.json")
 CASES = CORPUS["cases"]
 CONFIG = Draft202012Validator(_load_json(CONTRACT_ROOT / "schemas/config.schema.json"), format_checker=FormatChecker())
 
 
-def _bits(value: float) -> str:
-    return struct.pack(">d", value).hex()
+def _only_predicate(case: dict, operators: tuple[str, ...]) -> tuple[dict, dict]:
+    """The one predicate the case exercises, with its rule; fails if the case layout changes."""
+    [(rule, predicate)] = [
+        (rule, predicate)
+        for rule in case["config"]["rules"]
+        for predicate in rule.get("targeting", {}).get("properties", [])
+        if predicate["operator"] in operators
+    ]
+    return rule, predicate
 
 
 @pytest.mark.parametrize("reason", ["targeting_match", "rollout_miss", "no_rule_match"])
@@ -40,7 +48,9 @@ def test_boolean_schema_requires_rule_only_for_terminal_rule_reasons(reason: str
 def test_boolean_case_has_valid_inputs_and_complete_terminal_context(case: dict) -> None:
     expected = case["expected"]
     errors = list(CONFIG.iter_errors(case["config"]))
-    assert bool(errors) == (expected == {"status": "parse_error", "kind": "malformed"}), errors
+    assert bool(errors) == (expected["status"] == "parse_error"), errors
+    if expected.get("kind") == "unsupported":
+        assert {tuple(error.absolute_path) for error in errors} == {("version",)}, errors
     if expected["status"] == "success":
         assert ("rule" in expected) == (expected["reason"] != "no_rule_match")
         if "rule" in expected:
@@ -69,11 +79,11 @@ def test_boolean_case_has_valid_inputs_and_complete_terminal_context(case: dict)
 def test_boolean_real_hash_evidence_is_independent(case: dict) -> None:
     rule = next(rule for rule in case["config"]["rules"] if rule["rule_type"] == "percentage_rollout")
     evidence = case["hash_evidence"]
-    subject = case["context"]["identifier"][:200]
+    subject = case["context"]["identifier"][:MAX_IDENTIFIER_SCALAR_VALUES]
     text = rule["seed"] + "." + subject
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()
     n = int(digest[:15], 16)
-    hash01 = float(n) / float(0xFFFFFFFFFFFFFFF)
+    hash01 = float(n) / float(SCALE)
     threshold = rule["rollout_percentage"] / 100.0
     assert evidence == {
         "identifier": subject,
@@ -81,11 +91,12 @@ def test_boolean_real_hash_evidence_is_independent(case: dict) -> None:
         "sha1_hex": digest,
         "first_15_hex": digest[:15],
         "n": str(n),
-        "hash01_binary64_hex": _bits(hash01),
-        "threshold_binary64_hex": _bits(threshold),
+        "hash01_binary64_hex": _binary64_hex(hash01),
+        "threshold_binary64_hex": _binary64_hex(threshold),
     }
     included = bool(subject) and (rule["rollout_percentage"] == 100 or hash01 <= threshold)
-    assert (case["expected"]["reason"] == "targeting_match") == included
+    miss = "rollout_miss" if rule["on_rollout_miss"] == "return_default" else "no_rule_match"
+    assert case["expected"]["reason"] == ("targeting_match" if included else miss)
 
 
 @pytest.mark.parametrize("case", [case for case in CASES if "white_box" in case], ids=lambda case: case["id"])
@@ -93,13 +104,13 @@ def test_boolean_white_box_edges_use_exact_binary64(case: dict) -> None:
     seam = case["white_box"]
     rule = case["config"]["rules"][0]
     threshold = rule["rollout_percentage"] / 100.0
-    assert seam["threshold_binary64_hex"] == _bits(threshold)
+    assert seam["threshold_binary64_hex"] == _binary64_hex(threshold)
     expected_hash = {
         "equal": threshold,
         "below": math.nextafter(threshold, 0.0),
         "above": math.nextafter(threshold, math.inf),
     }[seam["relation"]]
-    assert seam["hash01_binary64_hex"] == _bits(expected_hash)
+    assert seam["hash01_binary64_hex"] == _binary64_hex(expected_hash)
     included = rule["rollout_percentage"] == 100 or expected_hash <= threshold
     assert (case["expected"]["reason"] == "targeting_match") == included
 
@@ -126,13 +137,27 @@ def test_boolean_regex_cases_stay_within_the_documented_portable_subset() -> Non
     ids=lambda case: case["id"],
 )
 def test_boolean_regex_search_expectations(case: dict) -> None:
-    predicate = case["config"]["rules"][0]["targeting"]["properties"][0]
+    _, predicate = _only_predicate(case, ("regex", "not_regex"))
     matched = re.search(predicate["value"], case["context"]["properties"][predicate["key"]]) is not None
     if predicate["operator"] == "not_regex":
         matched = not matched
-    if predicate["negation"]:
+    if predicate.get("negation"):
         matched = not matched
     assert (case["expected"]["reason"] == "targeting_match") == matched
+
+
+def _subtract_relative(wall_clock: datetime, magnitude: int, unit: str) -> datetime:
+    if unit in "hdw":
+        return wall_clock - timedelta(**{{"h": "hours", "d": "days", "w": "weeks"}[unit]: magnitude})
+    for _ in range(magnitude):  # one calendar step at a time, clamping the day at each step
+        if unit == "y":
+            year, month = wall_clock.year - 1, wall_clock.month
+        else:
+            year, month = (wall_clock.year, wall_clock.month - 1) if wall_clock.month > 1 else (wall_clock.year - 1, 12)
+        wall_clock = wall_clock.replace(
+            year=year, month=month, day=min(wall_clock.day, calendar.monthrange(year, month)[1])
+        )
+    return wall_clock
 
 
 def _corpus_date_instant(value: object, context: dict) -> datetime | None:
@@ -141,10 +166,11 @@ def _corpus_date_instant(value: object, context: dict) -> datetime | None:
         return datetime.fromtimestamp(value, timezone.utc)
     assert isinstance(value, str)
     zone = ZoneInfo(context["timezone"])
-    relative_days = re.fullmatch(r"-?([0-9]+)d", value)
-    if relative_days:
-        now = datetime.fromisoformat(context["now"]).astimezone(zone).replace(tzinfo=None)
-        wall_clock = now - timedelta(days=int(relative_days[1]))
+    relative = re.fullmatch(r"-?([0-9]+)([hdwmy])", value)
+    if relative:
+        now = datetime.fromisoformat(context["now"])
+        assert now.tzinfo is not None, "context.now must carry an offset"
+        wall_clock = _subtract_relative(now.astimezone(zone).replace(tzinfo=None), int(relative[1]), relative[2])
     else:
         try:
             wall_clock = datetime.fromisoformat(value)
@@ -173,13 +199,12 @@ def _corpus_date_instant(value: object, context: dict) -> datetime | None:
     ids=lambda case: case["id"],
 )
 def test_boolean_date_expectations_match_independent_instant_arithmetic(case: dict) -> None:
-    rule = case["config"]["rules"][0]
-    predicate = rule["targeting"]["properties"][0]
+    rule, predicate = _only_predicate(case, ("is_date_exact", "is_date_before", "is_date_after"))
     subject = _corpus_date_instant(case["context"]["properties"][predicate["key"]], case["context"])
     target = _corpus_date_instant(predicate["value"], case["context"])
     compare = {"is_date_exact": operator.eq, "is_date_before": operator.lt, "is_date_after": operator.gt}
     matched = subject is not None and target is not None and compare[predicate["operator"]](subject, target)
-    if predicate["negation"]:
+    if predicate.get("negation"):
         matched = not matched
     assert (case["expected"]["reason"] == "targeting_match") == matched
     assert case["expected"]["value"] == (rule["value"] if matched else case["config"]["default_value"])
@@ -188,10 +213,10 @@ def test_boolean_date_expectations_match_independent_instant_arithmetic(case: di
 def test_boolean_family_counts_make_consumer_scope_explicit() -> None:
     assert Counter(case["family"] for case in CASES) == {
         "ordering": 18,
-        "properties": 60,
+        "properties": 59,
         "context": 8,
         "errors": 6,
-        "hashing": 20,
+        "hashing": 21,
         "white_box": 10,
         "eligibility": 3,
         "parser": 2,

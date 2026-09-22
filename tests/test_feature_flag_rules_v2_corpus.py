@@ -5,7 +5,7 @@ import struct
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 
 from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _load_json, _manifest, _walk_json
 
@@ -72,7 +72,6 @@ def _check_rollout(check: dict[str, Any], hash_value: float, percentage_key: str
 
 def test_manifest_declares_corpus_component_versions() -> None:
     manifest = _manifest()
-    corpus_version = manifest["corpus"]["version"]
     assert manifest["corpus"]["config_version_locked"] == 1
     assert manifest["corpus"]["published_versions_are_immutable"] is True
 
@@ -85,11 +84,7 @@ def test_manifest_declares_corpus_component_versions() -> None:
     ]
     schema_versions = {a["path"]: a["version"] for a in manifest["artifacts"] if a["kind"] == "schema"}
     for artifact in artifacts:
-        component_version = (
-            manifest["v2_boolean_evaluation"]["version"]
-            if artifact["path"].endswith("v2_boolean_evaluation.json")
-            else corpus_version
-        )
+        component_version = manifest[artifact.get("component", "corpus")]["version"]
         assert artifact["version"] == component_version
         assert schema_versions[artifact["schema"]] == component_version
         data = _load_json(CONTRACT_ROOT / artifact["path"])
@@ -107,7 +102,8 @@ def test_corpus_files_match_their_companion_schemas() -> None:
         for node in _walk_json(schema):
             if isinstance(node, dict) and node.get("type") == "object" and "x-posthog-open-object" not in node:
                 assert node.get("additionalProperties") is False, (artifact["schema"], node)
-        errors = list(Draft202012Validator(schema).iter_errors(_load_json(CONTRACT_ROOT / artifact["path"])))
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / artifact["path"])))
         assert not errors, f"{artifact['path']}: {[error.message for error in errors]}"
 
 
