@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.7.1 — 2026-09-22
+
+### Patch changes
+
+- [1d1d5e7](https://github.com/posthog/posthog-sdk-test-harness/commit/1d1d5e798036ac7c2bc059d6b289279aaa74afad) Include failing step text and structured expected/actual evidence for feature-flag getter and request-field assertions in v2 diagnostics, so compliance reports can identify the failing call or field without changing assertion outcomes. — Thanks @dustinbyrne!
+
 ## 1.7.0 — 2026-09-22
 
 ### Minor changes
