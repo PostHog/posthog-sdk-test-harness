@@ -9,9 +9,9 @@ from .data import cell
 from .fixtures import INGESTION_PATHS
 
 
-def expect(condition, code, message):
+def expect(condition, code, message, *, details=None):
     if not condition:
-        raise BoundaryError(code, message, "failed_assertion")
+        raise BoundaryError(code, message, "failed_assertion", details=deepcopy(details))
 
 
 class Registry:

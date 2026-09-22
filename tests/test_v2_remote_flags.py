@@ -60,6 +60,21 @@ async def test_distinct_native_defects_fail_observed_layer(contracts, tmp_path, 
     assert row["failure"]["code"] == code, row
     assert row["failure"]["failed_step"] and row["failure"]["call_ids"]
     assert strict_exit_code(contracts, report) == 1
+    evidence = diagnostics["cases"][0]["failure"]
+    assert evidence["failed_step"] == row["failure"]["failed_step"]
+    assert evidence["code"] == code
+    assert evidence["step_text"]
+    if defect in ("false_geoip_lost", "omit_geoip"):
+        assert evidence["details"] == {
+            "operation": "/flags",
+            "field": "geoip_disable",
+            "expected": False,
+            "actual": True if defect == "false_geoip_lost" else {"kind": "missing"},
+        }
+    if code == "flag_value":
+        assert evidence["details"]["operation"] == "/get_feature_flag"
+        assert evidence["details"]["arguments"]["key"]
+        assert evidence["details"]["expected"] != evidence["details"]["actual"]
 
 
 async def test_source_wire_scopes_alias_precedence_python_equality_and_named_event_first():

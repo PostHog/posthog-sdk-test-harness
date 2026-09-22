@@ -105,6 +105,7 @@ def definition_requests(ctx, before):
 )
 async def getter(ctx, step):
     args = json_arguments(step)
+    ctx.local_flag_arguments = args
     outcome = await ctx.call("/get_feature_flag", args, check_result=False)
     no_remote(ctx)
     if ctx.local_initial_definitions_before is not None:
@@ -118,6 +119,12 @@ async def getter(ctx, step):
         outcome["kind"] == "value" and type(outcome["value"]) in (bool, str),
         "local_inconclusive",
         "Local getter must return a conclusive boolean or string",
+        details={
+            "operation": "/get_feature_flag",
+            "arguments": args,
+            "expected": "conclusive boolean or string value",
+            "actual": outcome,
+        },
     )
     ctx.local_flag_outcome = outcome
 
@@ -125,4 +132,16 @@ async def getter(ctx, step):
 @STEPS.step(r"the local flag getter should return JSON (.+)")
 async def result(ctx, step, encoded):
     # Keep the source helper's equality after the conclusive-kind checks.
-    expect(ctx.local_flag_outcome["value"] == decode_json(encoded), "local_flag_value", "Local getter value differs")
+    expected = decode_json(encoded)
+    actual = ctx.local_flag_outcome["value"]
+    expect(
+        actual == expected,
+        "local_flag_value",
+        "Local getter value differs",
+        details={
+            "operation": "/get_feature_flag",
+            "arguments": ctx.local_flag_arguments,
+            "expected": expected,
+            "actual": actual,
+        },
+    )

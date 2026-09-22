@@ -30,7 +30,8 @@ async def native_server(ctx, step):
 async def getter(ctx, step):
     # YAML getter actions require successful completion; result expectations belong
     # to their explicit assertion steps, not the catalog's normal result target.
-    ctx.remote_flag_outcome = await ctx.call("/get_feature_flag", json_arguments(step), check_result=False)
+    ctx.remote_flag_arguments = json_arguments(step)
+    ctx.remote_flag_outcome = await ctx.call("/get_feature_flag", ctx.remote_flag_arguments, check_result=False)
     expect(ctx.remote_flag_outcome["kind"] != "thrown", "flag_getter_thrown", "Native flag getter threw")
 
 
@@ -58,19 +59,37 @@ def first_flags(ctx):
 
 @STEPS.step(r'the first flags request field "([^"]*)" should equal JSON (.+)')
 async def field(ctx, step, path, expected):
-    body = first_flags(ctx).body_decompressed
+    request = first_flags(ctx)
+    body = request.body_decompressed
     expect(bool(body), "flag_request_body", "Empty flags body")
     try:
         value = json.loads(body)
     except json.JSONDecodeError:
         expect(False, "flag_request_body", "Flags body is not JSON")
+    expected = decode_json(expected)
+    details = {"operation": request.path, "field": path, "expected": expected}
     for index, part in enumerate(path.split(".")):
-        expect(isinstance(value, dict), "flag_request_field", "Cannot traverse flags field")
+        expect(
+            isinstance(value, dict),
+            "flag_request_field",
+            "Cannot traverse flags field",
+            details={**details, "actual": {"kind": "untraversable", "at": ".".join(path.split(".")[:index])}},
+        )
         if index == 0 and part == "token" and "token" not in value and "api_key" in value:
             part = "api_key"
-        expect(part in value, "flag_request_field", "Flags field missing")
+        expect(
+            part in value,
+            "flag_request_field",
+            "Flags field missing",
+            details={**details, "actual": {"kind": "missing"}},
+        )
         value = value[part]
-    expect(value == decode_json(expected), "flag_request_field", "Flags field differs")
+    expect(
+        value == expected,
+        "flag_request_field",
+        "Flags field differs",
+        details={**details, "actual": value},
+    )
 
 
 @STEPS.step(r'the first flags request query parameter "([^"]*)" should equal "([^"]*)"')
@@ -81,8 +100,17 @@ async def query(ctx, step, key, expected):
 @STEPS.step(r"the public flag getter should return JSON (.+)")
 async def result(ctx, step, encoded):
     outcome = ctx.remote_flag_outcome
+    expected = decode_json(encoded)
     expect(
-        outcome["kind"] == "value" and outcome["value"] == decode_json(encoded), "flag_value", "Getter value differs"
+        outcome["kind"] == "value" and outcome["value"] == expected,
+        "flag_value",
+        "Getter value differs",
+        details={
+            "operation": "/get_feature_flag",
+            "arguments": ctx.remote_flag_arguments,
+            "expected": expected,
+            "actual": outcome["value"] if outcome["kind"] == "value" else outcome,
+        },
     )
 
 
