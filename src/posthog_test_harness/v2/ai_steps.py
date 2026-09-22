@@ -26,12 +26,17 @@ def json_arguments(step):
     return value
 
 
-@STEPS.step("an isolated SDK with empty persistent storage", fixtures=("storage.empty.v1",))
-async def isolated(ctx, step):
+@STEPS.step("an isolated SDK instance")
+async def isolated_instance(ctx, step):
     require(ctx.fixture is None, "invalid_state", "A case can allocate only one fixture")
     ctx.fixture = await ctx.client.allocate(
         ctx.diagnostics["fixture_id"], ctx.case.id, ctx.profile["id"], ctx.timeout_ms
     )
+
+
+@STEPS.step("an isolated SDK with empty persistent storage", fixtures=("storage.empty.v1",))
+async def isolated(ctx, step):
+    await isolated_instance(ctx, step)
 
 
 @STEPS.step(r'the SDK is initialized with token "([^"]*)" and flush threshold ([0-9]+)', routes=("/setup",))

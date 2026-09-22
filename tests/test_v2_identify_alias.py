@@ -12,7 +12,13 @@ from posthog_test_harness.v2.runner import STEPS, run
 from tests.v2_analytics_wire_host import AnalyticsWireHost
 from tests.v2_flush_host import serve
 
-FEATURES = ["black-box/public/identify.feature", "black-box/public/alias.feature"]
+FEATURES = ["acceptance/public/identify.feature", "acceptance/public/alias.feature"]
+SERVER_CASE_IDS = {
+    "acceptance:server:identify:scalar-values",
+    "acceptance:server:identify:nested-values",
+    "acceptance:server:alias:signup",
+    "acceptance:server:alias:second-person",
+}
 ARGUMENTS = {
     "identify": {"distinct_id": "user-123", "set": {"active": False, "score": 0, "note": None}},
     "alias": {"distinct_id": "anon-123", "alias": "user-123"},
@@ -192,20 +198,33 @@ async def test_received_property_json_preserves_types_and_presence(properties, e
         assert error.value.code == "event_property"
 
 
+async def test_server_delivery_needs_no_storage_control(regression_source):
+    feature = regression_source / "identify.feature"
+    feature.write_text(
+        feature.read_text().replace("an isolated SDK with empty persistent storage", "an isolated SDK instance")
+    )
+    contracts = Contracts()
+    async with serve(contracts, host_type=IdentifyAliasHost, missing_capability="storage.empty.v1") as (host, url):
+        report, _ = await run(contracts, regression_source, ["identify.feature"], url, host.profile["id"])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert [call["route"] for call in host.inputs] == ["/setup", "/identify", "/flush"]
+
+
 async def test_companion_identify_alias_features_through_public_http(specs):
     cases, _ = load_cases(specs, FEATURES)
-    assert {case.id for case in cases} == {
-        "black-box:server:identify:scalar-values",
-        "black-box:server:identify:nested-values",
-        "black-box:server:alias:signup",
-        "black-box:server:alias:second-person",
-    }
+    selected = [case for case in cases if case.id in SERVER_CASE_IDS]
+    assert {case.id for case in selected} == SERVER_CASE_IDS
+    assert len(cases) == 8  # Existing client and validation cases remain in their acceptance files.
+    assert all(case.migration is None and "@sdk:server" in case.tags for case in selected)
     contracts = Contracts()
     async with serve(contracts, host_type=IdentifyAliasHost) as (host, url):
-        report, _ = await run(contracts, specs, FEATURES, url, host.profile["id"])
+        report, _ = await run(contracts, specs, FEATURES, url, host.profile["id"], case_ids=sorted(SERVER_CASE_IDS))
     assert strict_exit_code(contracts, report) == 0, report
-    assert [row["result"]["status"] for row in report["results"]] == ["passed"] * 4
+    assert [row["result"]["status"] for row in report["results"] if row["case_id"] in SERVER_CASE_IDS] == ["passed"] * 4
+    assert [row["result"]["status"] for row in report["results"] if row["case_id"] not in SERVER_CASE_IDS] == [
+        "not_selected"
+    ] * 4
     assert len(host.closed) == 4
     assert [call["route"] for call in host.inputs] == [
-        route for case in cases for route in ("/setup", "/alias" if "alias" in case.id else "/identify", "/flush")
+        route for case in selected for route in ("/setup", "/alias" if "alias" in case.id else "/identify", "/flush")
     ]

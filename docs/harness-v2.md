@@ -41,11 +41,16 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
-## Black-box server identify and alias
+## Server identify and alias delivery
 
-Explicitly select `--feature black-box/public/identify.feature` and
-`--feature black-box/public/alias.feature` from a companion specs checkout to run
-these four server-only cases. They are separate from the 157-case migration suite.
+Select `--feature acceptance/public/identify.feature` and
+`--feature acceptance/public/alias.feature` from a companion specs checkout, with
+`--case-id acceptance:server:identify:scalar-values`,
+`--case-id acceptance:server:identify:nested-values`,
+`--case-id acceptance:server:alias:signup`, and
+`--case-id acceptance:server:alias:second-person` to run the four server delivery
+cases without selecting the remaining client and validation cases. These are
+separate from the 157-case migration suite.
 The steps `identify is called with JSON arguments:` and
 `alias is called with JSON arguments:` forward JSON doc strings unchanged to the
 negotiated `/identify` and `/alias` routes:

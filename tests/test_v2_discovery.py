@@ -20,7 +20,10 @@ def test_discovery_from_features_without_catalog_or_ledger(specs):
     assert all(c["status"] == "harness_ready" for c in cases)
     assert all(c["required_fixture_capabilities"] == ["storage.empty.v1"] for c in cases)
     canonical = [p for p in feature_paths(specs) if p.startswith("acceptance/")]
-    assert len(discover(specs, canonical)["cases"]) == 728
+    discovered = discover(specs, canonical)["cases"]
+    parsed, _ = load_cases(specs, canonical)
+    assert len(discovered) == len(parsed) > 0
+    assert len({c["case_id"] for c in discovered}) == len(discovered)
 
 
 def test_unlisted_local_feature_and_changed_content_are_executable_inputs(tmp_path):
