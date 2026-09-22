@@ -24,14 +24,45 @@ The workflow then:
 
 1. Notifies `#approvals-client-libraries` in Slack and pings the client-libraries approvers
 2. Waits for explicit approval in the GitHub `Release` environment
-3. Once approved: runs `sampo release` to bump `pyproject.toml`, sync `src/posthog_test_harness/__init__.py`, write `CHANGELOG.md`, and commit the result
-4. Tags the release commit `X.Y.Z` (bare, matching the other Sampo SDKs) and creates a GitHub Release
-5. Builds and pushes the Docker image to `ghcr.io/posthog/sdk-test-harness` with tags `X.Y.Z`, `X.Y`, `latest` (and `X` once we're past v0.x)
-6. Notifies Slack on success, failure, or rejection
+3. Once approved: runs `sampo release` to bump `pyproject.toml` and write `CHANGELOG.md`, syncs `src/posthog_test_harness/__init__.py` and `uv.lock`, and commits the result
+4. Builds a clean v2 wheel/sdist with pinned specs and smoke-tests the installed wheel plus local amd64 and arm64 v2 images. All checks must pass before creating the version tag or GitHub Release.
+5. Tags the release commit `X.Y.Z` (bare, matching the other Sampo SDKs), creates a GitHub Release, then publishes both images for `linux/amd64` and `linux/arm64`:
+   - `ghcr.io/posthog/sdk-test-harness` — existing v1 entrypoint and consumers
+   - `ghcr.io/posthog/sdk-test-harness-v2` — `posthog-test-harness-v2` entrypoint with bundled specs
+
+   Both use the same Sampo version and tags: `X.Y.Z`, `X.Y`, `latest`, and `X` once we're past v0.x. The `-v2` image name identifies the runner, not a separate version series.
+6. Records both image digests and distribution/smoke artifacts for consumer handoff, then notifies Slack on success, failure, or rejection
 
 ### Manual trigger
 
 You can manually start the workflow from the Actions tab via `workflow_dispatch`. Manual runs still hit the approval gate.
+
+## V2 release inputs and handoff
+
+`.github/workflows/release.yml` tracks `SDK_SPECS_COMMIT`, currently
+`8583749b4a634ec5881fa6af20057f39c89b0c64` from `PostHog/sdk-specs` (PR67).
+Update this immutable commit pin through review, not a moving branch reference.
+The workflow checks out specs and writes distribution/smoke outputs under
+`RUNNER_TEMP`, outside the harness checkout. `scripts/build_v2_distribution.py`
+requires clean harness/specs commits and uses `uv export --locked`; the release
+commit must therefore include the Sampo version's updated `uv.lock`.
+
+Before release metadata or either image is published, the installed-wheel smoke
+runs a controlled healthy host and a deliberately defective host (not SDK
+conformance). Separate amd64 and arm64 v2 images verify their bundles and
+migration-suite discovery readiness; arm64 runs under QEMU on the amd64 release
+runner. Each architecture retains its own smoke reports. Both images are then
+built/pushed for amd64 and arm64.
+
+The Actions job summary and `harness-release-X.Y.Z-<attempt>` artifact contain
+`release-images.json`: version, release/specs commits, each publish outcome, and
+both multi-platform image digests and digest-pinned pull references. The artifact
+also includes the wheel, sdist, hashed requirements, `distribution.json` (source
+provenance and artifact checksums), installed-wheel smoke reports/logs, and image
+bundle/discovery reports. Consumers can opt into the separate v2 image using its
+recorded `ghcr.io/posthog/sdk-test-harness-v2@sha256:...` reference. Existing v1
+callers are unchanged. Download the handoff before the repository's Actions
+artifact retention period expires; it is not attached to the GitHub Release.
 
 ## Version bumping
 
@@ -69,4 +100,21 @@ GitHub's environment approval has a 30-day deadline. If it expires, re-run the w
 
 ### Release approved but Docker push failed
 
-The release commit and tag still landed — the workflow's later steps just fell over. Inspect the run, fix the issue (often a transient registry error), and re-run the failed jobs from the Actions UI. Don't add a new changeset for a retry.
+The Sampo release commit consumes changesets before validation. A validation
+failure prevents tag, GitHub Release and image publication, but does not undo that
+commit. The tag and GitHub Release are created only after the validation checks
+pass; their presence still does not prove either image was published.
+The pushes are sequential (v1, then v2), not transactional: v1 can succeed while v2
+fails, and even a failed push can leave some tags moved. Nothing rolls back an
+already-published tag. Inspect the job summary, handoff artifact, build logs, and
+registry digests for **both** images before handing the release to consumers. A
+missing recorded digest means no confirmed output, not proof the registry was
+untouched.
+
+Do not assume **Re-run failed jobs** resumes the push: it restarts the whole
+release job, checks out current `main`, and invokes Sampo again after the original
+changesets may already have been consumed. A fresh manual run also checks for
+changesets and can skip the release entirely. This workflow does not implement a
+publish-only recovery mode. Coordinate an explicitly approved recovery using the
+original release commit, specs pin, and verified distribution artifacts; verify
+both image/tag sets afterward. Do not add a new changeset merely to retry a push.
