@@ -13,6 +13,7 @@ from referencing import Registry, Resource
 
 from tests.test_feature_flag_rules_v2_contract import (
     CONTRACT_ROOT,
+    CORPUS_KINDS,
     REGISTRY_PATH,
     _all_errors,
     _bin_module,
@@ -225,7 +226,7 @@ def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
 def test_wire_ids_versions_and_file_coverage() -> None:
     ids = [a["fixture_id"] for a in MANIFEST["artifacts"] if a["kind"] == "fixture"]
     for artifact in MANIFEST["artifacts"]:
-        if artifact["kind"] in ["corpus", "fixture_set"]:
+        if artifact["kind"] in [*CORPUS_KINDS, "fixture_set"]:
             ids.extend(artifact["case_ids"])
     assert len(ids) == len(set(ids))
     assert all(re.fullmatch(MANIFEST["corpus"]["case_id_pattern"], item) for item in ids)
@@ -250,7 +251,7 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "2.1.0"
+    assert MANIFEST["contract"]["version"] == "2.2.0"
     assert MANIFEST["corpus"]["version"] == "1.1.0"
     assert MANIFEST["wire_contract"]["version"] == "1.0.0"
 
