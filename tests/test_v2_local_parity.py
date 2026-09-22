@@ -64,7 +64,7 @@ async def test_defects_fail_at_the_actual_observation_layer(
             "operation": "/get_feature_flag",
             "arguments": json_arguments(getter),
             "expected": decode_json(step.text.removeprefix("the local flag getter should return JSON ")),
-            "actual": actual_call["completion"]["outcome"]["value"],
+            "actual": actual_call["completion"]["outcome"],
         }
     if code == "local_inconclusive":
         assert evidence["details"]["arguments"] == json_arguments(step)
@@ -208,4 +208,4 @@ async def test_constant_default_and_undefined_results_cannot_satisfy_local_rules
     assert result["failure"]["code"] == code
     assert strict_exit_code(contracts, report) == 1
     details = diagnostics["cases"][0]["failure"]["details"]
-    assert details["actual"] == (outcome["value"] if outcome["kind"] == "value" else outcome)
+    assert details["actual"] == outcome

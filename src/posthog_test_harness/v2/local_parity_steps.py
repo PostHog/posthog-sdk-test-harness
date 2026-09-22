@@ -142,6 +142,6 @@ async def result(ctx, step, encoded):
             "operation": "/get_feature_flag",
             "arguments": ctx.local_flag_arguments,
             "expected": expected,
-            "actual": actual,
+            "actual": ctx.local_flag_outcome,
         },
     )

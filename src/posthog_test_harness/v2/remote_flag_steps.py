@@ -88,7 +88,7 @@ async def field(ctx, step, path, expected):
         value == expected,
         "flag_request_field",
         "Flags field differs",
-        details={**details, "actual": value},
+        details={**details, "actual": {"kind": "value", "value": value}},
     )
 
 
@@ -109,7 +109,7 @@ async def result(ctx, step, encoded):
             "operation": "/get_feature_flag",
             "arguments": ctx.remote_flag_arguments,
             "expected": expected,
-            "actual": outcome["value"] if outcome["kind"] == "value" else outcome,
+            "actual": outcome,
         },
     )
 
