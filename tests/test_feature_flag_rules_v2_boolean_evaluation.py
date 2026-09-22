@@ -17,6 +17,21 @@ def _bits(value: float) -> str:
     return struct.pack(">d", value).hex()
 
 
+@pytest.mark.parametrize("reason", ["targeting_match", "rollout_miss", "no_rule_match"])
+@pytest.mark.parametrize("include_rule", [False, True])
+def test_boolean_schema_requires_rule_only_for_terminal_rule_reasons(reason: str, include_rule: bool) -> None:
+    schema = Draft202012Validator(_load_json(CONTRACT_ROOT / "schemas/v2_boolean_evaluation.schema.json"))
+    expected = {"status": "success", "value": False, "reason": reason}
+    if include_rule:
+        expected["rule"] = {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "rule_type": "targeted_release",
+            "index": 0,
+        }
+    corpus = {**CORPUS, "cases": [{**CASES[0], "expected": expected}]}
+    assert schema.is_valid(corpus) == (include_rule == (reason != "no_rule_match"))
+
+
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
 def test_boolean_case_has_valid_inputs_and_complete_terminal_context(case: dict) -> None:
     expected = case["expected"]
