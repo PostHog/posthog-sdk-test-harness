@@ -1,7 +1,11 @@
 import hashlib
 import math
+import operator
+import re
 import struct
 from collections import Counter
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
@@ -100,10 +104,91 @@ def test_boolean_white_box_edges_use_exact_binary64(case: dict) -> None:
     assert (case["expected"]["reason"] == "targeting_match") == included
 
 
+def test_boolean_regex_cases_stay_within_the_documented_portable_subset() -> None:
+    for case in CASES:
+        for rule in case["config"]["rules"]:
+            for predicate in rule.get("targeting", {}).get("properties", []):
+                if predicate["operator"] not in ("regex", "not_regex"):
+                    continue
+                pattern = predicate["value"]
+                if pattern == "[":
+                    with pytest.raises(re.error):
+                        re.compile(pattern)
+                else:
+                    # Keep engine extensions and execution-budget assumptions out of shared cases.
+                    assert re.fullmatch(r"[A-Za-z^$()]+", pattern), case["id"]
+                    re.compile(pattern)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [case for case in CASES if case["id"].rsplit(".", 1)[-1] in ("regex", "not_regex", "regex_search")],
+    ids=lambda case: case["id"],
+)
+def test_boolean_regex_search_expectations(case: dict) -> None:
+    predicate = case["config"]["rules"][0]["targeting"]["properties"][0]
+    matched = re.search(predicate["value"], case["context"]["properties"][predicate["key"]]) is not None
+    if predicate["operator"] == "not_regex":
+        matched = not matched
+    if predicate["negation"]:
+        matched = not matched
+    assert (case["expected"]["reason"] == "targeting_match") == matched
+
+
+def _corpus_date_instant(value: object, context: dict) -> datetime | None:
+    """Independent oracle for the date formats exercised by this corpus."""
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, timezone.utc)
+    assert isinstance(value, str)
+    zone = ZoneInfo(context["timezone"])
+    relative_days = re.fullmatch(r"-?([0-9]+)d", value)
+    if relative_days:
+        now = datetime.fromisoformat(context["now"]).astimezone(zone).replace(tzinfo=None)
+        wall_clock = now - timedelta(days=int(relative_days[1]))
+    else:
+        try:
+            wall_clock = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if wall_clock.tzinfo is not None:
+            return wall_clock.astimezone(timezone.utc)
+
+    # Round-trip both offsets: a gap has no valid instant, an overlap has two.
+    instants = [wall_clock.replace(tzinfo=zone, fold=fold).astimezone(timezone.utc) for fold in (0, 1)]
+    valid = [instant for instant in instants if instant.astimezone(zone).replace(tzinfo=None) == wall_clock]
+    return min(valid, default=None)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        case
+        for case in CASES
+        if any(
+            predicate["operator"].startswith("is_date_")
+            for rule in case["config"]["rules"]
+            for predicate in rule.get("targeting", {}).get("properties", [])
+        )
+    ],
+    ids=lambda case: case["id"],
+)
+def test_boolean_date_expectations_match_independent_instant_arithmetic(case: dict) -> None:
+    rule = case["config"]["rules"][0]
+    predicate = rule["targeting"]["properties"][0]
+    subject = _corpus_date_instant(case["context"]["properties"][predicate["key"]], case["context"])
+    target = _corpus_date_instant(predicate["value"], case["context"])
+    compare = {"is_date_exact": operator.eq, "is_date_before": operator.lt, "is_date_after": operator.gt}
+    matched = subject is not None and target is not None and compare[predicate["operator"]](subject, target)
+    if predicate["negation"]:
+        matched = not matched
+    assert (case["expected"]["reason"] == "targeting_match") == matched
+    assert case["expected"]["value"] == (rule["value"] if matched else case["config"]["default_value"])
+
+
 def test_boolean_family_counts_make_consumer_scope_explicit() -> None:
     assert Counter(case["family"] for case in CASES) == {
         "ordering": 18,
-        "properties": 52,
+        "properties": 60,
         "context": 8,
         "errors": 6,
         "hashing": 20,

@@ -178,6 +178,41 @@ Malformed regex syntax and backtracking failures are evaluation errors, includin
 This is stricter than v1's invalid-pattern non-match behavior and does not change v1 expectations.
 Other operators reuse the existing property language, including null presence, case handling, semver normalization, and team-timezone date comparisons.
 
+### Regex coverage
+
+The shared regex cases use ASCII literals, `^`/`$` anchors, and ordinary capturing groups, with case-sensitive search semantics: an unanchored pattern may match a substring.
+`not_regex` complements a successful search result; predicate `negation` then complements that conclusive result once more.
+The unmatched `[` is a syntax error for both operators, and neither operator nor predicate negation converts that error to a match.
+These cases require no lookaround, backreferences, or engine-specific extensions.
+They do not define the complete regex dialect accepted by a consumer.
+
+Actual regex execution failures must remain errors, but this language-neutral corpus does not prescribe an execution budget or require a particular pattern to exhaust it.
+Engine-specific lookaround support and backtracking-limit tests belong with the implementation, where the engine and limit are known.
+A passing shared corpus alone does not establish support for those extensions.
+
+### Date comparisons
+
+Both the person property and filter value resolve to instants before comparison, using the same `context.now` and IANA `context.timezone`.
+`is_date_exact` compares instants for equality, including the time of day; it does not compare calendar dates or truncate to midnight.
+`is_date_before` and `is_date_after` use strict `<` and `>` comparisons, so equality matches neither.
+The `explicit_exact_matching` setting affects the separate `exact` operator, not these date operators.
+
+- A timestamp with `Z` or an explicit offset denotes that instant regardless of the team timezone.
+- A bare `YYYY-MM-DD` denotes midnight in the team timezone. A date and time without an offset denotes that wall-clock time in the team timezone.
+- Numeric person properties, including numeric strings, denote Unix epoch seconds.
+- Relative strings have the form `-?N[hdwmy]`, with an integer magnitude below 10,000. Both `1d` and `-1d` mean one day ago; the optional minus does not reverse the direction.
+- To resolve a relative value, first convert `context.now` to the team timezone and take its local wall clock. Subtract the magnitude there: hours, days, or seven-day weeks use wall-clock arithmetic; months and years subtract one calendar month or year at a time, clamping the day to the last valid day at each step. Preserve the time of day and fractional seconds. For example, two months before March 31, 2024 is January 29, 2024 after the intermediate February clamp.
+- Interpret the resulting wall clock in the team timezone, then convert it to an instant. During a fall-back overlap, choose the earlier instant. A spring-forward gap has no instant and produces a non-match. An unparseable property value also produces a non-match. Predicate negation applies afterwards to these conclusive non-matches.
+
+For `relative_dst`, `2024-03-31T12:00:00Z` is 14:00 in Oslo. Subtracting `-1d` gives March 30 at 14:00 local, or `2024-03-30T13:00:00Z`: 23 elapsed hours earlier.
+The paired miss case rejects `2024-03-30T12:00:00Z`, even though it is on the same local date and exactly 24 elapsed hours earlier.
+The fall-back cases similarly distinguish a 25-hour calendar day and the two occurrences of an overlapping wall-clock time; the gap case rejects a nonexistent time.
+
+These rules follow the reference consumer's [relative-date resolution](https://github.com/PostHog/posthog/blob/157973cc642c31bceb8fe00c566bb8aed0a3a38f/rust/feature-flags/src/properties/relative_date.rs) and [date comparisons](https://github.com/PostHog/posthog/blob/157973cc642c31bceb8fe00c566bb8aed0a3a38f/rust/feature-flags/src/properties/property_matching.rs).
+The corpus uses the explicit formats above; it does not require the reference consumer's additional best-effort absolute-date formats.
+
+### Terminal results and consumer scope
+
 `expected` is exhaustive: compare every field and reject unexpected fields.
 Success with a null value delegates to the caller default; success with false remains a configured result.
 `no_rule_match` carries no rule, while terminal matches and rollout misses carry the original UUID, kind, and zero-based index.
