@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.8.0 — 2026-09-22
+
+### Minor changes
+
+- [1e1a41e](https://github.com/posthog/posthog-sdk-test-harness/commit/1e1a41ed676a44026df6a888ac3d89c98cbb1f27) Add a language-neutral person boolean evaluation corpus with ordered rules, explicit context, hash evidence, and typed terminal expectations. Preserve the frozen v1 corpus and all published contract component bytes. — Thanks @andehen!
+
 ## 1.7.1 — 2026-09-22
 
 ### Patch changes
