@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.7.0 — 2026-09-22
+
+### Minor changes
+
+- [ba3f732](https://github.com/posthog/posthog-sdk-test-harness/commit/ba3f732bde601e7152e1c94474684ee71dffc633) Publish the opt-in `ghcr.io/posthog/sdk-test-harness-v2` image alongside the existing harness image under the approved release gate, with bundled pinned SDK specifications, multi-platform builds, and digest/provenance handoff artifacts. — Thanks @dustinbyrne!
+
 ## 1.6.0 — 2026-09-17
 
 ### Minor changes
