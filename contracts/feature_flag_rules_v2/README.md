@@ -167,7 +167,6 @@ The verifier reads the archive without extraction, requires its checksum index t
 
 Contract 2.2.0 adds `corpus/v2_boolean_evaluation.json` and its schema as a separate 1.0.0 component.
 The frozen v1 corpus, hash/variant vectors, schemas, registry, and wire fixtures keep their published bytes and versions.
-A minor harness changeset requests the next release; an unreleased commit pin does not establish a released dependency.
 
 Each case supplies a full config, explicit person identifier and property completeness, team timezone, exact-matching setting, and fixed evaluation time.
 The core consumes the resolved person distinct ID without device or experience-continuity overrides.
@@ -226,9 +225,10 @@ The corpus does not define a new response protocol.
 Hash evidence records UTF-8 bytes, the real SHA1 digest, its first 60 bits, and binary64 hash/threshold bits.
 The meta-tests independently recompute these values with Python hashlib and binary64 arithmetic.
 Identifiers truncate to 200 Unicode scalar values without normalization; predicate values remain intact.
+The truncation and normalization cases use thresholds that separate the correct digest from UTF-8 byte, UTF-16 code unit, NFC, and NFD mistakes.
 Empty identifiers are rollout misses even at 100%, so `on_rollout_miss` decides whether evaluation continues or returns the default; nonempty 100% bypasses hashing.
 At 0%, the inclusive zero-hash edge remains included.
-`white_box` rows prescribe a hash only through a consumer's private test seam and record equal, below, or next-binary64-above threshold evidence.
+`white_box` rows replay through a consumer's private test-only hook that passes `white_box.hash01_binary64_hex` straight into the rollout threshold comparison, skipping identifier hashing; each row records equal, below, or next-binary64-above threshold evidence.
 They supplement real digest cases and must not become a public override API.
 
 Consumers must report the `ordering`, `properties`, `context`, `errors`, `hashing`, `white_box`, `eligibility`, and `parser` families separately.

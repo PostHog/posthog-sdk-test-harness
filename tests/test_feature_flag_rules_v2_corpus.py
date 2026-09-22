@@ -7,7 +7,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _load_json, _manifest, _walk_json
+from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, CORPUS_KINDS, _load_json, _manifest, _walk_json
 
 SCALE = 0xFFFFFFFFFFFFFFF
 MAX_IDENTIFIER_SCALAR_VALUES = 200
@@ -16,7 +16,7 @@ SAFE_INTEGER = 2**53 - 1
 
 
 def _corpus_artifacts() -> list[dict[str, Any]]:
-    return [artifact for artifact in _manifest()["artifacts"] if artifact["kind"] == "corpus"]
+    return [artifact for artifact in _manifest()["artifacts"] if artifact["kind"] in CORPUS_KINDS]
 
 
 def _corpus(name: str) -> dict[str, Any]:
@@ -84,13 +84,16 @@ def test_manifest_declares_corpus_component_versions() -> None:
     ]
     schema_versions = {a["path"]: a["version"] for a in manifest["artifacts"] if a["kind"] == "schema"}
     for artifact in artifacts:
-        component_version = manifest[artifact.get("component", "corpus")]["version"]
-        assert artifact["version"] == component_version
-        assert schema_versions[artifact["schema"]] == component_version
+        component = manifest[artifact.get("component", "corpus")]
+        assert component["published_versions_are_immutable"] is True
+        assert artifact["version"] == component["version"]
+        assert schema_versions[artifact["schema"]] == component["version"]
         data = _load_json(CONTRACT_ROOT / artifact["path"])
-        assert data["corpus_version"] == component_version
+        assert data["corpus_version"] == component["version"]
+        if "config_version" in data:
+            assert data["config_version"] == component["config_version_locked"]
         schema = _load_json(CONTRACT_ROOT / artifact["schema"])
-        assert schema["$id"].endswith(":" + component_version)
+        assert schema["$id"].endswith(":" + component["version"])
 
 
 def test_corpus_files_match_their_companion_schemas() -> None:

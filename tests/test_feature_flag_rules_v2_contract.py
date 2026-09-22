@@ -16,6 +16,7 @@ SCHEMA_PATH = CONTRACT_ROOT / "schemas" / "config.schema.json"
 REGISTRY_PATH = CONTRACT_ROOT / "registries" / "literals.json"
 CHECKSUMS_PATH = CONTRACT_ROOT / "SHA256SUMS"
 BIN_ROOT = Path(__file__).parents[1] / "bin"
+CORPUS_KINDS = ("corpus", "boolean_evaluation_corpus")
 
 
 def _bin_module(name: str) -> Any:
