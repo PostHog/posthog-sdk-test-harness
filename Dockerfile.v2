@@ -1,0 +1,13 @@
+# Build context: the output directory of scripts/build_v2_distribution.py.
+# This opt-in image does not replace the legacy Dockerfile or published tags.
+FROM python:3.12.12-slim@sha256:f3fa41d74a768c2fce8016b98c191ae8c1bacd8f1152870a3f9f87d350920b7c
+
+WORKDIR /distribution
+COPY *.whl requirements.lock distribution.json ./
+RUN python -c 'import hashlib,json,pathlib,sys; manifest=json.loads(pathlib.Path("distribution.json").read_text()); files=[*pathlib.Path(".").glob("*.whl"),pathlib.Path("requirements.lock")]; sys.exit(0 if len(files)==2 and all(hashlib.sha256(p.read_bytes()).hexdigest()==manifest["artifacts"][p.name] for p in files) else "Distribution checksum mismatch")' \
+    && python -m pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && python -m pip install --no-cache-dir --no-deps ./*.whl \
+    && posthog-test-harness-v2 bundle-info > /distribution/verified-bundle.json
+
+WORKDIR /work
+ENTRYPOINT ["posthog-test-harness-v2"]

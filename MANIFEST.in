@@ -1,2 +1,4 @@
 graft contracts/feature_flag_rules_v2
 include bin/update-feature-flag-rules-v2-checksums.py
+recursive-include src/posthog_test_harness/v2/_bundle *
+include src/posthog_test_harness/v2/build-provenance.json

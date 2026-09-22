@@ -208,8 +208,11 @@ bin/test
 # Format code
 bin/fmt
 
-# Run tests
+# Run self-contained tests
 uv run pytest
+
+# Also run tests backed by a companion SDK specifications checkout
+SDK_V2_SPECS=/path/to/specs uv run pytest
 ```
 
 ### Contributing
@@ -245,10 +248,19 @@ Pin to a specific version in your CI for stability:
 test-harness-version: "1.0"  # Recommended: pin to major.minor
 ```
 
+## Harness v2 development
+
+The opt-in `posthog-test-harness-v2` command executes Gherkin through a compact
+HTTP adapter using public SDK operations and observed mock traffic. SDK repositories
+own their native adapters, builds and compliance callers. Existing v1 commands remain
+available. See the [v2 interface and operating guide](docs/harness-v2.md) and
+[self-contained distribution instructions](docs/harness-v2-distribution.md).
+
 ## Documentation
 
 - [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) - Complete guide to implementing adapters
 - [EXTENDING.md](EXTENDING.md) - How to add new tests and actions
+- [Harness v2](docs/harness-v2.md) - Feature selection, adapter contract, isolation and reporting
 - [CONTRACT.yaml](CONTRACT.yaml) - Main contract (references modular contracts)
 - [Feature Flag Rules v2](contracts/feature_flag_rules_v2/README.md) - Versioned config, definitions, response and event schemas, fixtures, and evaluation corpus
 - [contracts/](contracts/) - Modular contract definitions:

@@ -1,10 +1,11 @@
 """Mock PostHog server implementation."""
 
 import json
-from typing import Any, List
+from typing import Any, Callable, List
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Request, Response, jsonify, request
 
+from ..types import MockResponse
 from .endpoints import CaptureEndpoint, EndpointHandler, FlagsEndpoint
 from .state import MockServerState
 
@@ -12,14 +13,21 @@ from .state import MockServerState
 class MockServer:
     """Mock PostHog server with configurable responses."""
 
-    def __init__(self, state: MockServerState | None = None) -> None:
+    def __init__(
+        self,
+        state: MockServerState | None = None,
+        *,
+        response_provider: Callable[[Request], MockResponse | None] | None = None,
+    ) -> None:
         """
         Initialize the mock server.
 
         Args:
             state: Optional MockServerState to use (creates new one if not provided)
+            response_provider: Optional per-request response selection before recording.
         """
         self.state = state or MockServerState()
+        self.response_provider = response_provider
         self.app = Flask(__name__)
         self._setup_routes()
 
@@ -39,12 +47,14 @@ class MockServer:
                         # Record the request
                         # Normalize headers to lowercase for consistent handling
                         headers_lower = {k.lower(): v for k, v in dict(request.headers).items()}
+                        override = self.response_provider(request) if self.response_provider else None
                         recorded = self.state.record_request(
                             method=request.method,
                             path=request.path,
                             headers=headers_lower,
                             query_params=dict(request.args),
                             body_raw=request.get_data(),
+                            response_override=override,
                         )
 
                         # If a custom response was configured, return it directly

@@ -25,13 +25,14 @@ dependencies = [
     "aiohttp>=3.9.0",
     "click>=8.1.0",
     "pyyaml>=6.0.0",
+    "jsonschema>=4.23.0",
+    "gherkin-official==39.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
-    "jsonschema>=4.23.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
@@ -39,12 +40,13 @@ dev = [
 
 [project.scripts]
 posthog-test-harness = "posthog_test_harness.cli:main"
+posthog-test-harness-v2 = "posthog_test_harness.v2.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-posthog_test_harness = ["../../../CONTRACT.yaml"]
+posthog_test_harness = ["../../../CONTRACT.yaml", "v2/build-provenance.json", "v2/_bundle/*", "v2/_bundle/**/*"]
 
 [tool.black]
 line-length = 120

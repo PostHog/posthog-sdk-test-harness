@@ -32,6 +32,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict
 
+from .assertions import assert_request_count
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
 
 _RFC3339_UTC_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|\+00:00)")
@@ -379,11 +380,7 @@ class AssertRequestCountAction(Action):
         return "assert_request_count"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        requests = ctx.mock_server.get_requests()
-        actual = len(requests)
-        expected = params["expected"]
-        if actual != expected:
-            raise AssertionError(f"Expected {expected} requests, got {actual}")
+        assert_request_count(ctx.mock_server.get_requests(), params["expected"])
 
 
 class AssertRequestCountGteAction(Action):
