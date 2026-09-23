@@ -104,6 +104,44 @@ async def event_field(ctx, step, key, value):
     expect(json_equal(first_events(ctx)[0].get(key), value), "event_field", f"Received event field differs: {key}")
 
 
+@STEPS.step(r'the first received event field "([^"]*)" should be a UUID')
+async def event_field_uuid(ctx, step, key):
+    value = first_events(ctx)[0].get(key)
+    try:
+        valid = isinstance(value, str) and str(UUID(value)) == value.lower()
+    except ValueError:
+        valid = False
+    expect(valid, "event_field_uuid", f"Received event field is not a UUID: {key}")
+
+
+@STEPS.step("the first received identify event disables person-profile processing")
+async def identify_personless(ctx, step):
+    event = first_events(ctx)[0]
+    path = requests(ctx)[0].path
+    properties = event.get("properties")
+    expect(isinstance(properties, dict), "identify_personless", "Received event properties are not an object")
+    if path in ("/batch", "/batch/"):
+        expect(
+            json_equal(properties.get("$process_person_profile"), False),
+            "identify_personless",
+            "Legacy identify event does not disable person-profile processing",
+        )
+    elif path == "/i/v1/analytics/events":
+        options = event.get("options")
+        expect(
+            isinstance(options, dict) and json_equal(options.get("process_person_profile"), False),
+            "identify_personless",
+            "Capture v1 identify event does not disable person-profile processing",
+        )
+        expect(
+            "$process_person_profile" not in properties,
+            "identify_personless",
+            "Capture v1 identify event retains the legacy person-profile sentinel",
+        )
+    else:
+        expect(False, "identify_personless", f"Unexpected identify capture path: {path}")
+
+
 @STEPS.step(r'the first received event property "([^"]*)" should equal "([^"]*)"')
 async def event_property(ctx, step, key, value):
     expect(
