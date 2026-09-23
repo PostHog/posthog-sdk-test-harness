@@ -3,7 +3,7 @@
 import pytest
 
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts
-from posthog_test_harness.v2.discovery import discover, execution_route, feature_paths
+from posthog_test_harness.v2.discovery import acceptance_paths, discover, execution_route, feature_paths
 from posthog_test_harness.v2.gherkin import compile_feature, load_cases
 from posthog_test_harness.v2.migration import migration_paths, selection
 from posthog_test_harness.v2.report import strict_exit_code
@@ -34,6 +34,7 @@ def test_unlisted_local_feature_and_changed_content_are_executable_inputs(tmp_pa
     second = discover(tmp_path)
     assert first["inputs"] != second["inputs"]
     assert second["cases"][0]["status"] == "missing_harness"
+    assert first["cases"][0]["case_id"] == second["cases"][0]["case_id"] == "new.feature::A"
 
 
 def test_outline_case_tags_are_substituted_from_examples():
@@ -57,14 +58,60 @@ def test_outline_case_tags_are_substituted_from_examples():
     assert [c.steps[0].text for c in cases] == ["input 1", "input 2"]
 
 
-@pytest.mark.parametrize(
-    "tag", ["", "@case:<missing>", "@case:wrong", "@case:migration:yaml-parity-v1:a @case:migration:yaml-parity-v1:b"]
-)
-def test_missing_or_ambiguous_migrated_identity_fails(tag):
+def test_migrated_scenario_uses_feature_path_and_name_without_a_case_tag():
+    cases = compile_feature("Feature: F\n Scenario: S\n  Given step\n", "migration/yaml-parity-v1/a.feature", "source")
+    assert [case.id for case in cases] == ["migration/yaml-parity-v1/a.feature::S"]
+
+
+@pytest.mark.parametrize("tag", ["@case:<missing>", "@case:a @case:b"])
+def test_malformed_or_ambiguous_case_tag_fails(tag):
     with pytest.raises(BoundaryError):
-        compile_feature(
-            f"Feature: F\n {tag}\n Scenario: S\n  Given step\n", "migration/yaml-parity-v1/a.feature", "source"
-        )
+        compile_feature(f"Feature: F\n {tag}\n Scenario: S\n  Given step\n", "a.feature", "source")
+
+
+def test_unlabeled_outline_rows_have_distinct_source_locations():
+    cases = compile_feature(
+        "Feature: F\n Scenario Outline: Matrix\n  Given input <n>\n Examples:\n  | n |\n  | 1 |\n  | 2 |\n",
+        "a.feature",
+        "source",
+    )
+    assert [case.id for case in cases] == ["a.feature::Matrix#L6", "a.feature::Matrix#L7"]
+
+
+async def test_acceptance_tags_select_declared_sdk_type_without_legacy_scope_tags(tmp_path):
+    feature = tmp_path / "acceptance/public/tags.feature"
+    feature.parent.mkdir(parents=True)
+    feature.write_text(
+        """Feature: Scope
+ @sdk:server
+ Scenario: Server
+  Given an isolated SDK instance
+  When the SDK is initialized with token "test-token" and flush threshold 20
+ @sdk:client
+ Scenario: Client
+  Given an isolated SDK instance
+  When the SDK is initialized with token "test-token" and flush threshold 20
+ @sdk:server @sdk:client
+ Scenario: Both
+  Given an isolated SDK instance
+  When the SDK is initialized with token "test-token" and flush threshold 20
+ @server @both
+ Scenario: Legacy description only
+  Given an isolated SDK instance
+  When the SDK is initialized with token "test-token" and flush threshold 20
+"""
+    )
+    paths = acceptance_paths(tmp_path)
+    assert paths == ["acceptance/public/tags.feature"]
+    for runtime, expected in (
+        ("server", ["passed", "not_selected", "passed", "not_selected"]),
+        ("browser", ["not_selected", "passed", "passed", "not_selected"]),
+    ):
+        async with serve(Contracts(), host_type=AIHost, runtime=runtime) as (host, url):
+            report, _ = await run(Contracts(), tmp_path, paths, url, host.profile["id"], tagged_acceptance=True)
+        assert [row["result"]["status"] for row in report["results"]] == expected, report
+        assert len(host.fixtures) == 2
+        assert strict_exit_code(Contracts(), report) == 0
 
 
 def test_duplicate_case_selector_and_path_escape_fail(tmp_path):

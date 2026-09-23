@@ -41,17 +41,13 @@ def failure_diagnostics(error, step, case):
     return record
 
 
-def native_flag_sdk_type(case):
-    types = [tag.removeprefix("@sdk:") for tag in case.tags if tag.startswith("@sdk:")]
+def native_flag_sdk_types(case, *, include_legacy=True):
+    types = {tag.removeprefix("@sdk:") for tag in case.tags if tag.startswith("@sdk:")}
     # This existing canonical feature predates explicit @sdk applicability tags.
-    if case.source["path"] == "acceptance/public/on-feature-flags.feature":
-        types.append("client")
-    require(
-        len(set(types)) <= 1 and all(t in ("client", "server") for t in types),
-        "invalid_source",
-        "Conflicting or unknown SDK applicability",
-    )
-    return types[0] if types else None
+    if include_legacy and case.source["path"] == "acceptance/public/on-feature-flags.feature":
+        types.add("client")
+    require(types <= {"client", "server"}, "invalid_source", "Unknown SDK applicability")
+    return types
 
 
 async def run_case(client, case, profile, server, timeout_ms, diagnostics, report, registry):
@@ -61,7 +57,7 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
     cancel_count = asyncio.current_task().cancelling()
     caller_cancellation = None
     try:
-        if native_flag_sdk_type(case) is not None and "sdk_type" not in profile:
+        if native_flag_sdk_types(case) and "sdk_type" not in profile:
             raise BoundaryError(
                 "sdk_type_undeclared",
                 "Selected native flag scenario requires an explicit client/server SDK type declaration",
@@ -217,19 +213,33 @@ async def run(
     profile_id,
     *,
     case_ids=(),
+    tagged_acceptance=False,
     timeout_ms=5000,
     registry=STEPS,
     mock_bind_host="127.0.0.1",
     mock_advertised_host="127.0.0.1",
     allow_private_network=False,
 ):
+    require(not tagged_acceptance or not case_ids, "invalid_selector", "Tag-selected acceptance cannot use case IDs")
+    require(
+        not tagged_acceptance or all(str(path).startswith("acceptance/") for path in features),
+        "invalid_selector",
+        "Tag-selected acceptance requires acceptance feature paths",
+    )
     run_id = str(uuid4())
     report = {
         "contract_version": VERSION,
         "run_id": run_id,
         "scope_id": "gherkin-selection-v1:"
         + hashlib.sha256(
-            json.dumps({"features": sorted(features), "cases": sorted(case_ids)}, sort_keys=True).encode()
+            json.dumps(
+                {
+                    "features": sorted(features),
+                    "cases": sorted(case_ids),
+                    **({"tagged_acceptance": True} if tagged_acceptance else {}),
+                },
+                sort_keys=True,
+            ).encode()
         ).hexdigest(),
         "profiles": [],
         "inventory": [],
@@ -278,8 +288,14 @@ async def run(
                 report["errors"].append({"code": "invalid_selector", "message": "Unknown or duplicate case selector"})
             for case in cases:
                 identity = {"case_id": case.id, "source": case.source, "profile_id": profile_id}
-                selected = not invalid_selector and (not case_ids or case.id in case_ids)
-                reason = "Excluded by case selector"
+                required_types = native_flag_sdk_types(case)
+                declared_type = profile.get("sdk_type")
+                selected = (
+                    declared_type in native_flag_sdk_types(case, include_legacy=False)
+                    if tagged_acceptance
+                    else not invalid_selector and (not case_ids or case.id in case_ids)
+                )
+                reason = "SDK type not opted into acceptance case" if tagged_acceptance else "Excluded by case selector"
                 if case.migration:
                     decision = selection(
                         case, profile, client.negotiation["supported_routes"], explicit=case.id in case_ids
@@ -291,9 +307,7 @@ async def run(
                         {"case_id": case.id, **decision, "selected": selected, "reason": reason}
                     )
                 applicability = {"kind": "applicable"}
-                required_type = native_flag_sdk_type(case)
-                declared_type = profile.get("sdk_type")
-                if required_type is not None and declared_type is not None and declared_type != required_type:
+                if required_types and declared_type is not None and declared_type not in required_types:
                     applicability = {
                         "kind": "not_applicable",
                         "rule": "native-flag-sdk-type-v1",

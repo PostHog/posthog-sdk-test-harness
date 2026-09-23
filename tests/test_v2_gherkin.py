@@ -74,14 +74,16 @@ Feature: Types
 '''
     cases = compile_feature(text, "typed.feature", "test-revision")
     assert len(cases) == 3
-    for case, value in zip(cases, [0, False, None]):
+    for case, label, value in zip(cases, ["zero", "false", "null"], [0, False, None]):
         assert case.tags == ["@feature", "@rule", "@outline", "@examples"]
         assert [s.text for s in case.steps[:2]] == ["background", "rule background"]
         row = table(case.steps[2], {"string": "string", "json": "json"})[0]
         assert row["string"] == "false" and type(row["json"]) is type(value) and row["json"] == value
         arg = case.steps[3].argument["docString"]
         assert type(doc_string(arg["content"], arg["mediaType"])["value"]) is type(value)
-        assert case.steps[2].source["line"] == 11 and ":example-L" in case.id
+        assert case.steps[2].source["line"] == 11
+        assert case.name == f"Typed {label}"
+        assert case.source["line"] > case.steps[2].source["line"]
     assert len({c.id for c in cases}) == 3
 
 
