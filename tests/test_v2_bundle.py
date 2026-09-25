@@ -83,6 +83,12 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     data = json.loads(report.read_text())
     assert len(data["cases"]) == 157
     assert data["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
+    acceptance = runner.invoke(main, ["discover", "--acceptance-suite", "--require-ready", "--report", str(report)])
+    assert acceptance.exit_code == 0, acceptance.output
+    opted_in = json.loads(report.read_text())
+    assert len(opted_in["cases"]) == 5
+    assert all(case["status"] == "harness_ready" for case in opted_in["cases"])
+    assert all("@sdk:server" in case["tags"] for case in opted_in["cases"])
     info = runner.invoke(main, ["bundle-info"])
     assert info.exit_code == 0, info.output
     assert json.loads(info.output) == validate_bundle(snapshot)
@@ -94,3 +100,32 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     result = runner.invoke(main, args)
     assert result.exit_code != 0 and "No packaged specs bundle" in result.output
     assert runner.invoke(main, [*args, "--specs", str(specs)]).exit_code == 0
+
+
+def test_acceptance_discovery_checks_only_opted_in_cases(tmp_path):
+    feature = tmp_path / "acceptance/public/identity.feature"
+    feature.parent.mkdir(parents=True)
+    feature.write_text(
+        "Feature: Identity\n"
+        " @sdk:server\n"
+        " Scenario: Supported\n"
+        "  Given an isolated SDK instance\n"
+        " @client\n"
+        " Scenario: Not migrated\n"
+        "  Given a step the harness does not support\n"
+    )
+    report = tmp_path / "discovery.json"
+    args = ["discover", "--specs", str(tmp_path), "--acceptance-suite", "--require-ready", "--report", str(report)]
+    runner = CliRunner()
+    ready = runner.invoke(main, args)
+    assert ready.exit_code == 0, ready.output
+    assert [case["name"] for case in json.loads(report.read_text())["cases"]] == ["Supported"]
+
+    feature.write_text(feature.read_text().replace("an isolated SDK instance", "a step the harness does not support"))
+    missing = runner.invoke(main, args)
+    assert missing.exit_code == 1, missing.output
+    assert [case["status"] for case in json.loads(report.read_text())["cases"]] == ["missing_harness"]
+
+    feature.write_text(feature.read_text().replace("@sdk:server", "@server"))
+    empty = runner.invoke(main, args)
+    assert empty.exit_code != 0 and "No opted-in acceptance scenarios" in empty.output

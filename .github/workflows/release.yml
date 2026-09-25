@@ -20,7 +20,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: posthog/sdk-test-harness
   V2_IMAGE_NAME: posthog/sdk-test-harness-v2
-  SDK_SPECS_COMMIT: 8583749b4a634ec5881fa6af20057f39c89b0c64
+  SDK_SPECS_COMMIT: 1d5fe4255c7990e8c2c09613c600fda590baf3cb
 
 jobs:
   check-changesets:
@@ -245,6 +245,9 @@ jobs:
             docker run --rm --platform "linux/$arch" -v "$reports:/reports" \
               "sdk-test-harness-v2:release-smoke-$arch" discover --migration-suite --require-ready \
               --report /reports/discovery.json
+            docker run --rm --platform "linux/$arch" -v "$reports:/reports" \
+              "sdk-test-harness-v2:release-smoke-$arch" discover --acceptance-suite --require-ready \
+              --report /reports/acceptance-discovery.json
           done
 
       # Publish release metadata only after distribution and both image smokes pass.

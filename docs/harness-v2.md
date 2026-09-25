@@ -7,6 +7,8 @@ The opt-in `posthog-test-harness-v2` entry point runs SDK-independent Gherkin ov
 ```sh
 posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
   --migration-suite --require-ready --report discovery.json
+posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
+  --acceptance-suite --require-ready --report acceptance-discovery.json
 posthog-test-harness-v2 run --specs /path/to/sdk-specs \
   --migration-suite --adapter-url http://127.0.0.1:8080 \
   --profile PROFILE --timeout-ms 60000 --report report.json
@@ -15,7 +17,7 @@ posthog-test-harness-v2 run --specs /path/to/sdk-specs \
   --profile PROFILE --timeout-ms 60000 --report acceptance-report.json
 ```
 
-Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--migration-suite` runs the YAML-parity capabilities. `--acceptance-suite` discovers `acceptance/` features and selects only cases opted in with `@sdk:client` or `@sdk:server` for the adapter profile; unrelated cases remain visible but unselected. `--feature` selects relative paths for explicit inspection, and `--all-features` includes unresolved cases. `--case-id` remains an explicit debugging selector outside the tag-selected acceptance suite.
+Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--migration-suite` runs the YAML-parity capabilities. `discover --acceptance-suite` checks step bindings for all cases opted in with `@sdk:client` or `@sdk:server`, without contacting an adapter. `run --acceptance-suite` selects only the opted-in cases for the adapter profile; unrelated cases remain visible but unselected. `--feature` selects relative paths for explicit inspection, and `--all-features` includes unresolved cases. `--case-id` remains an explicit debugging selector outside the tag-selected acceptance suite.
 
 The same official Cucumber parser expands backgrounds, rules and outlines across both suites. Ordinary scenarios use feature path and scenario name as their report identity; Scenario Outlines may use `@case:<case_id>` with a unique `case_id` Examples column to label each row. Unmigrated outlines without labels use their source-row locations. The source-content revision remains in the report separately. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability in the migration suite and opt scenarios into tag-based acceptance selection. Both tags together opt the case in for either SDK type. Required routes come from step bindings; a missing required route does not silently exclude a selected case.
 
