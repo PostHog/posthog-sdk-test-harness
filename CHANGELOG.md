@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.9.0 — 2026-09-25
+
+### Minor changes
+
+- [9f56c54](https://github.com/posthog/posthog-sdk-test-harness/commit/9f56c54d34fe4ac988379482fe13996118a9fb69) Add opt-in v2 server identify and alias delivery assertions and distinguish JSON booleans from numbers in event-property comparisons. — Thanks @dustinbyrne!
+
 ## 1.8.0 — 2026-09-22
 
 ### Minor changes
