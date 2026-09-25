@@ -57,11 +57,10 @@ def compile_feature(text, path, revision):
     for pickle in pickles:
         declaration_id = pickle["astNodeIds"][0]
         seen.add(declaration_id)
-        line = nodes[declaration_id]["location"]["line"]
-        case_id = f"gherkin:{revision[:7]}:{path}:L{line}"
+        case_id = f"{path}::{pickle['name']}"
         if len(pickle["astNodeIds"]) > 1:
             row = nodes[pickle["astNodeIds"][1]]
-            case_id += f":example-L{row['location']['line']}"
+            case_id += f"#L{row['location']['line']}"
         steps = [
             Step(
                 step["text"],
@@ -85,12 +84,6 @@ def compile_feature(text, path, revision):
             "invalid_source",
             "Expected one literal stable case ID",
         )
-        if path.startswith(SUITE + "/"):
-            require(
-                len(identities) == 1 and identities[0].startswith("migration:yaml-parity-v1:"),
-                "invalid_source",
-                "Migrated scenario requires a stable @case: tag",
-            )
         if identities:
             case_id = identities[0]
         metadata = None

@@ -9,8 +9,8 @@ import click
 from .. import __version__
 from .bundle import specification_inputs
 from .contracts import BoundaryError, Contracts, decode_json, require
+from .discovery import acceptance_paths, feature_paths
 from .discovery import discover as discover_routes
-from .discovery import feature_paths
 from .migration import migration_paths
 from .network import validate_host
 from .report import strict_exit_code
@@ -41,6 +41,7 @@ def main():
 @click.option(
     "--migration-suite", is_flag=True, help="Execute the versioned YAML-parity suite (adapter-driven selection)"
 )
+@click.option("--acceptance-suite", is_flag=True, help="Run opted-in acceptance scenarios for the adapter SDK type")
 @click.option("--adapter-url", required=True)
 @click.option(
     "--allow-private-network",
@@ -64,7 +65,11 @@ def main():
     help="Host reachable by the SDK; each case still allocates its own ephemeral port.",
 )
 @click.option("--profile", required=True, help="Exact negotiated execution profile ID")
-@click.option("--case-id", multiple=True, help="Exact source case ID; unselected cases remain in the report")
+@click.option(
+    "--case-id",
+    multiple=True,
+    help="Exact reported case identity for debugging; cannot combine with --acceptance-suite",
+)
 @click.option("--timeout-ms", default=5000, type=click.IntRange(1, 60000), show_default=True)
 @click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
 def run(
@@ -72,6 +77,7 @@ def run(
     feature,
     all_features,
     migration_suite,
+    acceptance_suite,
     adapter_url,
     profile,
     case_id,
@@ -82,14 +88,20 @@ def run(
     allow_private_network,
 ):
     """Execute a selected feature scope and write a strict JSON report."""
-    if sum((bool(feature), all_features, migration_suite)) > 1:
-        raise click.UsageError("Use only one of --feature, --all-features or --migration-suite")
+    if sum((bool(feature), all_features, migration_suite, acceptance_suite)) > 1:
+        raise click.UsageError("Use only one of --feature, --all-features, --migration-suite or --acceptance-suite")
+    if acceptance_suite and case_id:
+        raise click.UsageError("--acceptance-suite selects by SDK type, not --case-id")
     try:
         with specification_inputs(specs) as (root, bundle):
             feature = (
                 migration_paths(root)
                 if migration_suite
-                else feature_paths(root) if all_features else feature or ("acceptance/public/flush.feature",)
+                else (
+                    acceptance_paths(root)
+                    if acceptance_suite
+                    else feature_paths(root) if all_features else feature or ("acceptance/public/flush.feature",)
+                )
             )
             schemas = Contracts()
             report, diagnostics = asyncio.run(
@@ -100,6 +112,7 @@ def run(
                     adapter_url,
                     profile,
                     case_ids=case_id,
+                    tagged_acceptance=acceptance_suite,
                     timeout_ms=timeout_ms,
                     mock_bind_host=mock_bind_host,
                     mock_advertised_host=mock_advertised_host,

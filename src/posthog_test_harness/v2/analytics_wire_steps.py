@@ -12,7 +12,7 @@ from uuid import UUID
 
 from .ai_steps import STEPS as PREVIOUS_STEPS
 from .ai_steps import first_events, json_arguments, requests, utc_instant
-from .contracts import decode_json
+from .contracts import decode_json, json_equal
 from .steps import Registry, expect, table
 
 STEPS = Registry()
@@ -150,8 +150,11 @@ async def capture_sequence(ctx, step, count):
 async def property_json(ctx, step, name, encoded):
     expected = decode_json(encoded)
     properties = first_events(ctx)[0].get("properties", {})
-    # The pinned property helper uses value equality, including Python's bool/number equality.
-    expect(properties.get(name) == expected, "event_property", f"Received property differs: {name}")
+    expect(
+        isinstance(properties, dict) and name in properties and json_equal(properties[name], expected),
+        "event_property",
+        f"Received property differs: {name}",
+    )
 
 
 @STEPS.step(r'the first received event property "([^"]*)" should be an object')

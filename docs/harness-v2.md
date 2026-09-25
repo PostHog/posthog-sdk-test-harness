@@ -10,11 +10,14 @@ posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
 posthog-test-harness-v2 run --specs /path/to/sdk-specs \
   --migration-suite --adapter-url http://127.0.0.1:8080 \
   --profile PROFILE --timeout-ms 60000 --report report.json
+posthog-test-harness-v2 run --specs /path/to/sdk-specs \
+  --acceptance-suite --adapter-url http://127.0.0.1:8080 \
+  --profile PROFILE --timeout-ms 60000 --report acceptance-report.json
 ```
 
-Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--feature` selects relative feature paths; `--all-features` includes unresolved canonical cases. `--case-id` explicitly selects stable identities, retaining missing prerequisites as failures rather than exclusions.
+Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--migration-suite` runs the YAML-parity capabilities. `--acceptance-suite` discovers `acceptance/` features and selects only cases opted in with `@sdk:client` or `@sdk:server` for the adapter profile; unrelated cases remain visible but unselected. `--feature` selects relative paths for explicit inspection, and `--all-features` includes unresolved cases. `--case-id` remains an explicit debugging selector outside the tag-selected acceptance suite.
 
-The official Cucumber parser expands backgrounds, rules and outlines. Scenario data uses inline tables and JSON doc strings; no file-data binding or generated inventory is needed. Migrated scenarios use `@case:<complete-id>`, or `@case:<case_id>` with a `case_id` Examples column. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability. Capabilities select candidates; a missing required route does not exclude a declared capability. Required routes come from step bindings. Non-migrated cases without explicit identities use content digest, path, declaration line and example line.
+The same official Cucumber parser expands backgrounds, rules and outlines across both suites. Ordinary scenarios use feature path and scenario name as their report identity; Scenario Outlines may use `@case:<case_id>` with a unique `case_id` Examples column to label each row. Unmigrated outlines without labels use their source-row locations. The source-content revision remains in the report separately. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability in the migration suite and opt scenarios into tag-based acceptance selection. Both tags together opt the case in for either SDK type. Required routes come from step bindings; a missing required route does not silently exclude a selected case.
 
 The migrated scope contains 157 cases. Canonical features are discoverable but many require operations or fixtures not yet implemented. Discovery readiness means steps are bound, not SDK conformance. Missing public operations are `unsupported_binding`; unavailable fixture controls are `blocked_fixture`; undefined steps are harness errors. Public getters such as `pending_events()` are legitimate future bindings when shared event/queued/in-flight/retry semantics are defined. Queue snapshots, evaluator hooks and fabricated counters are not substitutes. Retention and delivery may instead be proved by public flush/retry behavior and observed traffic where that preserves the scenario's assertion.
 
@@ -37,9 +40,36 @@ Completion is exactly one of:
 {"kind":"harness","failure":{"kind":"timeout","code":"deadline","message":"Operation timed out"}}
 ```
 
-`value` accepts JSON data including false, zero and null. Omitted arguments remain omitted. Native SDK throws are not transport errors, and scenario assertions determine whether a throw is acceptable. Adapters must pass representable invalid inputs to the SDK, faithfully translate native argument names, and avoid injected defaults, hidden flushes or corrective retries. Malformed requests, duplicate IDs and nonexistent fixtures produce non-200 JSON errors. The client retains bounded error detail. Request transport permits one second beyond the native deadline for a failure response; negotiation defaults to five seconds. No SDK result catalog is enforced globally.
+`value` accepts JSON data including false, zero and null. Omitted arguments remain omitted. Native SDK throws are not transport errors; public-operation throws fail acceptance cases and remain visible in the report. Adapters must pass representable invalid inputs to the SDK, faithfully translate native argument names, and avoid injected defaults, hidden flushes or corrective retries. Malformed requests, duplicate IDs and nonexistent fixtures produce non-200 JSON errors. The client retains bounded error detail. Request transport permits one second beyond the native deadline for a failure response; negotiation defaults to five seconds. No SDK result catalog is enforced globally.
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
+
+## Server identify and alias delivery
+
+Run `--acceptance-suite` with a server adapter profile to select the opted-in
+server identify and alias cases from the acceptance features. This includes the
+identify call without an explicit id; it checks a received personless `$identify`
+with a UUID-shaped root distinct id. The receiver assertion requires
+`properties.$process_person_profile: false` on legacy batch delivery or
+`options.process_person_profile: false` (without the legacy property) on Capture v1.
+Unmigrated client and validation cases remain
+unselected. The 157-case YAML-parity suite uses the same Gherkin runner but retains
+its independent capability-based selection.
+The steps `identify is called with JSON arguments:` and
+`alias is called with JSON arguments:` forward JSON doc strings unchanged to the
+negotiated `/identify` and `/alias` routes:
+
+- `/identify`: `{ "distinct_id": "user-123", "set": { "active": false, "score": 0, "note": null } }`
+- `/alias`: `{ "distinct_id": "anon-123", "alias": "user-123" }`
+
+Adapters translate these arguments to their public SDK methods. Unexpected operation
+throws fail the scenario. After public setup, operation and explicit flush, received
+events must have the exact event name (`$identify` or `$create_alias`), root
+`distinct_id`, and `$set` or `alias` property. For alias, root `distinct_id` is the
+previous identity and `properties.alias` is the target. JSON property assertions
+preserve boolean, numeric and null types and require the property to be present.
+These delivery cases require no private queue observations or identity persistence
+controls and do not establish broader client-side identity behavior.
 
 ## Black-box local evaluation
 

@@ -13,6 +13,12 @@ def feature_paths(specs):
     return paths
 
 
+def acceptance_paths(specs):
+    paths = sorted(p.relative_to(specs).as_posix() for p in (Path(specs) / "acceptance").rglob("*.feature"))
+    require(bool(paths), "zero_cases", "No acceptance features")
+    return paths
+
+
 def execution_route(case, registry=STEPS):
     """Declare actual bindings and retain every unresolved step with its source.
 

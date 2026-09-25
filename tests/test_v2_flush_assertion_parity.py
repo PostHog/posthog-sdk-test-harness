@@ -39,7 +39,9 @@ class RejectedFlushHost(LegacyCaptureHost):
 async def test_rejected_flush_preserves_request_assertions_and_harness_failures(
     contracts, defect, status, code, specs, case_ids
 ):
-    case_id = next(identity for identity in case_ids if identity.endswith(":does_not_retry_on_400"))
+    case_id = next(
+        identity for identity in case_ids if identity.endswith("::HTTP 400 produces one request after two seconds")
+    )
     async with serve(contracts, host_type=RejectedFlushHost, defect=defect) as (host, url):
         report, diagnostics = await run(
             contracts,
