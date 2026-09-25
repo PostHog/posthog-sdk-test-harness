@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.10.0 — 2026-09-25
+
+### Minor changes
+
+- [495fcf7](https://github.com/posthog/posthog-sdk-test-harness/commit/495fcf738c32c06a6c3278632b5ebf4f32faa304) Bundle the merged SDK specs with opted-in server identify and alias acceptance cases and named YAML-parity scenarios in the v2 image. — Thanks @dustinbyrne!
+
 ## 1.9.0 — 2026-09-25
 
 ### Minor changes
