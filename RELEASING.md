@@ -40,7 +40,7 @@ You can manually start the workflow from the Actions tab via `workflow_dispatch`
 ## V2 release inputs and handoff
 
 `.github/workflows/release.yml` tracks `SDK_SPECS_COMMIT`, currently
-`8583749b4a634ec5881fa6af20057f39c89b0c64` from `PostHog/sdk-specs` (PR67).
+`1d5fe4255c7990e8c2c09613c600fda590baf3cb` from `PostHog/sdk-specs` (PR75).
 Update this immutable commit pin through review, not a moving branch reference.
 The workflow checks out specs and writes distribution/smoke outputs under
 `RUNNER_TEMP`, outside the harness checkout. `scripts/build_v2_distribution.py`
