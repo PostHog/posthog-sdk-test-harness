@@ -245,6 +245,9 @@ jobs:
             docker run --rm --platform "linux/$arch" -v "$reports:/reports" \
               "sdk-test-harness-v2:release-smoke-$arch" discover --migration-suite --require-ready \
               --report /reports/discovery.json
+            docker run --rm --platform "linux/$arch" -v "$reports:/reports" \
+              "sdk-test-harness-v2:release-smoke-$arch" discover --acceptance-suite --require-ready \
+              --report /reports/acceptance-discovery.json
           done
 
       # Publish release metadata only after distribution and both image smokes pass.

@@ -151,13 +151,24 @@ def run(
 @click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
 @click.option("--require-ready", is_flag=True, help="Exit nonzero if any case has missing harness bindings")
 @click.option("--migration-suite", is_flag=True, help="Discover the versioned YAML-parity suite")
-def discover(specs, feature, report_path, require_ready, migration_suite):
+@click.option("--acceptance-suite", is_flag=True, help="Discover opted-in acceptance scenarios without an SDK host")
+def discover(specs, feature, report_path, require_ready, migration_suite, acceptance_suite):
     """List execution routes and missing steps without contacting an SDK host."""
-    if feature and migration_suite:
-        raise click.UsageError("Use --feature or --migration-suite, not both")
+    if sum((bool(feature), migration_suite, acceptance_suite)) > 1:
+        raise click.UsageError("Use only one of --feature, --migration-suite or --acceptance-suite")
     try:
         with specification_inputs(specs) as (root, bundle):
-            report = discover_routes(root, migration_paths(root) if migration_suite else feature or None)
+            paths = (
+                migration_paths(root)
+                if migration_suite
+                else acceptance_paths(root) if acceptance_suite else feature or None
+            )
+            report = discover_routes(root, paths)
+            if acceptance_suite:
+                report["cases"] = [
+                    case for case in report["cases"] if {"@sdk:client", "@sdk:server"}.intersection(case["tags"])
+                ]
+                require(bool(report["cases"]), "zero_cases", "No opted-in acceptance scenarios")
             report["distribution"] = distribution(bundle)
         report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     except (BoundaryError, OSError) as error:

@@ -65,7 +65,7 @@ def test_validation_precedes_release_metadata_and_publishing():
     assert step("Set up QEMU")["with"]["platforms"] == "arm64"
 
 
-@pytest.mark.parametrize("failed_arch,expected_calls", [("", 4), ("amd64", 1), ("arm64", 3)])
+@pytest.mark.parametrize("failed_arch,expected_calls", [("", 6), ("amd64", 1), ("arm64", 4)])
 def test_image_smoke_runs_both_platforms_and_propagates_failure(tmp_path, failed_arch, expected_calls):
     docker = tmp_path / "docker"
     docker.write_text(
@@ -89,14 +89,17 @@ def test_image_smoke_runs_both_platforms_and_propagates_failure(tmp_path, failed
     observed = calls.read_text().splitlines()
     assert len(observed) == expected_calls
     for index, call in enumerate(observed):
-        arch = "amd64" if index < 2 else "arm64"
+        arch = "amd64" if index < 3 else "arm64"
         assert f"--platform linux/{arch}" in call
         assert f"sdk-test-harness-v2:release-smoke-{arch}" in call
-        if index % 2 == 0:
+        if index % 3 == 0:
             assert call.endswith("bundle-info")
         else:
             assert f"{tmp_path}/v2-image-smoke/{arch}:/reports" in call
-            assert "discover --migration-suite --require-ready --report /reports/discovery.json" in call
+            suite = "migration" if index % 3 == 1 else "acceptance"
+            selector = "--migration-suite" if suite == "migration" else "--acceptance-suite"
+            report = "discovery.json" if suite == "migration" else "acceptance-discovery.json"
+            assert f"discover {selector} --require-ready --report /reports/{report}" in call
 
 
 @pytest.mark.parametrize("version,major,minor", [("0.9.3", "0", "0.9"), ("1.7.0", "1", "1.7")])
