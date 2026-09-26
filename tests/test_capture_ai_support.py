@@ -1,5 +1,6 @@
 """AI capture contracts respect the adapter's normal capture protocol."""
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -7,6 +8,7 @@ import pytest
 
 from posthog_test_harness.actions import AssertRequestPathAction
 from posthog_test_harness.contract import ContractExecutor
+from posthog_test_harness.mock_server.endpoints.capture import CaptureEndpoint
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.tests.context import TestContext as HarnessContext
@@ -75,3 +77,42 @@ async def test_request_path_assertion(expected, paths: list[str], passes: bool) 
     else:
         with pytest.raises(AssertionError):
             await AssertRequestPathAction().execute({"expected": expected}, ctx)
+
+
+@pytest.mark.parametrize("capabilities", [[], ["capture_v1"], ["capture_ai_v0"]])
+def test_v1_ai_contract_remains_opt_in(capabilities: list[str]) -> None:
+    suite = ContractTestSuite("capture_ai_v1", ContractExecutor())
+    assert suite.collect_tests("server", capabilities) == []
+
+
+EVENT_OPTIONS_TESTS = {
+    "event_options.unknown_option_passes_through",
+    "event_options.option_value_is_not_converted",
+    "event_options.option_wins_over_legacy_property",
+    "event_options.legacy_property_fills_unset_option",
+    "event_options.null_option_falls_back_to_legacy_property",
+}
+
+
+@pytest.mark.parametrize("suite_name", ["capture_v1", "capture_ai_v1"])
+def test_event_options_contract_is_opt_in(suite_name: str) -> None:
+    suite = ContractTestSuite(suite_name, ContractExecutor())
+
+    def gated(capabilities: list[str]) -> set[str]:
+        return {name for name, _ in suite.collect_tests("server", capabilities)} & EVENT_OPTIONS_TESTS
+
+    assert gated([suite_name]) == set()
+    assert gated([suite_name, "event_options"]) == EVENT_OPTIONS_TESTS
+
+
+@pytest.mark.parametrize("path", ["/i/v1/ai/events", "/i/v1/ai/events/"])
+def test_mock_answers_v1_ai_path_with_v1_results(path: str) -> None:
+    assert (path, "POST") in {(route, method) for route, method, _ in CaptureEndpoint().routes()}
+
+    uuid = "0198c0de-0000-7000-8000-000000000abc"
+    body = json.dumps({"created_at": "2025-01-02T03:04:05Z", "batch": [{"uuid": uuid, "event": "$ai_generation"}]})
+    request = MockServerState().record_request("POST", path, {"posthog-request-id": "rid-1"}, {}, body.encode())
+
+    assert json.loads(request.response_body) == {"results": {uuid: {"result": "ok"}}}
+    assert request.response_headers["PostHog-Request-Id"] == "rid-1"
+    assert "Date" in request.response_headers

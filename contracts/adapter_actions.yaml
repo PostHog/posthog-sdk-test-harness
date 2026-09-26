@@ -52,7 +52,7 @@
       options:
         type: object
         optional: true
-        description: V1 EventOptions overrides (cookieless_mode, disable_skew_correction, process_person_profile, product_tour_id)
+        description: V1 event options map; pass it to the SDK unchanged
 
   capture_ai:
     description: Call the SDK's capture_ai / captureAi method (dedicated AI capture endpoint)
@@ -73,7 +73,7 @@
       options:
         type: object
         optional: true
-        description: V1 EventOptions overrides (cookieless_mode, disable_skew_correction, process_person_profile, product_tour_id)
+        description: V1 event options map; pass it to the SDK unchanged
       uuid:
         type: string
         optional: true

@@ -125,8 +125,9 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | `capture` | `capture_v0` | `POST /batch` |
 | `capture_v1` | `capture_v1` | `POST /i/v1/analytics/events` |
 | `capture_ai` | `capture_ai_v0` | `POST /i/v0/ai/batch/` |
+| `capture_ai_v1` | `capture_ai_v1` | `POST /i/v1/ai/events` |
 
-Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`).
+Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`, `event_options`).
 
 ### Capabilities
 

@@ -7,7 +7,13 @@ from flask import Request
 from .base import EndpointHandler
 
 V1_CAPTURE_PATH = "/i/v1/analytics/events"
-V1_CAPTURE_PATHS = {V1_CAPTURE_PATH, f"{V1_CAPTURE_PATH}/"}
+V1_AI_CAPTURE_PATH = "/i/v1/ai/events"
+V1_CAPTURE_PATHS = {
+    V1_CAPTURE_PATH,
+    f"{V1_CAPTURE_PATH}/",
+    V1_AI_CAPTURE_PATH,
+    f"{V1_AI_CAPTURE_PATH}/",
+}
 
 
 def is_v1_capture_path(path: str) -> bool:
@@ -23,9 +29,11 @@ class CaptureEndpoint(EndpointHandler):
         v1_handler = self.handle_v1_request
 
         return [
-            # V1 capture endpoint
+            # V1 capture endpoints
             (V1_CAPTURE_PATH, "POST", v1_handler),
             (f"{V1_CAPTURE_PATH}/", "POST", v1_handler),
+            (V1_AI_CAPTURE_PATH, "POST", v1_handler),
+            (f"{V1_AI_CAPTURE_PATH}/", "POST", v1_handler),
             # Batch endpoint
             ("/batch", "POST", handler),
             ("/batch/", "POST", handler),

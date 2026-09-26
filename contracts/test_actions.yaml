@@ -97,6 +97,10 @@
         type: boolean
         optional: true
         description: Check if property exists
+      absent:
+        type: boolean
+        optional: true
+        description: Assert the property key is absent
       expected:
         type: any
         optional: true
