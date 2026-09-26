@@ -114,6 +114,10 @@ adapter_interface:
           description: >
             Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
             equivalent UTC instant before the SDK sends the event.
+        options:
+          type: object
+          optional: true
+          description: V1 event options map; pass it to the SDK unchanged
     response:
       type: object
       required: [success, uuid]
@@ -150,6 +154,10 @@ adapter_interface:
           description: >
             Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
             equivalent UTC instant before the SDK sends the event.
+        options:
+          type: object
+          optional: true
+          description: V1 event options map; pass it to the SDK unchanged
         uuid:
           type: string
           optional: true

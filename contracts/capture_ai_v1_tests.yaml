@@ -236,6 +236,9 @@
                 params:
                   expected: 2
               - action: assert_partial_batch_retry_pruning
+              - action: assert_request_path
+                params:
+                  expected: /i/v1/ai/events
 
       event_options:
         description: capture_ai carries event options in the per-event options object
