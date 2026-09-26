@@ -10,6 +10,7 @@ from posthog_test_harness.actions import (
     AssertBodyFieldAction,
     AssertEventFieldIsRfc3339Action,
     AssertEventOptionAction,
+    AssertEventPropertyAction,
     AssertEventsInBatchCountAction,
     AssertHeaderIsRfc3339Action,
     AssertUuidFormatAction,
@@ -200,6 +201,20 @@ class TestAssertEventOption:
             await AssertEventOptionAction().execute(
                 {"option": "cookieless_mode", "absent": True}, _ctx(requests)
             )
+
+
+class TestAssertEventPropertyAbsent:
+    @pytest.mark.asyncio
+    async def test_passes_when_property_is_missing(self):
+        requests = [_req(parsed_events=[{"properties": {"plan": "pro"}}])]
+        await AssertEventPropertyAction().execute({"property": "$cookieless_mode", "absent": True}, _ctx(requests))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("value", [True, None])
+    async def test_raises_when_property_is_present(self, value):
+        requests = [_req(parsed_events=[{"properties": {"$cookieless_mode": value}}])]
+        with pytest.raises(AssertionError):
+            await AssertEventPropertyAction().execute({"property": "$cookieless_mode", "absent": True}, _ctx(requests))
 
 
 class TestAssertBodyField:

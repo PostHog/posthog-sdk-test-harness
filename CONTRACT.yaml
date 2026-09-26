@@ -37,7 +37,8 @@ adapter_interface:
             List of capability strings declaring what the SDK supports.
             Used to filter which test suites and tests are run.
             Common values: "capture_v0", "capture_v1", "capture_ai_v0",
-            "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
+            "capture_ai_v1", "event_options", "encoding_gzip", "encoding_zstd",
+            "encoding_br", "encoding_deflate".
           default: []
 
   # Parallel test execution
@@ -113,6 +114,10 @@ adapter_interface:
           description: >
             Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
             equivalent UTC instant before the SDK sends the event.
+        options:
+          type: object
+          optional: true
+          description: V1 event options map; pass it to the SDK unchanged
     response:
       type: object
       required: [success, uuid]
@@ -149,6 +154,10 @@ adapter_interface:
           description: >
             Event timestamp. UTC is preferred; non-UTC offsets must be converted to the
             equivalent UTC instant before the SDK sends the event.
+        options:
+          type: object
+          optional: true
+          description: V1 event options map; pass it to the SDK unchanged
         uuid:
           type: string
           optional: true
@@ -349,6 +358,8 @@ test_suites:
   capture_v1: !include contracts/capture_analytics_v1_tests.yaml
   # Dedicated AI capture endpoint tests (capture_ai)
   capture_ai: !include contracts/capture_ai_tests.yaml
+  # Capture V1 AI endpoint tests (capture_ai on POST /i/v1/ai/events)
+  capture_ai_v1: !include contracts/capture_ai_v1_tests.yaml
 
   # Feature flag evaluation tests (decide request payloads)
   feature_flags: !include contracts/feature_flags_tests.yaml

@@ -470,6 +470,9 @@ class AssertEventPropertyAction(Action):
                 available_props = list(properties.keys())[:10]  # First 10 to avoid huge output
                 raise AssertionError(f"Event missing '{prop_name}' property. Available properties: {available_props}")
 
+        if params.get("absent") and prop_name in properties:
+            raise AssertionError(f"Event property '{prop_name}' should be absent, got {properties[prop_name]!r}")
+
         if "expected" in params:
             actual = properties.get(prop_name)
             expected = params["expected"]
