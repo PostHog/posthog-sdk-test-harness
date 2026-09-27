@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.11.0 — 2026-09-27
+
+### Minor changes
+
+- [a520a91](https://github.com/posthog/posthog-sdk-test-harness/commit/a520a916a04f2273ebf89b835079895b08e6431e) Add an opt-in `capture_ai_v1` suite for `POST /i/v1/ai/events`, and opt-in `event_options` tests for the caller options contract on both V1 capture suites. — Thanks @eli-r-ph!
+
 ## 1.10.0 — 2026-09-25
 
 ### Minor changes
