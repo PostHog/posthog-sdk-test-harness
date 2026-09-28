@@ -45,6 +45,35 @@ def _legacy(value: Any) -> dict[str, Any]:
     return {"enabled": True, "variant": None, "value": True, "payload": value}
 
 
+def _targets(rule: dict[str, Any], properties: dict[str, Any]) -> bool:
+    """Every predicate here is a non-negated person `exact` against a list, so matching is list membership."""
+    predicates = rule["targeting"]["properties"]
+    assert all(p["operator"] == "exact" and p["type"] == "person" and not p["negation"] for p in predicates)
+    return all(properties.get(p["key"]) in p["value"] for p in predicates)
+
+
+def _evaluate(case: dict) -> dict[str, Any]:
+    """Independent first-match walk; rollouts are 0 or 100 percent so no hashing is needed."""
+    config = case["config"]
+    for index, rule in enumerate(config["rules"]):
+        if not _targets(rule, case["context"]["properties"]):
+            continue
+        matched = {"id": rule["id"], "rule_type": rule["rule_type"], "index": index}
+        if rule["rule_type"] == "percentage_rollout":
+            assert rule["rollout_percentage"] in (0, 100) and case["context"]["identifier"]
+            if rule["rollout_percentage"] == 0:
+                if rule["on_rollout_miss"] == "continue":
+                    continue
+                return {
+                    "status": "success",
+                    "value": config["default_value"],
+                    "reason": "rollout_miss",
+                    "rule": matched,
+                }
+        return {"status": "success", "value": rule["value"], "reason": "targeting_match", "rule": matched}
+    return {"status": "success", "value": config["default_value"], "reason": "no_rule_match"}
+
+
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
 def test_value_case_has_valid_inputs_and_complete_terminal_context(case: dict) -> None:
     expected = case["expected"]
@@ -55,18 +84,7 @@ def test_value_case_has_valid_inputs_and_complete_terminal_context(case: dict) -
     assert case["id"].split(".")[1] in (config["return_type"], "parser")
     if expected["status"] == "parse_error":
         return
-    if "rule" in expected:
-        rule = config["rules"][expected["rule"]["index"]]
-        assert expected["rule"]["id"] == rule["id"]
-        assert expected["rule"]["rule_type"] == rule["rule_type"]
-        if expected["reason"] == "targeting_match":
-            assert _json(expected["value"]) == _json(rule["value"])
-        else:
-            assert rule["rule_type"] == "percentage_rollout"
-            assert rule["on_rollout_miss"] == "return_default"
-            assert _json(expected["value"]) == _json(config["default_value"])
-    else:
-        assert _json(expected["value"]) == _json(config["default_value"])
+    assert _json(expected) == _json(_evaluate(case))
     assert _json(case["legacy"]) == _json(_legacy(expected["value"]))
 
 
