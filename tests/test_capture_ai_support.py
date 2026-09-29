@@ -6,13 +6,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from posthog_test_harness.actions import AssertRequestPathAction
+from posthog_test_harness.actions import AssertRequestPathAction, CaptureAiMultipleAction
 from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.endpoints.capture import CaptureEndpoint
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.tests.context import TestContext as HarnessContext
 from posthog_test_harness.tests.suites import ContractTestSuite
+from posthog_test_harness.types import CaptureRequest
 
 
 @pytest.mark.asyncio
@@ -116,3 +117,57 @@ def test_mock_answers_v1_ai_path_with_v1_results(path: str) -> None:
     assert json.loads(request.response_body) == {"results": {uuid: {"result": "ok"}}}
     assert request.response_headers["PostHog-Request-Id"] == "rid-1"
     assert "Date" in request.response_headers
+
+
+ALL_CAPTURE_V1_CAPABILITIES = [
+    "capture_v1",
+    "capture_ai_v1",
+    "event_options",
+    "encoding_gzip",
+    "encoding_deflate",
+    "encoding_br",
+    "encoding_zstd",
+]
+
+# Analytics tests with no AI counterpart.
+ANALYTICS_ONLY_TESTS = {
+    # It captures nothing, so an AI copy would repeat it.
+    "batch_behavior.flush_with_no_events_sends_nothing",
+    # The backend applies the flag to analytics events only.
+    "geoip_and_historical_migration.historical_migration_set_in_body",
+}
+
+AI_ONLY_TESTS = {
+    "endpoint_and_method.capture_does_not_reroute_ai_named_events",
+    "event_format.capture_ai_keeps_supplied_uuid",
+}
+
+
+def _test_gates(suite_name: str) -> dict[str, object]:
+    suite = ContractTestSuite(suite_name, ContractExecutor())
+    return {name: test.get("requires") for name, test in suite.collect_tests("server", ALL_CAPTURE_V1_CAPABILITIES)}
+
+
+def test_v1_ai_suite_mirrors_v1_analytics_suite() -> None:
+    analytics = _test_gates("capture_v1")
+    ai = _test_gates("capture_ai_v1")
+
+    assert ANALYTICS_ONLY_TESTS <= analytics.keys()
+    assert AI_ONLY_TESTS <= ai.keys()
+    shared = {name: gate for name, gate in analytics.items() if name not in ANALYTICS_ONLY_TESTS}
+    assert {name: gate for name, gate in ai.items() if name not in AI_ONLY_TESTS} == shared
+
+
+@pytest.mark.asyncio
+async def test_capture_ai_multiple_sends_every_event_through_capture_ai() -> None:
+    adapter = AsyncMock(spec=SDKAdapterClient)
+    ctx = SimpleNamespace(sdk_adapter=adapter)
+    template = {"distinct_id": "user_{index}", "event": "$ai_generation", "options": {"cookieless_mode": True}}
+
+    await CaptureAiMultipleAction().execute({"count": 2, "params": template}, ctx)
+
+    assert [call.args[0] for call in adapter.capture_ai.await_args_list] == [
+        CaptureRequest(distinct_id=f"user_{i}", event="$ai_generation", options={"cookieless_mode": True})
+        for i in range(2)
+    ]
+    adapter.capture.assert_not_awaited()
