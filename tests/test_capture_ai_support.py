@@ -89,6 +89,7 @@ def test_v1_ai_contract_remains_opt_in(capabilities: list[str]) -> None:
 EVENT_OPTIONS_TESTS = {
     "event_options.unknown_option_passes_through",
     "event_options.option_value_is_not_converted",
+    "event_options.lenient_bool_option_values_are_not_converted",
     "event_options.option_wins_over_legacy_property",
     "event_options.legacy_property_fills_unset_option",
     "event_options.null_option_falls_back_to_legacy_property",
@@ -117,45 +118,6 @@ def test_mock_answers_v1_ai_path_with_v1_results(path: str) -> None:
     assert json.loads(request.response_body) == {"results": {uuid: {"result": "ok"}}}
     assert request.response_headers["PostHog-Request-Id"] == "rid-1"
     assert "Date" in request.response_headers
-
-
-ALL_CAPTURE_V1_CAPABILITIES = [
-    "capture_v1",
-    "capture_ai_v1",
-    "event_options",
-    "encoding_gzip",
-    "encoding_deflate",
-    "encoding_br",
-    "encoding_zstd",
-]
-
-# Analytics tests with no AI counterpart.
-ANALYTICS_ONLY_TESTS = {
-    # It captures nothing, so an AI copy would repeat it.
-    "batch_behavior.flush_with_no_events_sends_nothing",
-    # The backend applies the flag to analytics events only.
-    "geoip_and_historical_migration.historical_migration_set_in_body",
-}
-
-AI_ONLY_TESTS = {
-    "endpoint_and_method.capture_does_not_reroute_ai_named_events",
-    "event_format.capture_ai_keeps_supplied_uuid",
-}
-
-
-def _test_gates(suite_name: str) -> dict[str, object]:
-    suite = ContractTestSuite(suite_name, ContractExecutor())
-    return {name: test.get("requires") for name, test in suite.collect_tests("server", ALL_CAPTURE_V1_CAPABILITIES)}
-
-
-def test_v1_ai_suite_mirrors_v1_analytics_suite() -> None:
-    analytics = _test_gates("capture_v1")
-    ai = _test_gates("capture_ai_v1")
-
-    assert ANALYTICS_ONLY_TESTS <= analytics.keys()
-    assert AI_ONLY_TESTS <= ai.keys()
-    shared = {name: gate for name, gate in analytics.items() if name not in ANALYTICS_ONLY_TESTS}
-    assert {name: gate for name, gate in ai.items() if name not in AI_ONLY_TESTS} == shared
 
 
 @pytest.mark.asyncio

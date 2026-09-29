@@ -550,7 +550,8 @@ class AssertEventOptionAction(Action):
         if "expected" in params:
             actual = options.get(option_name)
             expected = params["expected"]
-            if actual != expected:
+            # Python treats False == 0 and True == 1, which would hide an SDK converting a value.
+            if actual != expected or isinstance(actual, bool) != isinstance(expected, bool):
                 raise AssertionError(
                     f"Expected option {option_name}='{expected}', got '{actual}'. "
                     f"Present options: {list(options.keys())}"

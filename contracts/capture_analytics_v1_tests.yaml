@@ -1985,6 +1985,35 @@
                   option: process_person_profile
                   expected: "no"
 
+          - name: lenient_bool_option_values_are_not_converted
+            description: The SDK sends boolean options in any form PostHog accepts unchanged, for PostHog to parse
+            requires: event_options
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  options:
+                    cookieless_mode: "YES"
+                    disable_skew_correction: 0.0
+                    process_person_profile: "off"
+              - action: flush
+              - action: assert_event_option
+                params:
+                  option: cookieless_mode
+                  expected: "YES"
+              - action: assert_event_option
+                params:
+                  option: disable_skew_correction
+                  expected: 0.0
+              - action: assert_event_option
+                params:
+                  option: process_person_profile
+                  expected: "off"
+
           - name: option_wins_over_legacy_property
             description: An explicit option beats its legacy $ property, which never reaches properties
             requires: event_options
