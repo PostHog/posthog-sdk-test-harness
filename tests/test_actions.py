@@ -195,6 +195,15 @@ class TestAssertEventOption:
             )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("sent,expected", [(False, 0.0), (True, 1), (0, False), (1.0, True)])
+    async def test_bool_never_matches_number(self, sent, expected):
+        requests = [_req(parsed_events=[{"options": {"disable_skew_correction": sent}}])]
+        with pytest.raises(AssertionError):
+            await AssertEventOptionAction().execute(
+                {"option": "disable_skew_correction", "expected": expected}, _ctx(requests)
+            )
+
+    @pytest.mark.asyncio
     async def test_absent_raises_when_present(self):
         requests = [_req(parsed_events=[{"options": {"cookieless_mode": True}}])]
         with pytest.raises(AssertionError):
