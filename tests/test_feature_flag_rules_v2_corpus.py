@@ -81,6 +81,7 @@ def test_manifest_declares_corpus_component_versions() -> None:
         "corpus/v1_evaluation.json",
         "corpus/legacy_projection.json",
         "corpus/v2_boolean_evaluation.json",
+        "corpus/v2_value_evaluation.json",
     ]
     schema_versions = {a["path"]: a["version"] for a in manifest["artifacts"] if a["kind"] == "schema"}
     for artifact in artifacts:
