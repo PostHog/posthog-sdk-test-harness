@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.13.0 — 2026-09-30
+
+### Minor changes
+
+- [3c49913](https://github.com/posthog/posthog-sdk-test-harness/commit/3c49913d8992a211f742f8be0502ad165fc3703b) Add a string, number and object evaluation corpus for feature flag rules v2 with the legacy response rendering of each result. Preserve every published contract component. — Thanks @andehen!
+
 ## 1.12.0 — 2026-09-29
 
 ### Minor changes
