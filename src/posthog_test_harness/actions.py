@@ -195,6 +195,9 @@ class CaptureMultipleAction(Action):
     def name(self) -> str:
         return "capture_multiple"
 
+    async def _capture(self, ctx: "TestContext", request: CaptureRequest) -> Any:
+        return await ctx.sdk_adapter.capture(request)
+
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         count = params["count"]
         template = params["params"]
@@ -209,18 +212,31 @@ class CaptureMultipleAction(Action):
                 else:
                     event_params[key] = value
 
-            result = await ctx.sdk_adapter.capture(
+            result = await self._capture(
+                ctx,
                 CaptureRequest(
                     distinct_id=event_params["distinct_id"],
                     event=event_params["event"],
                     properties=event_params.get("properties"),
                     timestamp=event_params.get("timestamp"),
                     options=event_params.get("options"),
-                )
+                    uuid=event_params.get("uuid"),
+                ),
             )
             results.append(result)
 
         return results
+
+
+class CaptureAiMultipleAction(CaptureMultipleAction):
+    """Capture multiple events on the dedicated AI capture endpoint."""
+
+    @property
+    def name(self) -> str:
+        return "capture_ai_multiple"
+
+    async def _capture(self, ctx: "TestContext", request: CaptureRequest) -> Any:
+        return await ctx.sdk_adapter.capture_ai(request)
 
 
 class GetFeatureFlagAction(Action):
@@ -534,7 +550,8 @@ class AssertEventOptionAction(Action):
         if "expected" in params:
             actual = options.get(option_name)
             expected = params["expected"]
-            if actual != expected:
+            # Python treats False == 0 and True == 1, which would hide an SDK converting a value.
+            if actual != expected or isinstance(actual, bool) != isinstance(expected, bool):
                 raise AssertionError(
                     f"Expected option {option_name}='{expected}', got '{actual}'. "
                     f"Present options: {list(options.keys())}"

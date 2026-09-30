@@ -1,5 +1,17 @@
 # posthog-sdk-test-harness
 
+## 1.13.0 — 2026-09-30
+
+### Minor changes
+
+- [3c49913](https://github.com/posthog/posthog-sdk-test-harness/commit/3c49913d8992a211f742f8be0502ad165fc3703b) Add a string, number and object evaluation corpus for feature flag rules v2 with the legacy response rendering of each result. Preserve every published contract component. — Thanks @andehen!
+
+## 1.12.0 — 2026-09-29
+
+### Minor changes
+
+- [53cbbfd](https://github.com/posthog/posthog-sdk-test-harness/commit/53cbbfd707da782a8c7877b18a995da3b2f61b12) Bring the `capture_ai_v1` suite to parity with `capture_v1`: it now runs the same header, body, event, batching, retry, partial-batch, response, compression, options and geoip tests on `POST /i/v1/ai/events`. Adds a `capture_ai_multiple` test action, and a test in both v1 suites that the SDK sends lenient boolean option values unchanged. `assert_event_option` no longer treats a boolean as equal to a number. — Thanks @eli-r-ph!
+
 ## 1.11.0 — 2026-09-27
 
 ### Minor changes

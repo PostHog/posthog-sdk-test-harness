@@ -6,13 +6,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from posthog_test_harness.actions import AssertRequestPathAction
+from posthog_test_harness.actions import AssertRequestPathAction, CaptureAiMultipleAction
 from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.endpoints.capture import CaptureEndpoint
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.tests.context import TestContext as HarnessContext
 from posthog_test_harness.tests.suites import ContractTestSuite
+from posthog_test_harness.types import CaptureRequest
 
 
 @pytest.mark.asyncio
@@ -88,6 +89,7 @@ def test_v1_ai_contract_remains_opt_in(capabilities: list[str]) -> None:
 EVENT_OPTIONS_TESTS = {
     "event_options.unknown_option_passes_through",
     "event_options.option_value_is_not_converted",
+    "event_options.lenient_bool_option_values_are_not_converted",
     "event_options.option_wins_over_legacy_property",
     "event_options.legacy_property_fills_unset_option",
     "event_options.null_option_falls_back_to_legacy_property",
@@ -116,3 +118,18 @@ def test_mock_answers_v1_ai_path_with_v1_results(path: str) -> None:
     assert json.loads(request.response_body) == {"results": {uuid: {"result": "ok"}}}
     assert request.response_headers["PostHog-Request-Id"] == "rid-1"
     assert "Date" in request.response_headers
+
+
+@pytest.mark.asyncio
+async def test_capture_ai_multiple_sends_every_event_through_capture_ai() -> None:
+    adapter = AsyncMock(spec=SDKAdapterClient)
+    ctx = SimpleNamespace(sdk_adapter=adapter)
+    template = {"distinct_id": "user_{index}", "event": "$ai_generation", "options": {"cookieless_mode": True}}
+
+    await CaptureAiMultipleAction().execute({"count": 2, "params": template}, ctx)
+
+    assert [call.args[0] for call in adapter.capture_ai.await_args_list] == [
+        CaptureRequest(distinct_id=f"user_{i}", event="$ai_generation", options={"cookieless_mode": True})
+        for i in range(2)
+    ]
+    adapter.capture.assert_not_awaited()

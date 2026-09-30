@@ -91,6 +91,18 @@
         required: true
         description: Template for event parameters (can use {index} placeholder)
 
+  capture_ai_multiple:
+    description: Capture multiple events with capture_ai (dedicated AI capture endpoint)
+    params:
+      count:
+        type: integer
+        required: true
+        description: Number of events to capture
+      params:
+        type: object
+        required: true
+        description: Template for capture_ai parameters (can use {index} placeholder)
+
   get_feature_flag:
     description: Evaluate a feature flag via the adapter
     params:
