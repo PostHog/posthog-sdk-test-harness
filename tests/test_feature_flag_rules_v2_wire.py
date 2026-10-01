@@ -32,7 +32,7 @@ MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
 ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
-PRODUCER_DIGEST = "1dd97730c746bc4534c4f47eebd82dac0cc67ceb1e4c53e7540960e7f74b00d9"
+PRODUCER_DIGEST = "98c1397bb7b5a1ceb3f317b34c6c57cff0ab30e94bf5945ee7b56f293536b70f"
 FROZEN_POLICY = "published bytes are immutable; a wire change publishes a new schema file under a new $id (README)"
 PRESENCE = _bin_module("update-feature-flag-rules-v2-presence-schemas")
 # Keys of these maps are customer-chosen names (flag keys, group types, person properties), not protocol fields.
@@ -251,9 +251,9 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "2.3.0"
+    assert MANIFEST["contract"]["version"] == "2.3.1"
     assert MANIFEST["corpus"]["version"] == "1.1.0"
-    assert MANIFEST["wire_contract"]["version"] == "1.0.0"
+    assert MANIFEST["wire_contract"]["version"] == "1.0.1"
 
 
 def test_wire_schemas_and_literal_registry_agree() -> None:
@@ -300,6 +300,14 @@ def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
     producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
     assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST, f"flags_response_v3.schema.json: {FROZEN_POLICY}"
     assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST, "manifest pins the producer copy"
+
+
+def test_v1_variant_keys_are_carried_verbatim() -> None:
+    # The PostHog API never restricted v1 variant keys; stored flags carry dots, slashes and spaces.
+    response = copy.deepcopy(SETS["responses"]["templates"]["v1"])
+    record = response["flags"]["garden-layout"]
+    record["value"] = record["metadata"]["variant_key"] = "provider/model-1.2 beta"
+    assert response_errors(response) == []
 
 
 def row_name(row: dict[str, Any]) -> str:

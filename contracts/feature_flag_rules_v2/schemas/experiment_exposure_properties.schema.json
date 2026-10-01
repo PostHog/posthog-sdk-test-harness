@@ -36,8 +36,7 @@
       "const": 2
     },
     "$feature_flag_variant": {
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9_-]+$"
+      "type": "string"
     },
     "$feature_flag_rule_id": {
       "type": "string",
