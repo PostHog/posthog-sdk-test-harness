@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.13.1 — 2026-10-01
+
+### Patch changes
+
+- [f572782](https://github.com/posthog/posthog-sdk-test-harness/commit/f5727821bc7ee95485e21d816a72b728f603706b) Correct the feature flag rules v2 wire schemas (contract package 2.3.1): `metadata.variant_key` in the v3 response and `$feature_flag_variant` in the event contexts accept any string, because the PostHog API never restricted version 1 variant keys. — Thanks @andehen!
+
 ## 1.13.0 — 2026-09-30
 
 ### Minor changes
