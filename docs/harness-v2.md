@@ -46,10 +46,10 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
-## Server identify and alias delivery
+## Server identity delivery
 
 Run `--acceptance-suite` with a server adapter profile to select the opted-in
-server identify and alias cases from the acceptance features. This includes the
+server identify, alias and group-identify cases from the acceptance features. This includes the
 identify call without an explicit id; it checks a received personless `$identify`
 with a UUID-shaped root distinct id. The receiver assertion requires
 `properties.$process_person_profile: false` on legacy batch delivery or
@@ -59,10 +59,12 @@ unselected. The 157-case YAML-parity suite uses the same Gherkin runner but reta
 its independent capability-based selection.
 The steps `identify is called with JSON arguments:` and
 `alias is called with JSON arguments:` forward JSON doc strings unchanged to the
-negotiated `/identify` and `/alias` routes:
+negotiated `/identify` and `/alias` routes. The step
+`group identify is called with JSON arguments:` similarly invokes `/group_identify`:
 
 - `/identify`: `{ "distinct_id": "user-123", "set": { "active": false, "score": 0, "note": null } }`
 - `/alias`: `{ "distinct_id": "anon-123", "alias": "user-123" }`
+- `/group_identify`: `{ "group_type": "company", "group_key": "company-123", "distinct_id": "user-123", "properties": { "plan": "pro" } }`
 
 Adapters translate these arguments to their public SDK methods. Unexpected operation
 throws fail the scenario. After public setup, operation and explicit flush, received
@@ -71,7 +73,10 @@ events must have the exact event name (`$identify` or `$create_alias`), root
 previous identity and `properties.alias` is the target. JSON property assertions
 preserve boolean, numeric and null types and require the property to be present.
 These delivery cases require no private queue observations or identity persistence
-controls and do not establish broader client-side identity behavior.
+controls and do not establish broader client-side identity behavior. Group-identify
+cases check `$groupidentify`, the explicit root distinct ID, `$group_type`, `$group_key`,
+and supplied scalar or nested JSON properties under `$group_set`. A call without
+properties is checked for delivery and group identity.
 
 ## Black-box local evaluation
 

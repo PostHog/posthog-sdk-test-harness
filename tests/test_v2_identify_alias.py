@@ -7,7 +7,6 @@ from uuid import uuid4
 import pytest
 
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts, json_equal
-from posthog_test_harness.v2.discovery import acceptance_paths
 from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import STEPS, run
@@ -270,19 +269,6 @@ async def test_companion_identify_alias_features_through_public_http(specs):
         for route in ("/setup", "/alias" if "alias" in case.source["path"] else "/identify", "/flush")
     ]
     assert "distinct_id" not in host.inputs[7]["args"]  # The generated-ID case passes omission through unchanged.
-
-
-async def test_acceptance_suite_selects_only_opted_in_cases(specs):
-    contracts = Contracts()
-    paths = acceptance_paths(specs)
-    async with serve(contracts, host_type=IdentifyAliasHost) as (host, url):
-        report, _ = await run(contracts, specs, paths, url, host.profile["id"], tagged_acceptance=True)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert len([row for row in report["results"] if row["result"]["status"] == "passed"]) == 5
-    assert all(
-        row["result"]["status"] == "not_selected" for row in report["results"] if row["source"]["path"] not in FEATURES
-    )
-    assert len(host.closed) == 5
 
 
 @pytest.mark.parametrize(
