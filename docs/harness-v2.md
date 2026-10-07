@@ -78,6 +78,27 @@ cases check `$groupidentify`, the explicit root distinct ID, `$group_type`, `$gr
 and supplied scalar or nested JSON properties under `$group_set`. A call without
 properties is checked for delivery and group identity.
 
+## Server exception delivery
+
+The opted-in server cases in `acceptance/public/capture-exception.feature` report a
+native handled exception, flush publicly, and inspect received `$exception` events.
+The step `capture exception is called with JSON arguments:` forwards a JSON object
+unchanged to the negotiated `/capture_exception` route, for example:
+
+```json
+{"error":{"type":"TypeError","message":"boom"},"distinct_id":"exception-user","properties":{"area":"checkout","retryable":false,"attempt":0}}
+```
+
+The error descriptor selects a native test exception with its own runtime stack.
+The adapter constructs that fixture and invokes the public exception method; the
+SDK owns normalization and event construction. The route does not implicitly flush.
+Unsupported native fixtures are harness failures, while unexpected SDK throws fail
+the scenario. Delivery checks use `properties.$exception_list[0].type`, `.value`,
+`.mechanism.handled`, and nonempty `.stacktrace.frames`, plus caller identity and
+supplied scalar/nested JSON properties. A second case omits caller properties.
+These cases exercise manual reporting, not automatic fatal-error or next-launch
+crash recovery.
+
 ## Black-box local evaluation
 
 A fresh receiver loads controlled definitions through the mock definitions service using public SDK configuration. Scenarios call the local-only getter directly after initialization and compare conclusive results with exact expectations, recording authenticated HTTP 200 definitions fetched during setup or initial evaluation. When definitions change, scenarios explicitly reload through the public SDK method, require fresh authenticated HTTP 200 definitions within five seconds, and evaluate again. Different properties and changed definitions detect constants, defaults and stale reloads. Definitions downloads are allowed; `/flags` and `/decide` requests are forbidden throughout setup, loading, evaluation and public cleanup. No private evaluator observation is required.

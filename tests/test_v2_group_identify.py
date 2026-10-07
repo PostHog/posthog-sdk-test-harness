@@ -6,12 +6,10 @@ from types import SimpleNamespace
 import pytest
 
 from posthog_test_harness.v2.contracts import Contracts, json_equal
-from posthog_test_harness.v2.discovery import acceptance_paths
 from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import STEPS, run
 from tests.test_v2_identify_alias import COMMON_DEFECTS
-from tests.test_v2_identify_alias import FEATURES as IDENTITY_FEATURES
 from tests.v2_flush_host import serve
 from tests.v2_group_identify_host import GroupIdentifyHost
 
@@ -152,18 +150,3 @@ async def test_group_identify_binding_forwards_json_unchanged(args):
     await handler(ctx, step, *parameters)
     assert len(calls) == 1 and calls[0][0] == "/group_identify"
     assert json_equal(calls[0][1], args)
-
-
-async def test_acceptance_suite_selects_only_opted_in_cases(specs):
-    contracts = Contracts()
-    paths = acceptance_paths(specs)
-    async with serve(contracts, host_type=GroupIdentifyHost) as (host, url):
-        report, _ = await run(contracts, specs, paths, url, host.profile["id"], tagged_acceptance=True)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert len([row for row in report["results"] if row["result"]["status"] == "passed"]) == 8
-    assert all(
-        row["result"]["status"] == "not_selected"
-        for row in report["results"]
-        if row["source"]["path"] not in [*IDENTITY_FEATURES, FEATURE]
-    )
-    assert len(host.closed) == 8

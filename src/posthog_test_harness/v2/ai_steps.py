@@ -69,6 +69,11 @@ async def group_identify(ctx, step):
     await ctx.call("/group_identify", json_arguments(step))
 
 
+@STEPS.step("capture exception is called with JSON arguments:", "docString", routes=("/capture_exception",))
+async def capture_exception(ctx, step):
+    await ctx.call("/capture_exception", json_arguments(step))
+
+
 @STEPS.step("pending captures are flushed", routes=("/flush",))
 async def flush(ctx, step):
     # YAML flush actions do not assert delivery success or a native return value.
@@ -153,6 +158,48 @@ async def event_property(ctx, step, key, value):
         json_equal(first_events(ctx)[0].get("properties", {}).get(key), value),
         "event_property",
         f"Received property differs: {key}",
+    )
+
+
+def primary_exception(ctx):
+    properties = first_events(ctx)[0].get("properties")
+    expect(isinstance(properties, dict), "exception_list", "Received event properties are not an object")
+    exceptions = properties.get("$exception_list")
+    expect(
+        isinstance(exceptions, list) and bool(exceptions) and isinstance(exceptions[0], dict),
+        "exception_list",
+        "Received event has no primary exception",
+    )
+    return exceptions[0]
+
+
+@STEPS.step(r'the first received event\'s primary exception should have type "([^"]*)" and message "([^"]*)"')
+async def exception_summary(ctx, step, type_name, message):
+    exception = primary_exception(ctx)
+    expect(json_equal(exception.get("type"), type_name), "exception_type", "Primary exception type differs")
+    expect(json_equal(exception.get("value"), message), "exception_message", "Primary exception message differs")
+
+
+@STEPS.step("the first received event's primary exception should be handled")
+async def exception_handled(ctx, step):
+    mechanism = primary_exception(ctx).get("mechanism")
+    expect(
+        isinstance(mechanism, dict) and json_equal(mechanism.get("handled"), True),
+        "exception_handled",
+        "Primary exception is not marked handled",
+    )
+
+
+@STEPS.step("the first received event's primary exception should have stack frames")
+async def exception_stack(ctx, step):
+    stack = primary_exception(ctx).get("stacktrace")
+    expect(
+        isinstance(stack, dict)
+        and isinstance(stack.get("frames"), list)
+        and bool(stack["frames"])
+        and all(isinstance(frame, dict) for frame in stack["frames"]),
+        "exception_stacktrace",
+        "Primary exception has no stack frames",
     )
 
 
