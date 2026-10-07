@@ -15,7 +15,7 @@ SCHEMA_PATH = CONTRACT_ROOT / "schemas" / "config.schema.json"
 REGISTRY_PATH = CONTRACT_ROOT / "registries" / "literals.json"
 SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 BIN_ROOT = Path(__file__).parents[1] / "bin"
-CORPUS_KINDS = ("corpus", "boolean_evaluation_corpus", "value_evaluation_corpus")
+CORPUS_KINDS = ("corpus", "boolean_evaluation_corpus", "value_evaluation_corpus", "experiment_evaluation_corpus")
 
 
 def _bin_module(name: str) -> Any:

@@ -48,6 +48,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
+- corpus/v2_experiment_evaluation.json contains the evaluation corpus for experiment rules without an experiment, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
 - manifest.json holds the contract and config versions, lists every package file with its kind, and records each config fixture's ID and expected result.
 
 In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
