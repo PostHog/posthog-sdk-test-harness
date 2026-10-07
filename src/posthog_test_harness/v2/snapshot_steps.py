@@ -70,6 +70,7 @@ def semantic_read(ctx, read, outcome, expected):
         "Invalid native read outcome",
     )
     method = read["method"]
+    value_shape = representation(ctx, "flag_snapshot_value_", ["scalar", "rich"]) if method == "get_flag" else None
     payload_shape = None
     if method == "get_flag_payload":
         payload_shape = representation(ctx, "flag_snapshot_payload_", ["decoded", "serialized"])
@@ -109,8 +110,7 @@ def semantic_read(ctx, read, outcome, expected):
                 expect(False, "snapshot_payload", "Public payload is not valid serialized JSON")
         expect(json_equal(value, expected["payload"]), "snapshot_payload", "Public payload semantics differ")
     elif method == "get_flag":
-        shape = representation(ctx, "flag_snapshot_value_", ["scalar", "rich"])
-        if shape == "rich":
+        if value_shape == "rich":
             expect(
                 isinstance(value, dict)
                 and value.get("key") == read["key"]
@@ -207,7 +207,24 @@ async def traffic(ctx, step):
             if event.get("distinct_id") == target["distinct_id"]
             and event.get("properties", {}).get("$feature_flag") == target["key"]
         ]
-        expect(len(matches) == 1, "snapshot_exposure_context", "Exposure identity/key or dedupe differs")
+        if len(matches) > 1:
+            matches = [
+                event
+                for event in matches
+                if ("groups" not in target or json_equal(event["properties"].get("$groups"), target["groups"]))
+                and (
+                    target.get("missing") is True
+                    or (
+                        "$feature_flag_response" in event["properties"]
+                        and json_equal(event["properties"]["$feature_flag_response"], target["value"])
+                    )
+                )
+            ]
+        expect(
+            len(matches) == 1,
+            "snapshot_exposure_context",
+            "Exposure identity/key, group/response context or dedupe differs",
+        )
         event = matches[0]
         remaining.remove(event)
         props = event["properties"]

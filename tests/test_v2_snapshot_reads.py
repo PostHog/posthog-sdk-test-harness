@@ -194,11 +194,17 @@ def test_ambiguous_value_representation_is_a_binding_gap(capabilities):
     with pytest.raises(BoundaryError) as error:
         semantic_read(ctx, {"method": "get_flag", "key": "x"}, {"kind": "value", "value": True}, {"value": True})
     assert error.value.kind == "unsupported_binding"
+    ctx.profile["sdk_capabilities"].append("flag_snapshot_missing_undefined")
+    with pytest.raises(BoundaryError) as missing_error:
+        semantic_read(ctx, {"method": "get_flag", "key": "missing"}, {"kind": "undefined"}, {"missing": True})
+    assert missing_error.value.kind == "unsupported_binding"
 
 
 @pytest.mark.parametrize("sentinel", ["undefined", "null"])
 def test_declared_missing_value_kind(sentinel):
-    ctx = SimpleNamespace(profile={"sdk_capabilities": ["flag_snapshot_missing_" + sentinel]})
+    ctx = SimpleNamespace(
+        profile={"sdk_capabilities": ["flag_snapshot_value_scalar", "flag_snapshot_missing_" + sentinel]}
+    )
     outcome = {"kind": "undefined"} if sentinel == "undefined" else {"kind": "value", "value": None}
     semantic_read(ctx, {"method": "get_flag", "key": "missing"}, outcome, {"missing": True})
 
