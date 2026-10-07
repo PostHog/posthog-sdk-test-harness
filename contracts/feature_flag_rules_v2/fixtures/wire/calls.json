@@ -1,5 +1,5 @@
 {
-  "fixture_version": "1.0.0",
+  "fixture_version": "2.0.0",
   "schema": "schemas/feature_flag_called_context.schema.json",
   "templates": {
     "targeting_match_targeted_release": {
@@ -104,6 +104,38 @@
       "$feature_flag_response": false,
       "$feature_flag_config_version": 2,
       "$feature_flag_reason_code": "flag_disabled"
+    },
+    "standalone_targeting_match": {
+      "$feature_flag": "garden-layout",
+      "$feature_flag_response": true,
+      "$feature_flag_config_version": 2,
+      "$feature_flag_reason_code": "targeting_match",
+      "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+      "$feature_flag_rule_type": "experiment"
+    },
+    "standalone_rollout_miss": {
+      "$feature_flag": "garden-layout",
+      "$feature_flag_response": false,
+      "$feature_flag_config_version": 2,
+      "$feature_flag_reason_code": "rollout_miss",
+      "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+      "$feature_flag_rule_type": "experiment"
+    },
+    "standalone_experiment_paused": {
+      "$feature_flag": "garden-layout",
+      "$feature_flag_response": false,
+      "$feature_flag_config_version": 2,
+      "$feature_flag_reason_code": "experiment_paused",
+      "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+      "$feature_flag_rule_type": "experiment"
+    },
+    "standalone_holdout": {
+      "$feature_flag": "garden-layout",
+      "$feature_flag_response": false,
+      "$feature_flag_config_version": 2,
+      "$feature_flag_reason_code": "holdout",
+      "$feature_flag_rule_id": "10000000-0000-4000-8000-000000000001",
+      "$feature_flag_rule_type": "experiment"
     }
   },
   "cases": [
@@ -431,20 +463,6 @@
       }
     },
     {
-      "id": "calls.rollout_miss_experiment_missing_experiment_id",
-      "template": "rollout_miss_experiment",
-      "remove": [
-        "/$feature_flag_experiment_id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "",
-        "message_contains": "$feature_flag_experiment_id"
-      }
-    },
-    {
       "id": "calls.rollout_miss_experiment_forbidden_variant_key",
       "template": "rollout_miss_experiment",
       "set": {
@@ -501,20 +519,6 @@
         "keyword": "required",
         "instance_path": "",
         "message_contains": "$feature_flag_rule_id"
-      }
-    },
-    {
-      "id": "calls.experiment_paused_missing_experiment_id",
-      "template": "experiment_paused",
-      "remove": [
-        "/$feature_flag_experiment_id"
-      ],
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "required",
-        "instance_path": "",
-        "message_contains": "$feature_flag_experiment_id"
       }
     },
     {
@@ -1081,6 +1085,268 @@
         "keyword": "additionalProperties",
         "instance_path": "",
         "message_contains": "$feature_flag_surprise"
+      }
+    },
+    {
+      "id": "calls.standalone_targeting_match",
+      "template": "standalone_targeting_match",
+      "expected": "valid"
+    },
+    {
+      "id": "calls.standalone_targeting_match_missing_rule_type",
+      "template": "standalone_targeting_match",
+      "remove": [
+        "/$feature_flag_rule_type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_type"
+      }
+    },
+    {
+      "id": "calls.standalone_targeting_match_missing_rule_id",
+      "template": "standalone_targeting_match",
+      "remove": [
+        "/$feature_flag_rule_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_id"
+      }
+    },
+    {
+      "id": "calls.standalone_targeting_match_forbidden_experiment_id",
+      "template": "standalone_targeting_match",
+      "set": {
+        "/$feature_flag_experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_targeting_match_forbidden_variant_key",
+      "template": "standalone_targeting_match",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_targeting_match_forbidden_holdout_id",
+      "template": "standalone_targeting_match",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_rollout_miss",
+      "template": "standalone_rollout_miss",
+      "expected": "valid"
+    },
+    {
+      "id": "calls.standalone_rollout_miss_missing_rule_type",
+      "template": "standalone_rollout_miss",
+      "remove": [
+        "/$feature_flag_rule_type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_type"
+      }
+    },
+    {
+      "id": "calls.standalone_rollout_miss_missing_rule_id",
+      "template": "standalone_rollout_miss",
+      "remove": [
+        "/$feature_flag_rule_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_id"
+      }
+    },
+    {
+      "id": "calls.standalone_rollout_miss_forbidden_variant_key",
+      "template": "standalone_rollout_miss",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_rollout_miss_forbidden_holdout_id",
+      "template": "standalone_rollout_miss",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_experiment_paused",
+      "template": "standalone_experiment_paused",
+      "expected": "valid"
+    },
+    {
+      "id": "calls.standalone_experiment_paused_missing_rule_type",
+      "template": "standalone_experiment_paused",
+      "remove": [
+        "/$feature_flag_rule_type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_type"
+      }
+    },
+    {
+      "id": "calls.standalone_experiment_paused_missing_rule_id",
+      "template": "standalone_experiment_paused",
+      "remove": [
+        "/$feature_flag_rule_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_id"
+      }
+    },
+    {
+      "id": "calls.standalone_experiment_paused_forbidden_variant_key",
+      "template": "standalone_experiment_paused",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_experiment_paused_forbidden_holdout_id",
+      "template": "standalone_experiment_paused",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_holdout",
+      "template": "standalone_holdout",
+      "expected": "valid"
+    },
+    {
+      "id": "calls.standalone_holdout_missing_rule_type",
+      "template": "standalone_holdout",
+      "remove": [
+        "/$feature_flag_rule_type"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_type"
+      }
+    },
+    {
+      "id": "calls.standalone_holdout_missing_rule_id",
+      "template": "standalone_holdout",
+      "remove": [
+        "/$feature_flag_rule_id"
+      ],
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "required",
+        "instance_path": "",
+        "message_contains": "$feature_flag_rule_id"
+      }
+    },
+    {
+      "id": "calls.standalone_holdout_forbidden_experiment_id",
+      "template": "standalone_holdout",
+      "set": {
+        "/$feature_flag_experiment_id": 301
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_holdout_forbidden_variant_key",
+      "template": "standalone_holdout",
+      "set": {
+        "/$feature_flag_variant": "arm_a"
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
+      }
+    },
+    {
+      "id": "calls.standalone_holdout_forbidden_holdout_id",
+      "template": "standalone_holdout",
+      "set": {
+        "/$feature_flag_holdout_id": 401
+      },
+      "expected": "invalid",
+      "expected_failure": {
+        "layer": "schema",
+        "keyword": "not",
+        "instance_path": ""
       }
     }
   ]

@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
-Contract package 2.3.1 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, wire schemas 1.0.1 with wire fixtures 1.0.0, person boolean evaluation corpus 1.0.0, and typed value evaluation corpus 1.0.0.
+Contract package 3.0.0 contains config schema 2.0.0, registry 2.0.0, corpus 1.1.0, wire contract 2.0.0 with wire fixtures 2.0.0, person boolean evaluation corpus 1.0.0, typed value evaluation corpus 1.0.0, and experiment rule evaluation corpus 1.0.0.
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -22,9 +22,9 @@ The separate rollout_percentage controls enrollment into the rule.
 Person flags may explicitly set assign_by to person or omit it.
 Group flags declare aggregation_group_type_index (including index 0) and must omit assign_by on every rule; the schema enforces this so assignment uses the flag aggregation key.
 
-Experiment rules require an integer experiment_id linking an Experiment row.
-An experiment_id of null is invalid in this contract.
-Non-experiment variant splits are reserved for a possible future extension; their evaluation reason and exposure semantics are not defined here.
+An experiment rule's experiment_id is either the integer ID of a linked Experiment row or null.
+Null makes the rule a variant split without an experiment: no Experiment row is created or linked, its split reports targeting_match, and it never produces experiment identity or an experiment exposure.
+Its holdout, if any, is rule-local: holdout.id is null exactly when experiment_id is null, so a linked experiment references a shared holdout row and a rule without an experiment carries its own holdout seed and exclusion percentage.
 
 rollout_miss means a terminal miss under on_rollout_miss: return_default.
 A continuing miss moves evaluation to the next rule and contributes neither a reason code nor metadata from the missed rule (including rule_id and condition_index) to the final result. The final result uses the terminating rule's reason and metadata, or no_rule_match if no rule terminates.
@@ -48,6 +48,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
+- corpus/v2_experiment_evaluation.json contains the evaluation corpus for experiment rules without an experiment, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
 - manifest.json assigns stable fixture and case IDs and declares the compatibility policy.
 - SHA256SUMS records the SHA-256 digest for each package file except itself.
 
@@ -69,6 +70,7 @@ The literal registry is 2.0.0: it removes the four unused management warning cod
 The corpus files and their companion schemas are corpus version 1.1.0.
 Contract package 2.1.0 adds config fixtures for the targeted-release and percentage-rollout family; it changes no published schema, registry, corpus or fixture bytes.
 Contract package 2.3.0 adds the typed value evaluation corpus; it also changes no published bytes.
+Contract package 3.0.0 admits experiment rules without an experiment. It is major because accepted configs and accepted wire payloads change; see "Experiment rules without an experiment" below.
 
 ## Corpus rules
 
@@ -153,7 +155,7 @@ Producer and reader contracts serve different purposes. Missing split context is
 
 The first event release permits only booleans and non-empty strings in the response property. Reserved number/object response-schema cases do not enable writers or event emission. Equal-valued arms remain separate analytical identities through their variant keys. A holdout, pause, rollout miss, default, missing or failed result cannot produce a direct exposure.
 
-Future accepted/rejected wire-contract changes require a new major wire component version and a new major package version; additive fixture cases require a new minor fixture version and a new minor package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes new schema files under new paths and `$id`s rather than reusing these.
+Future accepted/rejected wire-contract changes require a new major wire component version and a new major package version; additive fixture cases require a new minor fixture version and a new minor package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes a changed schema that other schemas reference under a new path and `$id` rather than reusing it. Wire 2.0.0 changes only the presence and called-context companions, which no schema references by `$id`, so they keep their paths and `$id`s; the producer schema they reference is byte-identical.
 
 The source distribution includes every indexed artifact and the checksum utility. Verify a build against the checkout with:
 
@@ -270,3 +272,57 @@ Zero and the empty object are values, so they render as enabled.
 The payload travels as a JSON-encoded string in `metadata.payload` and `featureFlagPayloads`, like a version 1 payload, so existing payload accessors decode it.
 The corpus records the decoded value because key order and number spelling in the encoded string are not canonical; decode before comparing.
 A v3 record carries `expected.value` in `value`, and its `metadata.payload` stays null for config version 2, as the wire schema requires.
+
+## Experiment rules without an experiment (3.0.0)
+
+Contract 3.0.0 lets an experiment rule set `experiment_id` to null. The rule then splits its enrolled subjects across weighted variants without an Experiment row: a variant split for a flag rather than an experiment. The field stays required, so null is always explicit.
+
+### Configuration
+
+Config schema 2.0.0 makes `experiment_id` and `holdout.id` integer or null and couples them: `holdout.id` is null exactly when `experiment_id` is null.
+A rule without an experiment can carry only a rule-local holdout, `{"id": null, "seed": ..., "exclusion_percentage": ...}`, and a linked experiment only a shared holdout row.
+A rule-local holdout seed is server-assigned and server-preserved like a rule seed; writers never let a client choose or change it.
+Every other experiment rule field and semantic constraint is unchanged: `paused` is required, two to twenty variants with unique keys, weights with at most two decimal places that total exactly 100, and values of the flag's return type.
+
+`fixtures/config/invalid/null_experiment_id.json` is retired. Contract 2.3.1 and earlier published it as invalid; 3.0.0 removes it rather than flipping its expectation, and does not reuse its ID. `config.valid.standalone_experiment_rule` replaces it, and `missing_experiment_id`, `string_experiment_id`, `standalone_experiment_shared_holdout` and `linked_experiment_local_holdout` pin what stays invalid.
+
+### Evaluation
+
+For a rule whose targeting matches, in this order:
+
+1. `paused: true` returns the flag default with `experiment_paused`. Nothing is hashed.
+2. A holdout returns the flag default with `holdout` when the subject's holdout hash is at most `exclusion_percentage / 100`. A holdout is terminal whatever `on_rollout_miss` says.
+3. The rollout check works as for a percentage rollout: 100 percent includes every non-empty subject without hashing. A miss returns the flag default with `rollout_miss` under `return_default` and moves to the next rule under `continue`.
+4. The variant hash selects the first variant whose cumulative boundary is above the hash; past the final boundary, the last variant is selected even when its weight is 0.
+
+An empty identifier is never held out and never enrolled, so it reaches step 3 as a miss. A targeting miss always continues, whether or not the rule is paused.
+
+| Use | Prefix | Salt | Comparison |
+| --- | --- | --- | --- |
+| Holdout | `holdout.seed` | empty | `hash <= exclusion_percentage / 100` |
+| Rollout | `seed + "."` | empty | `hash <= rollout_percentage / 100` |
+| Variant | `seed + "."` | `variant` | first boundary with `hash < boundary`, boundaries added left to right in binary64 |
+
+These are the version 1 hashes: a rule seed equal to the flag key reproduces the version 1 rollout and variant hashes, and a holdout seed of `holdout-` reproduces the version 1 holdout hash.
+
+### Results and response records
+
+A split reports `targeting_match`, the contract's reason for randomized inclusion, with the experiment rule as the terminal rule. `experiment_split` keeps its single meaning: an experiment assigned a variant, the only trigger for `$experiment_exposure`, with its complete experiment, rule and variant tuple.
+
+The internal evaluation result carries the assigned variant key, so consumers can tell equal-valued variants apart. Response records and `$feature_flag_called` carry `rule_type: "experiment"`, `rule_id` and the condition index, but never `experiment_id`, `variant_key` or `holdout_id`. `has_experiment` keeps its flag-level meaning.
+
+Presence matrix 2.0.0 adds four rows marked `standalone`, `targeting_match`, `rollout_miss`, `experiment_paused` and `holdout`, each for `rule_type` `experiment`. They require the rule fields and forbid the three identity fields; the linked rows are unchanged.
+A record does not say whether its rule is linked, so a linked `rollout_miss` or `experiment_paused` record without `experiment_id` now reads as standalone, and so does a percentage `targeting_match` or `rollout_miss` record relabelled `experiment`. Six published fixtures that asserted otherwise are retired: `responses.rollout_miss_experiment_missing_experiment_id`, `responses.experiment_paused_missing_experiment_id`, `responses.targeting_match_targeted_release_wrong_rule_type`, `responses.rollout_miss_percentage_rollout_wrong_rule_type`, `calls.rollout_miss_experiment_missing_experiment_id` and `calls.experiment_paused_missing_experiment_id`.
+A linked holdout record without `experiment_id` still fails, because the standalone holdout row forbids `holdout_id`.
+
+### Legacy rendering
+
+Each success row carries `legacy`, which depends on the value only, as in the typed value corpus. A boolean `true` is enabled with no variant; `false` and null are disabled and leave the enabled-only maps and lists; a string is the variant; a number or an object is enabled with the value as the JSON-encoded payload. The variant key never appears in a legacy shape.
+
+### Corpus families
+
+Consumers report `ordering`, `assignment`, `values`, `white_box` and `parser` separately.
+`hash_evidence` lists every hash an evaluation draws, in draw order, with the real SHA-1 arithmetic and the comparison it feeds; the meta-tests recompute it with hashlib and binary64 arithmetic.
+`white_box` rows replay through a private test seam that returns `white_box.hash01_binary64_hex` for every hash the evaluation draws; `boundary_binary64_hex` and `relation` name the comparison that decides the row.
+`parser` rows require whole-document rejection with `malformed`, including the semantic constraints the schema cannot express: duplicate variant keys, weights that do not total 100, and percentages with more than two decimal places.
+A linked experiment rule and a shared holdout are outside this component.

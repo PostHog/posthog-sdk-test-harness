@@ -1,5 +1,5 @@
 {
-  "fixture_version": "1.0.0",
+  "fixture_version": "2.0.0",
   "schema": "schemas/flags_response_v3.schema.json",
   "templates": {
     "targeting_match_targeted_release": {
@@ -314,6 +314,30 @@
             "rule_id": "10000000-0000-4000-8000-000000000001",
             "experiment_id": 301,
             "variant_key": "arm_a"
+          }
+        }
+      },
+      "requestId": "20000000-0000-4000-8000-000000000002",
+      "evaluatedAt": 1800000000000
+    },
+    "standalone_targeting_match": {
+      "errorsWhileComputingFlags": false,
+      "flags": {
+        "garden-layout": {
+          "key": "garden-layout",
+          "value": true,
+          "reason": {
+            "code": "targeting_match",
+            "condition_index": 0
+          },
+          "metadata": {
+            "id": 201,
+            "version": 7,
+            "config_version": 2,
+            "has_experiment": false,
+            "payload": null,
+            "rule_type": "experiment",
+            "rule_id": "10000000-0000-4000-8000-000000000001"
           }
         }
       },
@@ -1082,6 +1106,42 @@
         "error_code": null
       },
       "producer_expected": "valid"
+    },
+    {
+      "id": "readers.standalone_targeting_match",
+      "template": "standalone_targeting_match",
+      "expected": "reader",
+      "reader": {
+        "requested_key": "garden-layout",
+        "caller_default": false,
+        "value": true,
+        "config_version": 2,
+        "experiment_exposure": false,
+        "error_code": null
+      },
+      "producer_expected": "valid"
+    },
+    {
+      "id": "readers.standalone_targeting_match_variant_key",
+      "template": "standalone_targeting_match",
+      "set": {
+        "/flags/garden-layout/metadata/variant_key": "arm_a"
+      },
+      "expected": "reader",
+      "reader": {
+        "requested_key": "garden-layout",
+        "caller_default": false,
+        "value": true,
+        "config_version": 2,
+        "experiment_exposure": false,
+        "error_code": null
+      },
+      "producer_expected": "invalid",
+      "producer_failure": {
+        "layer": "presence",
+        "keyword": "not",
+        "instance_path": "/flags/garden-layout/metadata"
+      }
     }
   ]
 }

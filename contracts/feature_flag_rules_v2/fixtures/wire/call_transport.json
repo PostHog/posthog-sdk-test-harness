@@ -1,5 +1,5 @@
 {
-  "fixture_version": "1.0.0",
+  "fixture_version": "2.0.0",
   "schema": "schemas/feature_flag_called_context.schema.json",
   "templates": {
     "call": {
