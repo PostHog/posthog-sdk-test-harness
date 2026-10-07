@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .contracts import BoundaryError, require
 from .gherkin import load_cases
-from .local_parity_steps import STEPS
+from .snapshot_steps import STEPS
 
 
 def feature_paths(specs):
