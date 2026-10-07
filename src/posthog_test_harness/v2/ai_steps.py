@@ -197,7 +197,12 @@ async def exception_stack(ctx, step):
         isinstance(stack, dict)
         and isinstance(stack.get("frames"), list)
         and bool(stack["frames"])
-        and all(isinstance(frame, dict) for frame in stack["frames"]),
+        and all(isinstance(frame, dict) for frame in stack["frames"])
+        and any(
+            isinstance(frame.get(field), str) and bool(frame[field].strip())
+            for frame in stack["frames"]
+            for field in ("filename", "function", "instruction_addr")
+        ),
         "exception_stacktrace",
         "Primary exception has no stack frames",
     )

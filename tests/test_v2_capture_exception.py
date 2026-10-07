@@ -71,6 +71,12 @@ async def test_companion_exception_delivers_exact_events(specs, protocol):
         ('exception:stacktrace:{"frames":[]}', "exception_stacktrace"),
         ('exception:stacktrace:{"frames":{}}', "exception_stacktrace"),
         ('exception:stacktrace:{"frames":[null]}', "exception_stacktrace"),
+        ('exception:stacktrace:{"frames":[{}]}', "exception_stacktrace"),
+        (
+            'exception:stacktrace:{"frames":[{"filename":"","function":" ","instruction_addr":""}]}',
+            "exception_stacktrace",
+        ),
+        ('exception:stacktrace:{"frames":[{"lineno":42}]}', "exception_stacktrace"),
         ("missing_property:area", "event_property"),
         ("property_value:0:retryable:0", "event_property"),
         ("property_value:0:attempt:false", "event_property"),
@@ -88,6 +94,30 @@ async def test_exception_rejects_wire_defects(specs, protocol, defect, code):
     assert result["failure"]["call_ids"]
     assert len(host.closed) == 1
     assert strict_exit_code(contracts, report) == 1
+
+
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+@pytest.mark.parametrize(
+    "frames",
+    [
+        [{"filename": "fixture.py"}],
+        [{"function": "report_exception"}],
+        [{"instruction_addr": "0x1234"}],
+        [{}, {"instruction_addr": "0x1234"}],
+    ],
+)
+async def test_exception_accepts_frame_locations(specs, protocol, frames):
+    case = delivery_cases(specs)[0]
+    contracts = Contracts()
+    async with serve(
+        contracts,
+        host_type=CaptureExceptionHost,
+        protocol=protocol,
+        defect="exception:stacktrace:" + json.dumps({"frames": frames}),
+    ) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case.id])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert len(host.closed) == 1
 
 
 async def test_missing_exception_route_is_a_visible_gap(specs):
