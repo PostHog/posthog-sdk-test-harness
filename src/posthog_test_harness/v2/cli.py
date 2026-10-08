@@ -236,7 +236,11 @@ def check_report(report_path, profile):
 @main.command("steps")
 def steps():
     """Print the registered Gherkin patterns, argument kinds, routes and fixtures."""
-    click.echo(render_catalogue(), nl=False)
+    try:
+        catalogue = render_catalogue()
+    except BoundaryError as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(catalogue, nl=False)
 
 
 @main.command("bundle-info")
