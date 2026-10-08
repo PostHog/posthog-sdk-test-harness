@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.14.0 — 2026-10-08
+
+### Minor changes
+
+- [41ee102](https://github.com/posthog/posthog-sdk-test-harness/commit/41ee10248e056294867fffc0d138fb9491ad09e8) Add a generated Gherkin step reference and the `posthog-test-harness-v2 steps` command to inspect registered phrases, argument kinds, routes, and fixture requirements. — Thanks @dustinbyrne!
+
 ## 1.13.1 — 2026-10-01
 
 ### Patch changes
