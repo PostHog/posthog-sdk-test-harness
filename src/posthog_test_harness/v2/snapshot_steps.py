@@ -33,17 +33,6 @@ async def fixtures(ctx, step):
         ctx.server.fail_next_flags(args["status"])
 
 
-@STEPS.step("the snapshot SDK is initialized with JSON configuration:", "docString", routes=("/setup",))
-async def setup(ctx, step):
-    await ctx.call(
-        "/setup",
-        {
-            "project_token": "test-token",
-            "config": {"host": ctx.server.url, "flush_at": 100, "flush_interval_ms": 0, **json_arguments(step)},
-        },
-    )
-
-
 @STEPS.step("evaluate flags and read is called with JSON arguments:", "docString", routes=("/evaluate_flags/read",))
 async def evaluate(ctx, step):
     args = json_arguments(step)

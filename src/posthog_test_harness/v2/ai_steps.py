@@ -44,6 +44,11 @@ async def setup(ctx, step, token, threshold):
     await ctx.call("/setup", {"project_token": token, "config": {"host": ctx.server.url, "flush_at": int(threshold)}})
 
 
+@STEPS.step(r'the SDK is initialized with token "([^"]*)" and JSON configuration:', "docString", routes=("/setup",))
+async def setup_configuration(ctx, step, token):
+    await ctx.call("/setup", {"project_token": token, "config": {"host": ctx.server.url, **json_arguments(step)}})
+
+
 @STEPS.step("capture_ai is called with JSON arguments:", "docString", routes=("/capture_ai",))
 async def capture_ai(ctx, step):
     ctx.ai_outcome = await ctx.call("/capture_ai", json_arguments(step))

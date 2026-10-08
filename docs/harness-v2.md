@@ -46,6 +46,15 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
+## Shared public setup and delivery
+
+`an isolated SDK instance` allocates a fresh receiver without private controls.
+`the SDK is initialized with token "TOKEN" and JSON configuration:` invokes
+`/setup` with that token, the mock host, and the supplied configuration unchanged.
+Batching thresholds, timers and retry settings belong in the scenario's JSON.
+`pending captures are flushed` invokes public `/flush`; subsequent assertions
+observe traffic received from initialization through flush.
+
 ## Server identity delivery
 
 Run `--acceptance-suite` with a server adapter profile to select the opted-in
