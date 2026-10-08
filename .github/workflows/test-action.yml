@@ -24,7 +24,11 @@ jobs:
           version: "0.9.26"
           python-version: "3.12.12"
       - run: uv sync --locked --extra dev
+      - name: Regenerate the Gherkin step snapshot
+        run: uv run --no-sync posthog-test-harness-v2 steps > docs/gherkin-steps.md
       - run: uv run --no-sync pytest tests/test_v2_step_catalogue.py
+      - name: Check the committed snapshot is current
+        run: git diff --exit-code -- docs/gherkin-steps.md
 
   test-minimal-adapter:
     name: Test the minimal adapter example

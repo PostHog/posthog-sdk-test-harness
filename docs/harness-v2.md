@@ -17,6 +17,11 @@ Registry membership means the harness recognizes a phrase, not that an SDK
 adapter can execute it or that the SDK conforms. Check the feature with
 `discover --require-ready`, then execute it against the intended real SDK.
 
+CI regenerates the committed catalogue snapshot, runs its tests, and fails if
+`git diff` shows a change to `docs/gherkin-steps.md`. When bindings change, run
+`posthog-test-harness-v2 steps > docs/gherkin-steps.md` locally and commit the
+updated snapshot with the binding change.
+
 ## Run
 
 ```sh
