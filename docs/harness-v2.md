@@ -2,6 +2,26 @@
 
 The opt-in `posthog-test-harness-v2` entry point runs SDK-independent Gherkin over HTTP. The SDK repository owns its native adapter, package build, and compliance caller. The harness owns mock services, input selection, assertions, deadlines, and reports. Existing YAML/v1 commands remain available.
 
+## Step reference
+
+The generated [Gherkin step catalogue](gherkin-steps.md) lists every registered
+phrase, argument kind, handler, required adapter route, and fixture capability.
+Use the reference from the harness revision used for validation. To inspect the
+installed runner's registry without an SDK host or specs bundle, run:
+
+```sh
+posthog-test-harness-v2 steps
+```
+
+Registry membership means the harness recognizes a phrase, not that an SDK
+adapter can execute it or that the SDK conforms. Check the feature with
+`discover --require-ready`, then execute it against the intended real SDK.
+
+CI regenerates the committed catalogue snapshot, runs its tests, and fails if
+`git diff` shows a change to `docs/gherkin-steps.md`. When bindings change, run
+`posthog-test-harness-v2 steps > docs/gherkin-steps.md` locally and commit the
+updated snapshot with the binding change.
+
 ## Run
 
 ```sh
