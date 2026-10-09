@@ -16,6 +16,7 @@ from .network import validate_host
 from .report import strict_exit_code
 from .runner import run as execute
 from .runner import summary
+from .step_catalogue import render_catalogue
 
 
 def host_option(ctx, param, value):
@@ -230,6 +231,12 @@ def check_report(report_path, profile):
         raise click.ClickException(f"Invalid report artifacts: {error}") from error
     click.echo("Strict saved-report gate: " + ("passed" if status == 0 else "not passed"))
     raise SystemExit(status)
+
+
+@main.command("steps")
+def steps():
+    """Print the registered Gherkin patterns, argument kinds, routes and fixtures."""
+    click.echo(render_catalogue(), nl=False)
 
 
 @main.command("bundle-info")
