@@ -10,8 +10,9 @@ from .client import Client
 from .contracts import VERSION, BoundaryError, require
 from .fixtures import CaseServer
 from .gherkin import load_cases
-from .local_parity_steps import STEPS, no_remote
+from .local_parity_steps import no_remote
 from .migration import selection
+from .snapshot_steps import STEPS
 from .steps import Context
 
 

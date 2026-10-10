@@ -66,6 +66,15 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
+## Shared public setup and delivery
+
+`an isolated SDK instance` allocates a fresh receiver without private controls.
+`the SDK is initialized with token "TOKEN" and JSON configuration:` invokes
+`/setup` with that token, the mock host, and the supplied configuration unchanged.
+Batching thresholds, timers and retry settings belong in the scenario's JSON.
+`pending captures are flushed` invokes public `/flush`; subsequent assertions
+observe traffic received from initialization through flush.
+
 ## Server identity delivery
 
 Run `--acceptance-suite` with a server adapter profile to select the opted-in
@@ -118,6 +127,16 @@ the scenario. Delivery checks use `properties.$exception_list[0].type`, `.value`
 supplied scalar/nested JSON properties. A second case omits caller properties.
 These cases exercise manual reporting, not automatic fatal-error or next-launch
 crash recovery.
+
+## Request-local snapshot reads
+
+`evaluate flags and read is called with JSON arguments:` invokes `/evaluate_flags/read` once. It passes evaluation `distinct_id`/`options` and ordered `reads` unchanged. The adapter evaluates once and calls public native snapshot getters, key enumeration, and `only`/`only_accessed` filters. Filters contain nested reads; subsequent siblings still address the original parent. Only JSON outcomes cross the boundary; no snapshot reference persists across requests. The route never flushes implicitly.
+
+`the public snapshot outcomes should have these semantics:` compares ordered outcomes to `value`, `payload`, `missing`, `keys`, or nested `results` expectations. Key lists are unordered sets with no duplicate entries. Negotiated SDK capabilities declare exactly one `flag_snapshot_value_scalar` or `flag_snapshot_value_rich`, and `flag_snapshot_payload_decoded` or `flag_snapshot_payload_serialized`. Rich value projection uses public fields/methods to supply `{key, enabled, variant}` with a boolean enabled field and nullable string variant. Payload access must invoke the silent public payload accessor. Serialized payloads are decoded once for comparison; decoded payloads are not decoded again.
+
+Missing results use `flag_snapshot_missing_undefined` or `flag_snapshot_missing_null`; serialized empty payload access can additionally declare `flag_snapshot_payload_missing_empty_string`. Missing exposure responses declare exactly one of `flag_snapshot_exposure_missing_absent`, `_null`, or `_false`. Enablement-default coverage requires `flag_snapshot_enablement_default`. A missing declaration is a visible binding gap, not guessed SDK semantics.
+
+After explicit public flush, `the flushed snapshot traffic should be:` checks evaluation count/status, caller-supplied context (allowing additional SDK enrichment), exact key scope, and delivered exposure identity, groups, canonical response, missing-key metadata and dedupe. Disabled/missing-identity snapshots deliver no exposure; failed remote evaluation with a valid identity retains canonical missing-key access tracking. `remote snapshot fixtures are:` supplies legacy `featureFlags` responses with JSON-encoded payload strings, including false, zero and null. Failing SDK results remain failed assertions with nonzero report checks; executable integration selection does not imply conformance.
 
 ## Black-box local evaluation
 

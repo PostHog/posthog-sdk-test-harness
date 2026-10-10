@@ -170,17 +170,19 @@ async def test_server_exception_cases_are_not_selected_for_client_profile(specs)
 
 
 async def test_acceptance_suite_selects_only_opted_in_cases(specs):
+    from tests.v2_snapshot_host import SnapshotHost
+
     contracts = Contracts()
-    async with serve(contracts, host_type=CaptureExceptionHost) as (host, url):
+    async with serve(contracts, host_type=SnapshotHost) as (host, url):
         report, _ = await run(
             contracts, specs, acceptance_paths(specs), url, host.profile["id"], tagged_acceptance=True
         )
     assert strict_exit_code(contracts, report) == 0, report
     cases, _ = load_cases(specs, acceptance_paths(specs))
     selected_ids = {case.id for case in cases if "@sdk:server" in case.tags}
-    assert len(selected_ids) == 10
+    assert len(selected_ids) == 31
     assert all(
         row["result"]["status"] == ("passed" if row["case_id"] in selected_ids else "not_selected")
         for row in report["results"]
     ), report
-    assert len(host.closed) == 10
+    assert len(host.closed) == 31

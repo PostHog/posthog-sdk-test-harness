@@ -102,6 +102,53 @@ async def test_public_operation_delivers_exact_event(regression_source, operatio
     assert len(diagnostics["cases"][0]["ingestion"]) == 1
 
 
+@pytest.mark.parametrize("operation", ARGUMENTS)
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+async def test_public_operation_with_shared_json_setup(tmp_path, operation, protocol):
+    source = public_feature(operation).replace(
+        'And the SDK is initialized with token "test-token" and flush threshold 20',
+        'And the SDK is initialized with token "test-token" and JSON configuration:\n'
+        '      """application/json\n'
+        '      {"flush_at":20,"flush_interval_ms":0}\n'
+        '      """',
+    )
+    (tmp_path / f"{operation}.feature").write_text(source)
+    contracts = Contracts()
+    async with serve(contracts, host_type=IdentifyAliasHost, protocol=protocol) as (host, url):
+        report, _ = await run(contracts, tmp_path, [f"{operation}.feature"], url, host.profile["id"])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert [call["route"] for call in host.inputs] == ["/setup", f"/{operation}", "/flush"]
+    assert host.inputs[0]["args"]["config"]["flush_at"] == 20
+    assert host.inputs[0]["args"]["config"]["flush_interval_ms"] == 0
+
+
+@pytest.mark.parametrize("token", ["test-token", "another-token"])
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        {},
+        {"flush_at": 100, "flush_interval_ms": 0},
+        {"disabled": False, "feature_flags_request_max_retries": 0, "context": {"note": None, "flags": [False, 0]}},
+    ],
+)
+async def test_shared_json_setup_forwards_configuration(token, configuration):
+    calls = []
+
+    async def call(route, arguments):
+        calls.append((route, arguments))
+
+    ctx = SimpleNamespace(call=call, server=SimpleNamespace(url="http://mock-server"))
+    step = SimpleNamespace(
+        text=f'the SDK is initialized with token "{token}" and JSON configuration:',
+        argument={"docString": {"content": json.dumps(configuration), "mediaType": "application/json"}},
+        source={"path": "setup.feature", "line": 1},
+    )
+    handler, parameters = STEPS.bind(step)
+    await handler(ctx, step, *parameters)
+    assert calls == [("/setup", {"project_token": token, "config": {"host": ctx.server.url, **configuration}})]
+    assert STEPS.requirements[handler] == {"routes": ["/setup"], "fixtures": []}
+
+
 COMMON_DEFECTS = [
     ("wrong_event", "event_field"),
     ("omit_event:event", "event_field"),

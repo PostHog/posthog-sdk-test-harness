@@ -157,6 +157,12 @@ Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`uuid_equal`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+the SDK is initialized with token "([^"]*)" and JSON configuration:
+```
+Argument: `docString`. Routes: `/setup`. Fixture capabilities: None declared.
+Handler: [`setup_configuration`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 the SDK is initialized with token "([^"]*)" and flush threshold ([0-9]+)
 ```
 Argument: `none`. Routes: `/setup`. Fixture capabilities: None declared.
@@ -1291,6 +1297,32 @@ the server uses its native flag startup and getter behavior with no installed lo
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`native_server`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+### snapshot_steps
+
+```text
+evaluate flags and read is called with JSON arguments:
+```
+Argument: `docString`. Routes: `/evaluate_flags/read`. Fixture capabilities: None declared.
+Handler: [`evaluate`](../src/posthog_test_harness/v2/snapshot_steps.py).
+
+```text
+remote snapshot fixtures are:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`fixtures`](../src/posthog_test_harness/v2/snapshot_steps.py).
+
+```text
+the flushed snapshot traffic should be:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`traffic`](../src/posthog_test_harness/v2/snapshot_steps.py).
+
+```text
+the public snapshot outcomes should have these semantics:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`outcomes`](../src/posthog_test_harness/v2/snapshot_steps.py).
 
 ### steps
 
