@@ -115,6 +115,12 @@ Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`count`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+group identify is called with JSON arguments:
+```
+Argument: `docString`. Routes: `/group_identify`. Fixture capabilities: None declared.
+Handler: [`group_identify`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 identify is called with JSON arguments:
 ```
 Argument: `docString`. Routes: `/identify`. Fixture capabilities: None declared.

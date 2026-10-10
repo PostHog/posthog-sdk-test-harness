@@ -64,6 +64,11 @@ async def alias(ctx, step):
     await ctx.call("/alias", json_arguments(step))
 
 
+@STEPS.step("group identify is called with JSON arguments:", "docString", routes=("/group_identify",))
+async def group_identify(ctx, step):
+    await ctx.call("/group_identify", json_arguments(step))
+
+
 @STEPS.step("pending captures are flushed", routes=("/flush",))
 async def flush(ctx, step):
     # YAML flush actions do not assert delivery success or a native return value.
