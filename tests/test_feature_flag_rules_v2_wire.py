@@ -29,7 +29,8 @@ SCHEMAS = {a["path"]: _load_json(CONTRACT_ROOT / a["path"]) for a in MANIFEST["a
 REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS.values())
 LITERALS = _load_json(REGISTRY_PATH)
 MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
-ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
+# Standalone rows (experiment rules without an experiment) leave the linked rows' fixture names unchanged.
+ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX if not row.get("standalone"))
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
 PRODUCER_DIGEST = "98c1397bb7b5a1ceb3f317b34c6c57cff0ab30e94bf5945ee7b56f293536b70f"
@@ -251,9 +252,9 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "2.3.1"
+    assert MANIFEST["contract"]["version"] == "3.0.0"
     assert MANIFEST["corpus"]["version"] == "1.1.0"
-    assert MANIFEST["wire_contract"]["version"] == "1.0.1"
+    assert MANIFEST["wire_contract"]["version"] == "2.0.0"
 
 
 def test_wire_schemas_and_literal_registry_agree() -> None:
@@ -284,9 +285,10 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
 
 
 def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
-    # Registry 2.0.0 drops four warning codes from published 1.0.0; the other components keep their published bytes.
+    # Registry 2.0.0 drops four warning codes from published 1.0.0, and config schema 2.0.0 (contract 3.0.0) admits
+    # experiment rules without an experiment; the other components keep their published bytes.
     frozen = {
-        "schemas/config.schema.json": ("1.0.0", "74e43ed13dbfd578bcb8eedc5a247917788b320829b888eab84ce1126841d63b"),
+        "schemas/config.schema.json": ("2.0.0", "5583e38dddd84d857cb9643cc097a8e8636a10db0380be23eae2ebcad5724be3"),
         "registries/literals.json": ("2.0.0", "afd25df141b5e05dfa5c8848e1685a4e8b81f3c80fbafc4769c944b815356069"),
         "corpus/hash_sha1_60_v1.json": ("1.1.0", "e9bea9cff58bac0c6c1021e9c8842c53594055b6874a2c58bc4350d0c28a93ca"),
         "corpus/v1_evaluation.json": ("1.1.0", "752ff88dcb943ab1e21f9552b0c4ec606029393fca2b565b01a497da89cd8675"),
@@ -311,8 +313,29 @@ def test_v1_variant_keys_are_carried_verbatim() -> None:
 
 
 def row_name(row: dict[str, Any]) -> str:
-    """Fixture ids name a row by reason, plus the rule type when a reason has more than one row."""
+    """Fixture ids name a row by reason, plus the rule type when a reason has more than one linked row."""
+    if row.get("standalone"):
+        return "standalone_" + row["reason"]
     return row["reason"] + ("_" + row["rule_type"] if ROWS_PER_REASON[row["reason"]] > 1 else "")
+
+
+def another_row_accepts(row: dict[str, Any], present: set[str]) -> bool:
+    """A record cannot say whether its experiment rule is linked, so some mutations land on the sibling row."""
+    return any(
+        other is not row
+        and (other["reason"], other["rule_type"]) == (row["reason"], row["rule_type"])
+        and set(other["required"]) <= present
+        and not set(other["forbidden"]) & present
+        for other in MATRIX
+    )
+
+
+def missing_cases(row: dict[str, Any]) -> list[str]:
+    return [f for f in row["required"] if not another_row_accepts(row, set(row["required"]) - {f})]
+
+
+def forbidden_cases(row: dict[str, Any]) -> list[str]:
+    return [f for f in row["forbidden"] if not another_row_accepts(row, set(row["required"]) | {f})]
 
 
 def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
@@ -324,9 +347,9 @@ def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() ->
     for row in MATRIX:
         name = row_name(row)
         assert "responses." + name in ids
-        for field in ["has_experiment", *row["required"]]:
+        for field in ["has_experiment", *missing_cases(row)]:
             assert f"responses.{name}_missing_{field}" in ids
-        for field in row["forbidden"]:
+        for field in forbidden_cases(row):
             assert f"responses.{name}_forbidden_{field}" in ids
         assert f"responses.{name}_wrong_condition_index" in ids
     for field in ["config_version", "rule_type", "rule_id", "experiment_id", "variant_key"]:
@@ -340,9 +363,9 @@ def test_every_terminal_reason_has_call_context_fixtures() -> None:
     for row in MATRIX:
         name = row_name(row)
         assert "calls." + name in ids
-        for field in row["required"]:
+        for field in missing_cases(row):
             assert f"calls.{name}_missing_{field}" in ids
-        for field in row["forbidden"]:
+        for field in forbidden_cases(row):
             assert f"calls.{name}_forbidden_{field}" in ids
 
 

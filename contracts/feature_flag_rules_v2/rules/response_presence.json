@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "2.0.0",
   "rows": [
     {
       "reason": "targeting_match",
@@ -18,6 +18,21 @@
     {
       "reason": "targeting_match",
       "rule_type": "percentage_rollout",
+      "required": [
+        "rule_type",
+        "rule_id"
+      ],
+      "forbidden": [
+        "experiment_id",
+        "variant_key",
+        "holdout_id"
+      ],
+      "failed": false
+    },
+    {
+      "reason": "targeting_match",
+      "rule_type": "experiment",
+      "standalone": true,
       "required": [
         "rule_type",
         "rule_id"
@@ -72,6 +87,21 @@
       "failed": false
     },
     {
+      "reason": "rollout_miss",
+      "rule_type": "experiment",
+      "standalone": true,
+      "required": [
+        "rule_type",
+        "rule_id"
+      ],
+      "forbidden": [
+        "experiment_id",
+        "variant_key",
+        "holdout_id"
+      ],
+      "failed": false
+    },
+    {
       "reason": "experiment_paused",
       "rule_type": "experiment",
       "required": [
@@ -80,6 +110,21 @@
         "experiment_id"
       ],
       "forbidden": [
+        "variant_key",
+        "holdout_id"
+      ],
+      "failed": false
+    },
+    {
+      "reason": "experiment_paused",
+      "rule_type": "experiment",
+      "standalone": true,
+      "required": [
+        "rule_type",
+        "rule_id"
+      ],
+      "forbidden": [
+        "experiment_id",
         "variant_key",
         "holdout_id"
       ],
@@ -96,6 +141,21 @@
       ],
       "forbidden": [
         "variant_key"
+      ],
+      "failed": false
+    },
+    {
+      "reason": "holdout",
+      "rule_type": "experiment",
+      "standalone": true,
+      "required": [
+        "rule_type",
+        "rule_id"
+      ],
+      "forbidden": [
+        "experiment_id",
+        "variant_key",
+        "holdout_id"
       ],
       "failed": false
     },

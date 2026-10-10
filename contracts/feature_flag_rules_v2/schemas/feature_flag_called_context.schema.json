@@ -150,6 +150,39 @@
           {
             "properties": {
               "$feature_flag_reason_code": {
+                "const": "targeting_match"
+              },
+              "$feature_flag_rule_type": {
+                "const": "experiment"
+              }
+            },
+            "required": [
+              "$feature_flag_rule_type",
+              "$feature_flag_rule_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_holdout_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
                 "const": "experiment_split"
               },
               "$feature_flag_rule_type": {
@@ -237,6 +270,39 @@
           {
             "properties": {
               "$feature_flag_reason_code": {
+                "const": "rollout_miss"
+              },
+              "$feature_flag_rule_type": {
+                "const": "experiment"
+              }
+            },
+            "required": [
+              "$feature_flag_rule_type",
+              "$feature_flag_rule_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_holdout_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
                 "const": "experiment_paused"
               },
               "$feature_flag_rule_type": {
@@ -250,6 +316,39 @@
             ],
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_holdout_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "experiment_paused"
+              },
+              "$feature_flag_rule_type": {
+                "const": "experiment"
+              }
+            },
+            "required": [
+              "$feature_flag_rule_type",
+              "$feature_flag_rule_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
                 {
                   "required": [
                     "$feature_flag_variant"
@@ -283,6 +382,39 @@
                 {
                   "required": [
                     "$feature_flag_variant"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "holdout"
+              },
+              "$feature_flag_rule_type": {
+                "const": "experiment"
+              }
+            },
+            "required": [
+              "$feature_flag_rule_type",
+              "$feature_flag_rule_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_holdout_id"
                   ]
                 }
               ]

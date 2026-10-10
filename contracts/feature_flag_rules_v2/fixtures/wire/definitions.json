@@ -1,5 +1,5 @@
 {
-  "fixture_version": "1.0.0",
+  "fixture_version": "2.0.0",
   "schema": "schemas/definitions_entry.schema.json",
   "templates": {
     "v2": {
@@ -98,6 +98,19 @@
     {
       "id": "definitions.v2_canonical",
       "template": "v2",
+      "expected": "valid"
+    },
+    {
+      "id": "definitions.v2_standalone_experiment",
+      "template": "v2",
+      "set": {
+        "/filters/rules/2/experiment_id": null,
+        "/filters/rules/2/holdout": {
+          "id": null,
+          "seed": "experiment-preview-holdout",
+          "exclusion_percentage": 5
+        }
+      },
       "expected": "valid"
     },
     {
