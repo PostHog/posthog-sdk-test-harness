@@ -85,6 +85,12 @@ Argument: `none`. Routes: None declared. Fixture capabilities: `storage.empty.v1
 Handler: [`isolated`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+capture exception is called with JSON arguments:
+```
+Argument: `docString`. Routes: `/capture_exception`. Fixture capabilities: None declared.
+Handler: [`capture_exception`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 capture is called with JSON arguments:
 ```
 Argument: `docString`. Routes: `/capture`. Fixture capabilities: None declared.
@@ -179,6 +185,24 @@ the first received event property "([^"]*)" should equal "([^"]*)"
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`event_property`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event's primary exception should be handled
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_handled`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event's primary exception should have stack frames
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_stack`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event\'s primary exception should have type "([^"]*)" and message "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_summary`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
 the first received identify event disables person-profile processing

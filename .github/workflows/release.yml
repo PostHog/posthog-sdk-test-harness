@@ -20,7 +20,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: posthog/sdk-test-harness
   V2_IMAGE_NAME: posthog/sdk-test-harness-v2
-  SDK_SPECS_COMMIT: 8ccf641b6c243fec928519c48c89a0b9e9f66c40
+  SDK_SPECS_COMMIT: 26d08bcd0684661dc714015c08f4ea1245c1c40f
 
 jobs:
   check-changesets:

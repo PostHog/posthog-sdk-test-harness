@@ -86,7 +86,7 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     acceptance = runner.invoke(main, ["discover", "--acceptance-suite", "--require-ready", "--report", str(report)])
     assert acceptance.exit_code == 0, acceptance.output
     opted_in = json.loads(report.read_text())
-    assert len(opted_in["cases"]) == 8
+    assert len(opted_in["cases"]) == 10
     assert all(case["status"] == "harness_ready" for case in opted_in["cases"])
     assert all("@sdk:server" in case["tags"] for case in opted_in["cases"])
     info = runner.invoke(main, ["bundle-info"])
