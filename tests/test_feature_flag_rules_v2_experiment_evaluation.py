@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _all_errors, _load_json
 from tests.test_feature_flag_rules_v2_corpus import MAX_IDENTIFIER_SCALAR_VALUES, SCALE, _binary64_hex
+from tests.test_feature_flag_rules_v2_wire import response_errors
 
 CORPUS = _load_json(CONTRACT_ROOT / "corpus/v2_experiment_evaluation.json")
 CASES = CORPUS["cases"]
@@ -243,6 +244,34 @@ def test_schema_requires_variant_exactly_for_an_experiment_split(
     assert Draft202012Validator(SCHEMA).is_valid(corpus) == valid
 
 
+@pytest.mark.parametrize(
+    "case", [case for case in CASES if case["expected"]["status"] == "success"], ids=lambda case: case["id"]
+)
+def test_every_result_projects_to_a_valid_v3_record(case: dict[str, Any]) -> None:
+    """The v3 record carries the terminal rule and the variant key, and nothing else from the result."""
+    expected = case["expected"]
+    rule = expected.get("rule")
+    metadata: dict[str, Any] = {"id": 201, "version": 7, "config_version": 2, "has_experiment": False, "payload": None}
+    if rule:
+        metadata |= {"rule_type": rule["rule_type"], "rule_id": rule["id"]}
+    if "variant" in expected:
+        metadata["variant_key"] = expected["variant"]
+    key = case["flag"]["key"]
+    record = {
+        "key": key,
+        "value": expected["value"],
+        "reason": {"code": expected["reason"], "condition_index": rule["index"] if rule else None},
+        "metadata": metadata,
+    }
+    response = {
+        "errorsWhileComputingFlags": False,
+        "flags": {key: record},
+        "requestId": "20000000-0000-4000-8000-000000000002",
+        "evaluatedAt": 1800000000000,
+    }
+    assert response_errors(response) == []
+
+
 def test_variant_values_cover_every_return_type_and_equal_values_stay_distinct() -> None:
     splits = [case for case in CASES if "variant" in case["expected"]]
     assert {case["config"]["return_type"] for case in splits} == {"boolean", "string", "number", "object"}
@@ -290,6 +319,12 @@ def test_parser_rows_cover_schema_and_semantic_rejections() -> None:
     linked = BY_ID["v2_experiment.parser.experiment_id"]["config"]
     errors = [e for error in CONFIG.iter_errors(linked) for e in _all_errors(error)]
     assert any(e.validator == "additionalProperties" and "experiment_id" in e.message for e in errors)
+    # A holdout belongs to its rule and names no shared holdout row.
+    shared = BY_ID["v2_experiment.parser.holdout_id"]["config"]
+    errors = [e for error in CONFIG.iter_errors(shared) for e in _all_errors(error)]
+    assert any(
+        e.validator == "additionalProperties" and list(e.absolute_path) == ["rules", 0, "holdout"] for e in errors
+    )
     assert re.fullmatch(r"v2_experiment\.parser\.[a-z0-9_]+", parser[0]["id"])
 
 
@@ -299,7 +334,7 @@ def test_experiment_family_counts_make_consumer_scope_explicit() -> None:
         "assignment": 22,
         "values": 9,
         "white_box": 10,
-        "parser": 19,
+        "parser": 20,
     }
     reasons = Counter(case["expected"].get("reason") for case in CASES)
     assert {"experiment_split", "rollout_miss", "experiment_paused", "holdout", "no_rule_match"} <= set(reasons)

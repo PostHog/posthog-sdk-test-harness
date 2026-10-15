@@ -199,7 +199,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -436,7 +435,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -510,7 +508,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -592,7 +589,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -666,7 +662,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 0
             }
@@ -1638,7 +1633,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -3319,7 +3313,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 20
             }
@@ -3407,7 +3400,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 20
             }
@@ -3511,7 +3503,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "holdout-",
               "exclusion_percentage": 50
             }
@@ -4508,7 +4499,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 100
             }
@@ -5144,7 +5134,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 20
             }
@@ -5224,7 +5213,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 20
             }
@@ -6174,7 +6162,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "exclusion_percentage": 5
             }
           }
@@ -6235,10 +6222,71 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 5,
               "name": "x"
+            }
+          }
+        ]
+      },
+      "context": {
+        "identifier": "person-example",
+        "properties": {
+          "plan": "pro"
+        },
+        "properties_complete": true,
+        "timezone": "UTC",
+        "explicit_exact_matching": true,
+        "now": "2024-03-31T12:00:00Z"
+      },
+      "expected": {
+        "status": "parse_error",
+        "kind": "malformed"
+      }
+    },
+    {
+      "id": "v2_experiment.parser.holdout_id",
+      "family": "parser",
+      "flag": {
+        "key": "example-display-key",
+        "name": "Example display name",
+        "active": true,
+        "deleted": false,
+        "requested": true
+      },
+      "config": {
+        "version": 2,
+        "return_type": "string",
+        "default_value": "default",
+        "rules": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "rule_type": "experiment",
+            "targeting": {
+              "properties": []
+            },
+            "paused": false,
+            "rollout_percentage": 100,
+            "on_rollout_miss": "continue",
+            "assignment_algorithm": "sha1_60_v1",
+            "seed": "example-split",
+            "assign_by": "person",
+            "variants": [
+              {
+                "key": "control",
+                "weight": 50,
+                "value": "blue"
+              },
+              {
+                "key": "test",
+                "weight": 50,
+                "value": "green"
+              }
+            ],
+            "holdout": {
+              "id": 7,
+              "seed": "example-holdout",
+              "exclusion_percentage": 5
             }
           }
         ]
@@ -6532,7 +6580,6 @@
               }
             ],
             "holdout": {
-              "id": null,
               "seed": "example-holdout",
               "exclusion_percentage": 5.555
             }

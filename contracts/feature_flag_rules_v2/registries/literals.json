@@ -230,7 +230,6 @@
       "rule_type",
       "rule_id",
       "variant_key",
-      "holdout_id",
       "id",
       "version",
       "reason_code",

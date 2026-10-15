@@ -402,6 +402,17 @@
       }
     },
     {
+      "path": "fixtures/config/invalid/holdout_with_id.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.holdout_with_id",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "additionalProperties",
+        "instance_path": "/rules/0/holdout",
+        "message_contains": "'id'"
+      }
+    },
+    {
       "path": "schemas/hash_sha1_60_v1.schema.json",
       "kind": "schema"
     },

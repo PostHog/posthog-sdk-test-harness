@@ -53,26 +53,14 @@
     "locally_evaluated": {
       "type": "boolean"
     },
-    "$feature_flag_holdout_id": {
-      "type": "integer"
-    },
     "$feature_flag_forced_variant": {
       "const": true
     }
   },
-  "description": "Closed projection of required SDK-origin exposure properties; holdout and forced-variant context are forbidden. Capture identity and existing optional transport properties are outside this projection. Scan the entire event recursively for assignment seeds.",
+  "description": "Closed projection of required SDK-origin exposure properties; forced-variant context is forbidden. Capture identity and existing optional transport properties are outside this projection. Scan the entire event recursively for assignment seeds.",
   "not": {
-    "anyOf": [
-      {
-        "required": [
-          "$feature_flag_holdout_id"
-        ]
-      },
-      {
-        "required": [
-          "$feature_flag_forced_variant"
-        ]
-      }
+    "required": [
+      "$feature_flag_forced_variant"
     ]
   }
 }
