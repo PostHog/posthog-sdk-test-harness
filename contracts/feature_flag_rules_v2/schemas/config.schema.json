@@ -365,18 +365,10 @@
     "holdout": {
       "type": "object",
       "required": [
-        "id",
         "seed",
         "exclusion_percentage"
       ],
       "properties": {
-        "id": {
-          "description": "The Holdout row this holdout belongs to, or null when it belongs to this rule alone. The rule always stores the holdout seed and exclusion percentage.",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "seed": {
           "$ref": "#/$defs/seed"
         },

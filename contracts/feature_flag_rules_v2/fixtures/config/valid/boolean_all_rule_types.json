@@ -61,7 +61,6 @@
         }
       ],
       "holdout": {
-        "id": 7,
         "seed": "holdout-",
         "exclusion_percentage": 5
       }

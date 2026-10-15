@@ -261,7 +261,7 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     metadata = producer["$defs"]["metadata"]["properties"]
     called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["properties"]
     exposure = SCHEMAS["schemas/experiment_exposure_properties.schema.json"]["properties"]
-    shared = ["variant_key", "rule_id", "holdout_id", "forced_variant"]
+    shared = ["variant_key", "rule_id", "forced_variant"]
     # The called context keeps the version 1 experiment ID; a v2 exposure has none.
     for field in ["config_version", "rule_type", "experiment_id", *shared]:
         assert called[PRESENCE.event_property(field)] == metadata[field], field
@@ -317,7 +317,6 @@ SAMPLE_VALUES = {
     "rule_id": "10000000-0000-4000-8000-000000000001",
     "experiment_id": 301,
     "variant_key": "arm_a",
-    "holdout_id": 401,
 }
 
 
@@ -419,6 +418,8 @@ def test_frozen_producer_rules_agree_with_the_matrix() -> None:
     defs = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"]
 
     def forbidden(schema: dict[str, Any]) -> list[str]:
+        if "not" not in schema:
+            return []
         return [clause["required"][0] for clause in schema["not"].get("anyOf", [schema["not"]])]
 
     def reasons(condition: dict[str, Any]) -> list[str]:
