@@ -1,0 +1,5 @@
+---
+pypi/posthog-sdk-test-harness: minor
+---
+
+Generate the per-field feature flag rules v2 response negatives from the presence matrix instead of committing them. For every row of `rules/response_presence.json`, the meta-tests build a missing-field case for `has_experiment` and each required field, a forbidden-field case for each forbidden field, and a wrong condition index case from the row's template, and check each against the same validation layer, keyword and instance path the committed cases declared. A mutation that another matrix row accepts is not a negative. 76 of the 77 committed cases that the generator reproduces exactly (`responses.<row>_missing_<field>`, `responses.<row>_forbidden_<field>` and `responses.<row>_wrong_condition_index`) are removed from `fixtures/wire/responses.json`; `responses.holdout_missing_holdout_id` stays so that the committed set keeps a presence-layer `required` failure. The hand-made invalid cases, all valid cases and all templates stay. `responses.json` now has 25 valid and 49 invalid cases, so consumers that pin its case counts must update them when they re-vendor. The removal ships in contract package 5.0.0.
