@@ -141,7 +141,7 @@ def has_split_context(record: dict[str, Any]) -> bool:
         metadata.get("config_version") == 2
         and record.get("reason", {}).get("code") == "experiment_split"
         and metadata.get("rule_type") == "experiment"
-        and all(field in metadata for field in ["rule_id", "experiment_id", "variant_key"])
+        and all(field in metadata for field in ["rule_id", "variant_key"])
     )
 
 
@@ -261,11 +261,13 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     metadata = producer["$defs"]["metadata"]["properties"]
     called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["properties"]
     exposure = SCHEMAS["schemas/experiment_exposure_properties.schema.json"]["properties"]
-    shared = ["variant_key", "rule_id", "experiment_id", "holdout_id", "forced_variant"]
-    for field in ["config_version", "rule_type", *shared]:
+    shared = ["variant_key", "rule_id", "forced_variant"]
+    # The called context keeps the version 1 experiment ID; a v2 exposure has none.
+    for field in ["config_version", "rule_type", "experiment_id", *shared]:
         assert called[PRESENCE.event_property(field)] == metadata[field], field
     for field in shared:
         assert exposure[PRESENCE.event_property(field)] == metadata[field], field
+    assert PRESENCE.event_property("experiment_id") not in exposure
     assert exposure["$feature_flag"] == called["$feature_flag"]
     assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
 
@@ -301,6 +303,9 @@ def another_row_accepts(row: dict[str, Any], present: set[str]) -> bool:
 
 def restated_by_exact_schema(row: dict[str, Any], field: str) -> bool:
     """The exact schema restates the split row and the no-rule context (see the frozen producer test below)."""
+    if field == "experiment_id":
+        # The exact schema forbids an experiment ID on every v2 record.
+        return True
     if row["rule_type"] is None:
         return field in [*row["forbidden"], "condition_index"]
     return row["reason"] == "experiment_split" and field in [*row["required"], *row["forbidden"]]
@@ -312,7 +317,6 @@ SAMPLE_VALUES = {
     "rule_id": "10000000-0000-4000-8000-000000000001",
     "experiment_id": 301,
     "variant_key": "arm_a",
-    "holdout_id": 401,
 }
 
 
@@ -362,7 +366,7 @@ def test_every_terminal_reason_has_fixtures() -> None:
         assert f"responses.missing_{field}" in ids
     for row in MATRIX:
         assert "responses." + row_name(row) in ids
-    for field in ["config_version", "rule_type", "rule_id", "experiment_id", "variant_key"]:
+    for field in ["config_version", "rule_type", "rule_id", "variant_key"]:
         assert f"responses.split_wrong_type_{field}" in ids
         assert any(c["id"] == f"readers.partial_split_missing_{field}" for c in SETS["readers"]["cases"])
 
@@ -414,15 +418,21 @@ def test_frozen_producer_rules_agree_with_the_matrix() -> None:
     defs = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"]
 
     def forbidden(schema: dict[str, Any]) -> list[str]:
+        if "not" not in schema:
+            return []
         return [clause["required"][0] for clause in schema["not"].get("anyOf", [schema["not"]])]
 
     def reasons(condition: dict[str, Any]) -> list[str]:
         return condition["properties"]["reason"]["properties"]["code"]["enum"]
 
+    # Every v2 record forbids an experiment ID, so the copy states that once for all rows.
+    v2_forbidden = forbidden(defs["v2_rules"]["then"]["properties"]["metadata"])
+    assert "experiment_id" in v2_forbidden
+    assert all("experiment_id" in row["forbidden"] for row in MATRIX)
     split = next(row for row in MATRIX if row["reason"] == "experiment_split")
     metadata = defs["split_rules"]["then"]["properties"]["metadata"]
     assert metadata["required"] == split["required"]
-    assert forbidden(metadata) == split["forbidden"]
+    assert ["experiment_id", *forbidden(metadata)] == split["forbidden"]
     assert metadata["properties"]["rule_type"]["const"] == split["rule_type"]
     no_rule = [row for row in MATRIX if row["rule_type"] is None]
     assert reasons(defs["no_rule_rules"]["if"]) == [row["reason"] for row in no_rule]

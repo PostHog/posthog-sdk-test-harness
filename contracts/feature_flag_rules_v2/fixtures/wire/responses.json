@@ -67,7 +67,6 @@
             "payload": null,
             "rule_type": "experiment",
             "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301,
             "variant_key": "arm_a"
           }
         }
@@ -116,8 +115,7 @@
             "has_experiment": true,
             "payload": null,
             "rule_type": "experiment",
-            "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301
+            "rule_id": "10000000-0000-4000-8000-000000000001"
           }
         }
       },
@@ -141,8 +139,7 @@
             "has_experiment": true,
             "payload": null,
             "rule_type": "experiment",
-            "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301
+            "rule_id": "10000000-0000-4000-8000-000000000001"
           }
         }
       },
@@ -166,9 +163,7 @@
             "has_experiment": true,
             "payload": null,
             "rule_type": "experiment",
-            "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301,
-            "holdout_id": 401
+            "rule_id": "10000000-0000-4000-8000-000000000001"
           }
         }
       },
@@ -407,17 +402,12 @@
       }
     },
     {
-      "id": "responses.experiment_split_contradicted_has_experiment",
+      "id": "responses.experiment_split_flag_without_experiment",
       "template": "experiment_split",
       "set": {
         "/flags/garden-layout/metadata/has_experiment": false
       },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "presence",
-        "keyword": "const",
-        "instance_path": "/flags/garden-layout/metadata/has_experiment"
-      }
+      "expected": "valid"
     },
     {
       "id": "responses.rollout_miss_percentage_rollout",
@@ -485,17 +475,17 @@
       "expected": "valid"
     },
     {
-      "id": "responses.holdout_missing_holdout_id",
+      "id": "responses.holdout_missing_rule_id",
       "template": "holdout",
       "remove": [
-        "/flags/garden-layout/metadata/holdout_id"
+        "/flags/garden-layout/metadata/rule_id"
       ],
       "expected": "invalid",
       "expected_failure": {
         "layer": "presence",
         "keyword": "required",
         "instance_path": "/flags/garden-layout/metadata",
-        "message_contains": "holdout_id"
+        "message_contains": "rule_id"
       }
     },
     {
@@ -664,19 +654,6 @@
         "layer": "schema",
         "keyword": "type",
         "instance_path": "/flags/garden-layout/metadata/rule_id"
-      }
-    },
-    {
-      "id": "responses.split_wrong_type_experiment_id",
-      "template": "experiment_split",
-      "set": {
-        "/flags/garden-layout/metadata/experiment_id": "301"
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "schema",
-        "keyword": "type",
-        "instance_path": "/flags/garden-layout/metadata/experiment_id"
       }
     },
     {
@@ -929,32 +906,6 @@
       }
     },
     {
-      "id": "responses.rollout_miss_percentage_rollout_wrong_rule_type",
-      "template": "rollout_miss_percentage_rollout",
-      "set": {
-        "/flags/garden-layout/metadata/rule_type": "experiment"
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "presence",
-        "keyword": "const",
-        "instance_path": "/flags/garden-layout/metadata/rule_type"
-      }
-    },
-    {
-      "id": "responses.rollout_miss_experiment_wrong_rule_type",
-      "template": "rollout_miss_experiment",
-      "set": {
-        "/flags/garden-layout/metadata/rule_type": "percentage_rollout"
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "presence",
-        "keyword": "const",
-        "instance_path": "/flags/garden-layout/metadata/rule_type"
-      }
-    },
-    {
       "id": "responses.experiment_paused_wrong_rule_type",
       "template": "experiment_paused",
       "set": {
@@ -1072,7 +1023,6 @@
             "payload": null,
             "rule_type": "experiment",
             "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301,
             "variant_key": "arm_a"
           }
         }
@@ -1098,7 +1048,6 @@
             "payload": null,
             "rule_type": "experiment",
             "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301,
             "variant_key": "arm_a"
           },
           "conditions": [
@@ -1138,7 +1087,6 @@
             "payload": null,
             "rule_type": "experiment",
             "rule_id": "10000000-0000-4000-8000-000000000001",
-            "experiment_id": 301,
             "variant_key": "arm_a"
           }
         }
@@ -1163,19 +1111,6 @@
       "template": "v1",
       "set": {
         "/flags/garden-layout/metadata/rule_type": "targeted_release"
-      },
-      "expected": "invalid",
-      "expected_failure": {
-        "layer": "presence",
-        "keyword": "not",
-        "instance_path": "/flags/garden-layout/metadata"
-      }
-    },
-    {
-      "id": "responses.v1_forbidden_holdout_id",
-      "template": "v1",
-      "set": {
-        "/flags/garden-layout/metadata/holdout_id": 401
       },
       "expected": "invalid",
       "expected_failure": {

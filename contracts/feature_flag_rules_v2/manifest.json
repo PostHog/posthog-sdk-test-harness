@@ -184,17 +184,6 @@
       }
     },
     {
-      "path": "fixtures/config/invalid/null_experiment_id.json",
-      "kind": "fixture",
-      "fixture_id": "config.invalid.null_experiment_id",
-      "expected": "invalid",
-      "expected_failure": {
-        "keyword": "type",
-        "instance_path": "/rules/0/experiment_id",
-        "message_contains": "integer"
-      }
-    },
-    {
       "path": "fixtures/config/valid/object_value_max_depth.json",
       "kind": "fixture",
       "fixture_id": "config.valid.object_value_max_depth",
@@ -396,6 +385,34 @@
       }
     },
     {
+      "path": "fixtures/config/valid/experiment_rule_local_holdout.json",
+      "kind": "fixture",
+      "fixture_id": "config.valid.experiment_rule_local_holdout",
+      "expected": "valid"
+    },
+    {
+      "path": "fixtures/config/invalid/experiment_rule_with_experiment_id.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.experiment_rule_with_experiment_id",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "additionalProperties",
+        "instance_path": "/rules/0",
+        "message_contains": "experiment_id"
+      }
+    },
+    {
+      "path": "fixtures/config/invalid/holdout_with_id.json",
+      "kind": "fixture",
+      "fixture_id": "config.invalid.holdout_with_id",
+      "expected": "invalid",
+      "expected_failure": {
+        "keyword": "additionalProperties",
+        "instance_path": "/rules/0/holdout",
+        "message_contains": "'id'"
+      }
+    },
+    {
       "path": "schemas/hash_sha1_60_v1.schema.json",
       "kind": "schema"
     },
@@ -482,6 +499,14 @@
     {
       "path": "corpus/v2_value_evaluation.json",
       "kind": "value_evaluation_corpus"
+    },
+    {
+      "path": "schemas/v2_experiment_evaluation.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "corpus/v2_experiment_evaluation.json",
+      "kind": "experiment_evaluation_corpus"
     }
   ]
 }
