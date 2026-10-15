@@ -1,4 +1,3 @@
-import hashlib
 import importlib.util
 import json
 import re
@@ -14,7 +13,7 @@ CONTRACT_ROOT = Path(__file__).parents[1] / "contracts" / "feature_flag_rules_v2
 MANIFEST_PATH = CONTRACT_ROOT / "manifest.json"
 SCHEMA_PATH = CONTRACT_ROOT / "schemas" / "config.schema.json"
 REGISTRY_PATH = CONTRACT_ROOT / "registries" / "literals.json"
-CHECKSUMS_PATH = CONTRACT_ROOT / "SHA256SUMS"
+SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 BIN_ROOT = Path(__file__).parents[1] / "bin"
 CORPUS_KINDS = ("corpus", "boolean_evaluation_corpus", "value_evaluation_corpus")
 
@@ -103,6 +102,18 @@ def _schema_fields(value: Any) -> set[str]:
     return fields
 
 
+def test_manifest_carries_one_version_and_no_derived_data() -> None:
+    manifest = _manifest()
+    assert set(manifest) == {"contract", "artifacts"}
+    assert set(manifest["contract"]) == {"name", "version", "config_version"}
+    assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", manifest["contract"]["version"])
+    for artifact in manifest["artifacts"]:
+        keys = {"path", "kind"}
+        if artifact["kind"] == "fixture":
+            keys |= {"fixture_id", "expected"} | ({"expected_failure"} if artifact["expected"] == "invalid" else set())
+        assert set(artifact) == keys, artifact
+
+
 def test_manifest_references_every_contract_file_once() -> None:
     manifest = _manifest()
     artifact_paths = [artifact["path"] for artifact in manifest["artifacts"]]
@@ -111,7 +122,7 @@ def test_manifest_references_every_contract_file_once() -> None:
     actual_paths = {
         path.relative_to(CONTRACT_ROOT).as_posix() for path in CONTRACT_ROOT.rglob("*") if path.is_file()
     }
-    expected_paths = _artifact_paths(manifest) | {"manifest.json", "SHA256SUMS"}
+    expected_paths = _artifact_paths(manifest) | {"manifest.json"}
     assert actual_paths == expected_paths
 
 
@@ -131,13 +142,9 @@ def test_fixture_ids_are_unique_and_match_fixture_files() -> None:
 
 
 def test_schema_is_valid_draft_2020_12_and_has_no_wire_defaults() -> None:
-    manifest = _manifest()
     schema = _load_json(SCHEMA_PATH)
 
-    assert schema["$schema"] == manifest["schema_dialect"]
-    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
-    schema_version = component_versions["schemas/config.schema.json"]
-    assert schema["$id"] == f"urn:posthog:feature-flag-rules-v2:config:{schema_version}"
+    assert schema["$schema"] == SCHEMA_DIALECT
     Draft202012Validator.check_schema(schema)
     assert all("default" not in node for node in _walk_json(schema) if isinstance(node, dict))
 
@@ -158,8 +165,6 @@ def test_literal_registry_matches_config_schema() -> None:
     schema = _load_json(SCHEMA_PATH)
     registry = _load_json(REGISTRY_PATH)
 
-    component_versions = {artifact["path"]: artifact.get("version") for artifact in manifest["artifacts"]}
-    assert registry["registry_version"] == component_versions["registries/literals.json"]
     assert registry["config_versions"]["v2"] == manifest["contract"]["config_version"]
     assert _property_literals(schema, "version") == {registry["config_versions"]["v2"]}
     assert _property_literals(schema, "rule_type") == {
@@ -231,33 +236,6 @@ def test_invalid_config_fixtures_fail_for_the_declared_reason(fixture: dict[str,
         f"Actual errors: "
         f"{[(error.validator, _json_pointer(error.absolute_path), error.message) for error in flattened_errors]}"
     )
-
-
-def test_readme_names_the_published_contract_version() -> None:
-    readme = (CONTRACT_ROOT / "README.md").read_text(encoding="utf-8")
-    assert f"Contract package {_manifest()['contract']['version']} contains" in readme
-
-
-def test_checksum_index_is_complete_and_valid() -> None:
-    manifest = _manifest()
-    checksum_text = CHECKSUMS_PATH.read_text(encoding="utf-8")
-    assert checksum_text.endswith("\n")
-
-    entries: dict[str, str] = {}
-    for line in checksum_text.splitlines():
-        match = re.fullmatch(r"([0-9a-f]{64})  ([^\n]+)", line)
-        assert match is not None
-        digest, relative_path = match.groups()
-        assert relative_path not in entries
-        entries[relative_path] = digest
-
-    expected_paths = _artifact_paths(manifest) | {"manifest.json"}
-    assert set(entries) == expected_paths
-    assert list(entries) == sorted(entries)
-
-    for relative_path, expected_digest in entries.items():
-        actual_digest = hashlib.sha256((CONTRACT_ROOT / relative_path).read_bytes()).hexdigest()
-        assert actual_digest == expected_digest, relative_path
 
 
 @pytest.mark.parametrize("depth, valid", [(20, True), (21, False), (150, False)])

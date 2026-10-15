@@ -1,7 +1,6 @@
 """Contract meta-tests only: these do not execute an SDK, evaluator or harness action."""
 
 import copy
-import hashlib
 import re
 from collections import Counter
 from pathlib import Path
@@ -15,12 +14,14 @@ from tests.test_feature_flag_rules_v2_contract import (
     CONTRACT_ROOT,
     CORPUS_KINDS,
     REGISTRY_PATH,
+    SCHEMA_DIALECT,
     _all_errors,
     _bin_module,
     _json_pointer,
     _load_json,
     _manifest,
 )
+from tests.test_feature_flag_rules_v2_corpus import CASE_ID_PATTERN, _case_ids
 
 MANIFEST = _manifest()
 ARTIFACTS = [a for a in MANIFEST["artifacts"] if a["kind"] == "fixture_set"]
@@ -32,8 +33,6 @@ MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
 ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
-PRODUCER_DIGEST = "98c1397bb7b5a1ceb3f317b34c6c57cff0ab30e94bf5945ee7b56f293536b70f"
-FROZEN_POLICY = "published bytes are immutable; a wire change publishes a new schema file under a new $id (README)"
 PRESENCE = _bin_module("update-feature-flag-rules-v2-presence-schemas")
 # Keys of these maps are customer-chosen names (flag keys, group types, person properties), not protocol fields.
 NAMED_MAPS = [("flags",), ("properties", "$groups"), ("properties", "$set"), ("properties", "$set_once")]
@@ -223,18 +222,19 @@ def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
         )
 
 
-def test_wire_ids_versions_and_file_coverage() -> None:
+def test_fixture_and_case_ids_are_unique_and_well_formed() -> None:
     ids = [a["fixture_id"] for a in MANIFEST["artifacts"] if a["kind"] == "fixture"]
     for artifact in MANIFEST["artifacts"]:
-        if artifact["kind"] in [*CORPUS_KINDS, "fixture_set"]:
-            ids.extend(artifact["case_ids"])
+        if artifact["kind"] in CORPUS_KINDS:
+            ids.extend(_case_ids(artifact, _load_json(CONTRACT_ROOT / artifact["path"])))
+    ids.extend(case["id"] for _, case in CASES)
     assert len(ids) == len(set(ids))
-    assert all(re.fullmatch(MANIFEST["corpus"]["case_id_pattern"], item) for item in ids)
-    for artifact in ARTIFACTS:
-        data = _load_json(CONTRACT_ROOT / artifact["path"])
-        assert artifact["version"] == data["fixture_version"] == MANIFEST["wire_contract"]["fixture_version"]
-        assert artifact["schema"] == data["schema"]
-        assert artifact["case_ids"] == [c["id"] for c in data["cases"]]
+    assert all(CASE_ID_PATTERN.fullmatch(item) for item in ids)
+
+
+def test_wire_fixture_sets_are_well_formed() -> None:
+    for data in SETS.values():
+        assert data["schema"] in SCHEMAS
         assert set(data["templates"]) == {c["template"] for c in data["cases"]}
         for case in data["cases"]:
             assert set(case) <= {
@@ -251,9 +251,6 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "2.3.1"
-    assert MANIFEST["corpus"]["version"] == "1.1.0"
-    assert MANIFEST["wire_contract"]["version"] == "1.0.1"
 
 
 def test_wire_schemas_and_literal_registry_agree() -> None:
@@ -261,7 +258,7 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
         if artifact["kind"] == "schema":
             schema = SCHEMAS[artifact["path"]]
             Draft202012Validator.check_schema(schema)
-            assert schema["$schema"] == MANIFEST["schema_dialect"]
+            assert schema["$schema"] == SCHEMA_DIALECT
     assert SCHEMAS["schemas/management_warning.schema.json"]["properties"]["code"]["enum"] == LITERALS["warning_codes"]
     producer = SCHEMAS["schemas/flags_response_v3.schema.json"]
     assert producer["$defs"]["v2_reason_code"]["enum"] == [r for r in LITERALS["reason_codes"] if r != "flag_disabled"]
@@ -281,25 +278,6 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
         assert exposure[PRESENCE.event_property(field)] == metadata[field], field
     assert exposure["$feature_flag"] == called["$feature_flag"]
     assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
-
-
-def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
-    # Registry 2.0.0 drops four warning codes from published 1.0.0; the other components keep their published bytes.
-    frozen = {
-        "schemas/config.schema.json": ("1.0.0", "74e43ed13dbfd578bcb8eedc5a247917788b320829b888eab84ce1126841d63b"),
-        "registries/literals.json": ("2.0.0", "afd25df141b5e05dfa5c8848e1685a4e8b81f3c80fbafc4769c944b815356069"),
-        "corpus/hash_sha1_60_v1.json": ("1.1.0", "e9bea9cff58bac0c6c1021e9c8842c53594055b6874a2c58bc4350d0c28a93ca"),
-        "corpus/v1_evaluation.json": ("1.1.0", "752ff88dcb943ab1e21f9552b0c4ec606029393fca2b565b01a497da89cd8675"),
-        "corpus/legacy_projection.json": ("1.1.0", "536c8386eefa75721d113bd8718ddeb7fb1aad3b4f2cce1fbcf516a346a16e26"),
-    }
-    versions = {a["path"]: a.get("version") for a in MANIFEST["artifacts"]}
-    for path, (version, digest) in frozen.items():
-        actual = hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest()
-        assert actual == digest, f"{path} {version}: {FROZEN_POLICY}"
-        assert versions[path] == version, path
-    producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
-    assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST, f"flags_response_v3.schema.json: {FROZEN_POLICY}"
-    assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST, "manifest pins the producer copy"
 
 
 def test_v1_variant_keys_are_carried_verbatim() -> None:

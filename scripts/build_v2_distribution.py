@@ -87,8 +87,6 @@ def main():
             shutil.copytree(
                 repo / name, stage / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info")
             )
-        (stage / "bin").mkdir()
-        shutil.copy2(repo / "bin/update-feature-flag-rules-v2-checksums.py", stage / "bin")
         runner_files = {
             p.relative_to(stage).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in stage.rglob("*")

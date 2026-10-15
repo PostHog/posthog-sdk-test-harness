@@ -1,5 +1,4 @@
 {
-  "fixture_version": "1.0.0",
   "schema": "schemas/definitions_entry.schema.json",
   "templates": {
     "v2": {

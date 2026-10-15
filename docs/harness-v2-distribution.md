@@ -10,7 +10,7 @@ uv run python scripts/build_v2_distribution.py \
 
 Use a fresh output directory. Omit `--allow-dirty` for clean release inputs. This command never publishes. It stages the runner in a temporary directory, copies feature files with their inline scenario data, and generates one small bundle manifest containing file hashes, source commit/dirty state and protocol identity. No audit ledger, catalog generator or migration history is needed at runtime.
 
-The output contains a wheel, sdist, hashed dependency lock and distribution identity. Runner provenance distinguishes development snapshots. Existing v1 contract assets and the feature-flag checksum updater remain included in the source distribution. A dirty worktree artifact is not current-main or release validation.
+The output contains a wheel, sdist, hashed dependency lock and distribution identity. Runner provenance distinguishes development snapshots. Existing v1 contract assets remain included in the source distribution. A dirty worktree artifact is not current-main or release validation.
 
 Install outside both source checkouts:
 

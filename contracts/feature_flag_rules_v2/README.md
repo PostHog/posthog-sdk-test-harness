@@ -1,7 +1,7 @@
 # Feature Flag Rules v2 contract
 
 This package defines Feature Flag Rules v2 configuration, definitions, response, management diagnostic and event contracts, plus the canonical evaluation corpus.
-Contract package 2.3.1 contains config schema 1.0.0, registry 2.0.0, corpus 1.1.0, wire schemas 1.0.1 with wire fixtures 1.0.0, person boolean evaluation corpus 1.0.0, and typed value evaluation corpus 1.0.0.
+The package version is `contract.version` in `manifest.json`; see [Versioning](#versioning).
 The contract version is independent of the test harness package version.
 
 The package does not enable config writes or runtime evaluation.
@@ -48,8 +48,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
-- manifest.json assigns stable fixture and case IDs and declares the compatibility policy.
-- SHA256SUMS records the SHA-256 digest for each package file except itself.
+- manifest.json holds the contract and config versions, lists every package file with its kind, and records each config fixture's ID and expected result.
 
 In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
 The marker documents this choice for the contract tests; additionalProperties defines how those keys are validated.
@@ -58,30 +57,29 @@ The config schema enforces all constraints that the standard can express, includ
 Depth counts object and array containers, with the returned object at level 1; scalar leaves add no level.
 The registry also identifies constraints that need a semantic or parser-level validator, such as unique rule IDs and variant keys, and exact variant weight totals.
 
-Docker releases include contracts/ directly. MANIFEST.in also includes this contract in Python source distributions for source-artifact verification.
-It does not install the contract as wheel package data; consumers should pin the repository files or use the source distribution or Docker image.
+Docker releases include contracts/ directly, and MANIFEST.in includes this contract in the Python source distribution.
+It is not installed as wheel package data; consumers vendor the files or use the Docker image.
 
-## Component versions
+## Versioning
 
-Each artifact carries its own component version in manifest.json.
-The config schema stays at 1.0.0 because contract 2.0.0 does not change its published bytes or accepted configs.
-The literal registry is 2.0.0: it removes the four unused management warning codes (`EXPERIMENT_VALUE_COLLISION`, `SDK_REMOTE_FALLBACK_REQUIRED`, `SDK_EXPERIMENT_CONTEXT_MISSING`, `LEGACY_PROJECTION_LIMITED`) from the `warning_codes` published in registry 1.0.0 (contract 1.2.0), which the compatibility policy classifies as a major change; the five remaining codes are unchanged.
-The corpus files and their companion schemas are corpus version 1.1.0.
-Contract package 2.1.0 adds config fixtures for the targeted-release and percentage-rollout family; it changes no published schema, registry, corpus or fixture bytes.
-Contract package 2.3.0 adds the typed value evaluation corpus; it also changes no published bytes.
+`contract.version` in `manifest.json` is the only version of this package.
+
+- Major: a file, case, fixture or field is removed or renamed, an expectation changes, or the set of accepted configs or payloads changes.
+- Minor: files, cases, fixtures or fields are added.
+- Patch: documentation changes only.
+
+A case or fixture ID never changes its expectation: a changed expectation gets a new ID, and the old ID is removed.
+
+Schema `$id`s are stable identifiers and do not change between versions, so load one contract version per schema registry.
+The version suffix of the `urn:` `$id`s and the `corpus_version` field that the corpus schemas require are fixed labels, not release versions.
+
+Consumers vendor a pinned harness release or commit, and may record each vendored file's SHA-256 to detect local edits.
 
 ## Corpus rules
-
-Every corpus case has a stable ID that manifest.json declares under its file.
-Adding, removing, or renaming a case requires a manifest change.
 
 Expected values are hand-derived from the algorithm definition and the frozen version 1 evaluator.
 Hash expectations were calculated with an independent SHA-1 implementation, never generated from a production evaluator.
 The meta-tests recompute every hash vector, so an expectation cannot change silently.
-
-A published corpus version is immutable.
-Changing any expected value, including a hash vector, a version 1 outcome, or a projection cell, requires a new corpus version and a review explanation of why the previous expectation was wrong or superseded.
-Additive cases may join a new minor corpus version; a changed expectation is a major corpus change.
 
 Hash arithmetic is defined in corpus/hash_sha1_60_v1.json.
 The contract value of hash01 converts both the 60-bit integer and the scale to binary64 before one division.
@@ -93,7 +91,7 @@ Thresholds are rollout_percentage / 100 computed in binary64, and variant bounda
 
 The Rust `/flags` service is the server-side version 1 reference; there is no remaining Python server-side v1 evaluator.
 The frozen arm pins its behavior as verified on 2026-09-10 at [PostHog/posthog f57417de1c412fe55187540f392def4e2aef48b3](https://github.com/PostHog/posthog/blob/f57417de1c412fe55187540f392def4e2aef48b3/rust/feature-flags/src/flags/flag_matching.rs#L2160).
-A deliberate change to that behavior requires a new corpus version.
+A deliberate change to that behavior changes expectations; see [Versioning](#versioning).
 
 Version 1 accepts an empty `distinct_id`; a missing field is invalid.
 Its rollout and variant hash accessor returns 0.0 without calling SHA-1 for the empty identifier.
@@ -110,18 +108,7 @@ The empty-identifier cases are `remote_only` because [posthog-python a1002c577e7
 Its public local-only flag API returns false at 0 and 62 percent, test for the stored control/test 50/50 split, and true for both holdout fixtures.
 These are known SDK divergences, not inconclusive results or evidence of automatic fallback; the 92 percent holdout result happens to agree.
 
-## Version and integrity policy
-
-A published contract version is immutable.
-Publish a new contract version to correct or extend a published contract.
-Do not change a published version in place.
-
-SHA256SUMS uses raw file bytes.
-It has one lowercase SHA-256 digest, two spaces, a relative POSIX path, and one line feed per entry.
-Entries use bytewise path order.
-
-To pin this contract, record the source revision, the contract version, the corpus version, and the SHA-256 digest of SHA256SUMS.
-Verify each file against SHA256SUMS before use.
+## Maintenance
 
 After editing rules/response_presence.json, regenerate the derived terminal-reason branches of the presence and called-context schemas:
 
@@ -129,20 +116,14 @@ After editing rules/response_presence.json, regenerate the derived terminal-reas
 python3 <repo>/bin/update-feature-flag-rules-v2-presence-schemas.py
 ```
 
-After editing contract files and updating manifest.json, regenerate the checksum index from any working directory:
-
-```sh
-python3 <repo>/bin/update-feature-flag-rules-v2-checksums.py
-```
-
-Run `python -m pytest tests/test_feature_flag_rules_v2_contract.py tests/test_feature_flag_rules_v2_corpus.py tests/test_feature_flag_rules_v2_wire.py` from the repository root to verify the manifest, fixtures, corpus, and checksums.
-
+List every new file in manifest.json.
+Run `python -m pytest tests/test_feature_flag_rules_v2_*.py` from the repository root to verify the manifest, fixtures, and corpus.
 
 ## Wire artifacts and validation boundaries
 
 - `schemas/definitions_entry.schema.json` selects v1 for absent/1 `filters.version`, or references the frozen config schema for v2. The entry's row `version` is independent. Row `version` and `ensure_experience_continuity` retain their existing nullable types. Existing v1 filters are opaque in this schema; this package does not redefine legacy evaluation semantics.
 - `schemas/definitions_v2.schema.json` describes the mixed-version definitions feed, including its required cohort map and optional boolean `minimal_flag_called_events`. Unsupported config versions or v2 semantic fields require per-flag remote fallback in auto mode and an unsupported result in strict local mode.
-- `schemas/flags_response_v3.schema.json` is the exact producer schema. Its raw-byte digest is pinned in the manifest and tests. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects an `experiment_id` alongside `has_experiment: false` in any record; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
+- `schemas/flags_response_v3.schema.json` is the exact producer schema. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects an `experiment_id` alongside `has_experiment: false` in any record; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
 - `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
 - `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule/experiment attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 experiment-split tuple, SDK origin and `locally_evaluated`, and forbids holdout and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
 - `fixtures/wire/` contains producer fixtures, separate tolerant-reader expectations, and full-event transport examples. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes.
@@ -153,25 +134,13 @@ Producer and reader contracts serve different purposes. Missing split context is
 
 The first event release permits only booleans and non-empty strings in the response property. Reserved number/object response-schema cases do not enable writers or event emission. Equal-valued arms remain separate analytical identities through their variant keys. A holdout, pause, rollout miss, default, missing or failed result cannot produce a direct exposure.
 
-Future accepted/rejected wire-contract changes require a new major wire component version and a new major package version; additive fixture cases require a new minor fixture version and a new minor package version. Wire schema `$id`s are stable URLs without embedded versions, matching the exact producer schema; the component version is carried by `manifest.json` and the checksum index, so load one package version per schema registry. A future major wire revision publishes new schema files under new paths and `$id`s rather than reusing these.
+## Variant keys
 
-The source distribution includes every indexed artifact and the checksum utility. Verify a build against the checkout with:
-
-```sh
-uv build --sdist
-python3 bin/update-feature-flag-rules-v2-checksums.py --verify-sdist dist/posthog_sdk_test_harness-<harness-version>.tar.gz
-```
-
-The verifier reads the archive without extraction, requires its checksum index to match the checkout, and checks exact file coverage and every digest against that index.
-
-## Variant key charset correction (2.3.1)
-
-Contract 2.3.1 corrects `metadata.variant_key` in `schemas/flags_response_v3.schema.json` and `$feature_flag_variant` in the two event schemas from `^[a-zA-Z0-9_-]+$` to any string: the PostHog API has never restricted version 1 variant keys (stored flags carry dots, slashes and spaces because variant keys double as configuration values), so the 1.0.0 pattern rejected records the server legitimately produces for config version 1. Version 2 variant keys stay constrained by `schemas/config.schema.json` at admission. The three schemas are republished under their existing `$id`s as wire schemas 1.0.1; the wire fixtures keep their published bytes and version.
+`metadata.variant_key` in `schemas/flags_response_v3.schema.json` and `$feature_flag_variant` in the two event schemas accept any string: the PostHog API has never restricted version 1 variant keys, and stored flags carry dots, slashes and spaces because variant keys double as configuration values. Version 2 variant keys stay constrained by `schemas/config.schema.json` at admission.
 
 ## Person boolean evaluation corpus
 
-Contract 2.2.0 adds `corpus/v2_boolean_evaluation.json` and its schema as a separate 1.0.0 component.
-The frozen v1 corpus, hash/variant vectors, schemas, registry, and wire fixtures keep their published bytes and versions.
+`corpus/v2_boolean_evaluation.json` and its companion schema cover person boolean evaluation.
 
 Each case supplies a full config, explicit person identifier and property completeness, team timezone, exact-matching setting, and fixed evaluation time.
 The core consumes the resolved person distinct ID without device or experience-continuity overrides.
@@ -244,7 +213,7 @@ A passing boolean corpus does not establish those families or production reachab
 
 ## Typed value evaluation corpus
 
-Contract 2.3.0 adds `corpus/v2_value_evaluation.json` and its schema as a separate 1.0.0 component for string, number and object flags.
+`corpus/v2_value_evaluation.json` and its companion schema cover string, number and object flags.
 Cases use the boolean corpus case shape and context rules, and `expected` is exhaustive in the same way.
 `expected.value` is the typed JSON value, or null when the result delegates to the caller default.
 Compare values by JSON type as well as value: the number `1` and the boolean `true` differ.
