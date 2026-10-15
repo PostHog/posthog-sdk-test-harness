@@ -22,9 +22,11 @@ The separate rollout_percentage controls enrollment into the rule.
 Person flags may explicitly set assign_by to person or omit it.
 Group flags declare aggregation_group_type_index (including index 0) and must omit assign_by on every rule; the schema enforces this so assignment uses the flag aggregation key.
 
-Experiment rules require an integer experiment_id linking an Experiment row.
-An experiment_id of null is invalid in this contract.
-Non-experiment variant splits are reserved for a possible future extension; their evaluation reason and exposure semantics are not defined here.
+An experiment rule has no experiment_id field.
+An Experiment links to its rule through the Experiment row's feature_flag_rule_id, so an evaluator cannot tell whether an experiment links to a rule.
+Every variant assignment by an experiment rule reports experiment_split and is the only trigger for $experiment_exposure.
+A rule that no experiment links to is a plain variant split; it emits exposures that no experiment analyses.
+A holdout's id is a Holdout row ID or null, and the rule always stores the holdout seed and exclusion percentage.
 
 rollout_miss means a terminal miss under on_rollout_miss: return_default.
 A continuing miss moves evaluation to the next rule and contributes neither a reason code nor metadata from the missed rule (including rule_id and condition_index) to the final result. The final result uses the terminating rule's reason and metadata, or no_rule_match if no rule terminates.
@@ -48,7 +50,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
-- corpus/v2_experiment_evaluation.json contains the evaluation corpus for experiment rules without an experiment, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
+- corpus/v2_experiment_evaluation.json contains the experiment rule evaluation corpus with each result's legacy rendering, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
 - manifest.json holds the contract and config versions, lists every package file with its kind, and records each config fixture's ID and expected result.
 
 In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
@@ -124,9 +126,9 @@ Run `python -m pytest tests/test_feature_flag_rules_v2_*.py` from the repository
 
 - `schemas/definitions_entry.schema.json` selects v1 for absent/1 `filters.version`, or references the frozen config schema for v2. The entry's row `version` is independent. Row `version` and `ensure_experience_continuity` retain their existing nullable types. Existing v1 filters are opaque in this schema; this package does not redefine legacy evaluation semantics.
 - `schemas/definitions_v2.schema.json` describes the mixed-version definitions feed, including its required cohort map and optional boolean `minimal_flag_called_events`. Unsupported config versions or v2 semantic fields require per-flag remote fallback in auto mode and an unsupported result in strict local mode.
-- `schemas/flags_response_v3.schema.json` is the exact producer schema. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects an `experiment_id` alongside `has_experiment: false` in any record; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
+- `schemas/flags_response_v3.schema.json` is the exact producer schema. It forbids `experiment_id` on v2 records; only version 1 records carry one. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects a version 1 `experiment_id` alongside `has_experiment: false`; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
 - `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
-- `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule/experiment attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 experiment-split tuple, SDK origin and `locally_evaluated`, and forbids holdout and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
+- `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule and variant attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 split tuple (rule type, rule ID and variant), SDK origin and `locally_evaluated`, and forbids experiment ID, holdout and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
 - `fixtures/wire/` contains definitions entry and producer response fixtures, and separate tolerant-reader expectations. Fixture sets are added together with the first consumer that runs them; the definitions feed, management diagnostic and event schemas have no fixtures and are specifications. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes. The meta-tests generate each presence-matrix row's per-field response negatives (each missing required field, each forbidden field and a wrong condition index) from `rules/response_presence.json` and the row's template; the committed invalid response cases are the hand-made ones, plus `responses.holdout_missing_holdout_id`, which keeps a presence-layer `required` failure in the committed set for consumers that port the validator.
 
 Definitions retain canonical rule and holdout assignment seeds because local evaluation needs them. Evaluation responses and events prohibit assignment seeds recursively, including inside arrays, diagnostic conditions and opaque transport objects. The response's `flags` map keys are user-defined flag names, so names such as `seed` are allowed; every record and the rest of the envelope are still scanned. Likewise, the immediate keys of an event's `$groups`, `$set` and `$set_once` maps are customer-chosen group type and person property names; their values are still scanned.
@@ -240,3 +242,45 @@ Zero and the empty object are values, so they render as enabled.
 The payload travels as a JSON-encoded string in `metadata.payload` and `featureFlagPayloads`, like a version 1 payload, so existing payload accessors decode it.
 The corpus records the decoded value because key order and number spelling in the encoded string are not canonical; decode before comparing.
 A v3 record carries `expected.value` in `value`, and its `metadata.payload` stays null for config version 2, as the wire schema requires.
+
+## Experiment rule evaluation corpus
+
+`corpus/v2_experiment_evaluation.json` and its companion schema cover experiment rules.
+Cases use the boolean corpus case shape and context rules, and `expected` is exhaustive in the same way.
+
+### Evaluation
+
+For a rule whose targeting matches, in this order:
+
+1. `paused: true` returns the flag default with `experiment_paused`. Nothing is hashed.
+2. A holdout returns the flag default with `holdout` when the subject's holdout hash is at most `exclusion_percentage / 100`. A holdout is terminal whatever `on_rollout_miss` says.
+3. The rollout check works as for a percentage rollout: 100 percent includes every non-empty subject without hashing. A miss returns the flag default with `rollout_miss` under `return_default` and moves to the next rule under `continue`.
+4. The variant hash selects the first variant whose cumulative boundary is above the hash; past the final boundary, the last variant is selected even when its weight is 0. The result is `experiment_split` with that variant's value.
+
+An empty identifier is never held out and never enrolled, so it reaches step 3 as a miss. A targeting miss always continues, whether or not the rule is paused.
+Evaluation does not depend on whether an experiment links to the rule, and the holdout's `id` takes no part in it.
+
+| Use | Prefix | Salt | Comparison |
+| --- | --- | --- | --- |
+| Holdout | `holdout.seed` | empty | `hash <= exclusion_percentage / 100` |
+| Rollout | `seed + "."` | empty | `hash <= rollout_percentage / 100` |
+| Variant | `seed + "."` | `variant` | first boundary with `hash < boundary`, boundaries added left to right in binary64 |
+
+These are the version 1 hashes: a rule seed equal to the flag key reproduces the version 1 rollout and variant hashes, and a holdout seed of `holdout-` reproduces the version 1 holdout hash.
+
+### Results
+
+`expected.variant` is the assigned variant key, so consumers can tell equal-valued variants apart; a response record carries it as `metadata.variant_key`.
+Every experiment rule result names the rule, which a response record carries as `rule_type: "experiment"`, `rule_id` and the condition index, never with an `experiment_id`.
+A targeted release or percentage rollout never reports `experiment_split`, and an experiment rule never reports `targeting_match`.
+
+### Legacy rendering
+
+Each success row carries `legacy`, which depends on the value only, as in the typed value corpus. A boolean `true` is enabled with no variant; `false` and null are disabled and leave the enabled-only maps and lists; a string is the variant; a number or an object is enabled with the value as the JSON-encoded payload. The variant key never appears in a legacy shape.
+
+### Corpus families
+
+Consumers report `ordering`, `assignment`, `values`, `white_box` and `parser` separately.
+`hash_evidence` lists every hash an evaluation draws, in draw order, with the real SHA-1 arithmetic and the comparison it feeds; the meta-tests recompute it with hashlib and binary64 arithmetic.
+`white_box` rows replay through a private test seam that returns `white_box.hash01_binary64_hex` for every hash the evaluation draws; `boundary_binary64_hex` and `relation` name the comparison that decides the row.
+`parser` rows require whole-document rejection with `malformed`, including a rule that carries an `experiment_id` and the semantic constraints the schema cannot express: duplicate variant keys, weights that do not total 100, and percentages with more than two decimal places.

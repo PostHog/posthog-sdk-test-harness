@@ -11,7 +11,6 @@
     "$feature_flag_variant",
     "$feature_flag_rule_id",
     "$feature_flag_rule_type",
-    "$feature_flag_experiment_id",
     "$feature_flag_reason_code",
     "$experiment_exposure_source",
     "locally_evaluated"
@@ -44,9 +43,6 @@
     },
     "$feature_flag_rule_type": {
       "const": "experiment"
-    },
-    "$feature_flag_experiment_id": {
-      "type": "integer"
     },
     "$feature_flag_reason_code": {
       "const": "experiment_split"

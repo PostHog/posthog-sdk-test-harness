@@ -371,7 +371,7 @@
       ],
       "properties": {
         "id": {
-          "description": "The shared Holdout row, or null for a rule-local holdout whose seed and exclusion percentage live on the rule.",
+          "description": "The Holdout row this holdout belongs to, or null when it belongs to this rule alone. The rule always stores the holdout seed and exclusion percentage.",
           "type": [
             "integer",
             "null"
@@ -470,7 +470,6 @@
         "id",
         "rule_type",
         "targeting",
-        "experiment_id",
         "paused",
         "rollout_percentage",
         "on_rollout_miss",
@@ -493,13 +492,6 @@
         },
         "metadata": {
           "$ref": "#/$defs/metadata"
-        },
-        "experiment_id": {
-          "description": "The linked Experiment row, or null for a rule without an experiment: a standalone variant split that creates and links no Experiment row.",
-          "type": [
-            "integer",
-            "null"
-          ]
         },
         "paused": {
           "type": "boolean"
@@ -534,36 +526,7 @@
           "$ref": "#/$defs/holdout"
         }
       },
-      "additionalProperties": false,
-      "if": {
-        "properties": {
-          "experiment_id": {
-            "type": "null"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "holdout": {
-            "properties": {
-              "id": {
-                "type": "null"
-              }
-            }
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "holdout": {
-            "properties": {
-              "id": {
-                "type": "integer"
-              }
-            }
-          }
-        }
-      }
+      "additionalProperties": false
     },
     "rule": {
       "oneOf": [

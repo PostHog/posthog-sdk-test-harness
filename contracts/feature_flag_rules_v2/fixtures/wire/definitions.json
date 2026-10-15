@@ -50,7 +50,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": 42,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -97,6 +96,18 @@
     {
       "id": "definitions.v2_canonical",
       "template": "v2",
+      "expected": "valid"
+    },
+    {
+      "id": "definitions.v2_rule_local_holdout",
+      "template": "v2",
+      "set": {
+        "/filters/rules/2/holdout": {
+          "id": null,
+          "seed": "experiment-preview-holdout",
+          "exclusion_percentage": 5
+        }
+      },
       "expected": "valid"
     },
     {

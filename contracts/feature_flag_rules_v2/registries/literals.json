@@ -14,7 +14,6 @@
     "default_value",
     "description",
     "exclusion_percentage",
-    "experiment_id",
     "group_key_names",
     "group_type_index",
     "holdout",
@@ -145,7 +144,7 @@
       "experiment_split": {
         "reason": "SPLIT",
         "error_code": null,
-        "note": "Experiment identity is in flag metadata."
+        "note": "The rule ID and variant key are in flag metadata."
       },
       "rollout_miss": {
         "reason": "DEFAULT",
@@ -230,7 +229,6 @@
       "config_version",
       "rule_type",
       "rule_id",
-      "experiment_id",
       "variant_key",
       "holdout_id",
       "id",

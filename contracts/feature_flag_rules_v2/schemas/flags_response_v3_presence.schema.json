@@ -176,11 +176,15 @@
                         "has_experiment",
                         "rule_type",
                         "rule_id",
-                        "experiment_id",
                         "variant_key"
                       ],
                       "not": {
                         "anyOf": [
+                          {
+                            "required": [
+                              "experiment_id"
+                            ]
+                          },
                           {
                             "required": [
                               "holdout_id"
@@ -277,11 +281,15 @@
                       "required": [
                         "has_experiment",
                         "rule_type",
-                        "rule_id",
-                        "experiment_id"
+                        "rule_id"
                       ],
                       "not": {
                         "anyOf": [
+                          {
+                            "required": [
+                              "experiment_id"
+                            ]
+                          },
                           {
                             "required": [
                               "variant_key"
@@ -324,11 +332,15 @@
                       "required": [
                         "has_experiment",
                         "rule_type",
-                        "rule_id",
-                        "experiment_id"
+                        "rule_id"
                       ],
                       "not": {
                         "anyOf": [
+                          {
+                            "required": [
+                              "experiment_id"
+                            ]
+                          },
                           {
                             "required": [
                               "variant_key"
@@ -372,11 +384,15 @@
                         "has_experiment",
                         "rule_type",
                         "rule_id",
-                        "experiment_id",
                         "holdout_id"
                       ],
                       "not": {
                         "anyOf": [
+                          {
+                            "required": [
+                              "experiment_id"
+                            ]
+                          },
                           {
                             "required": [
                               "variant_key"

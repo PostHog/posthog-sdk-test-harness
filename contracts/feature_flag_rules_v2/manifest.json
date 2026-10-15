@@ -385,53 +385,20 @@
       }
     },
     {
-      "path": "fixtures/config/valid/standalone_experiment_rule.json",
+      "path": "fixtures/config/valid/experiment_rule_local_holdout.json",
       "kind": "fixture",
-      "fixture_id": "config.valid.standalone_experiment_rule",
+      "fixture_id": "config.valid.experiment_rule_local_holdout",
       "expected": "valid"
     },
     {
-      "path": "fixtures/config/invalid/missing_experiment_id.json",
+      "path": "fixtures/config/invalid/experiment_rule_with_experiment_id.json",
       "kind": "fixture",
-      "fixture_id": "config.invalid.missing_experiment_id",
+      "fixture_id": "config.invalid.experiment_rule_with_experiment_id",
       "expected": "invalid",
       "expected_failure": {
-        "keyword": "required",
+        "keyword": "additionalProperties",
         "instance_path": "/rules/0",
         "message_contains": "experiment_id"
-      }
-    },
-    {
-      "path": "fixtures/config/invalid/string_experiment_id.json",
-      "kind": "fixture",
-      "fixture_id": "config.invalid.string_experiment_id",
-      "expected": "invalid",
-      "expected_failure": {
-        "keyword": "type",
-        "instance_path": "/rules/0/experiment_id",
-        "message_contains": "integer"
-      }
-    },
-    {
-      "path": "fixtures/config/invalid/standalone_experiment_shared_holdout.json",
-      "kind": "fixture",
-      "fixture_id": "config.invalid.standalone_experiment_shared_holdout",
-      "expected": "invalid",
-      "expected_failure": {
-        "keyword": "type",
-        "instance_path": "/rules/0/holdout/id",
-        "message_contains": "null"
-      }
-    },
-    {
-      "path": "fixtures/config/invalid/linked_experiment_local_holdout.json",
-      "kind": "fixture",
-      "fixture_id": "config.invalid.linked_experiment_local_holdout",
-      "expected": "invalid",
-      "expected_failure": {
-        "keyword": "type",
-        "instance_path": "/rules/0/holdout/id",
-        "message_contains": "integer"
       }
     },
     {

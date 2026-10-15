@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 
-from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _load_json
+from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _all_errors, _load_json
 from tests.test_feature_flag_rules_v2_corpus import MAX_IDENTIFIER_SCALAR_VALUES, SCALE, _binary64_hex
 
 CORPUS = _load_json(CONTRACT_ROOT / "corpus/v2_experiment_evaluation.json")
@@ -108,7 +108,7 @@ def _evaluate(case: dict[str, Any], hash_at: HashAt) -> dict[str, Any]:
         return {
             "status": "success",
             "value": chosen["value"],
-            "reason": "targeting_match",
+            "reason": "experiment_split",
             "rule": claimed,
             "variant": chosen["key"],
         }
@@ -148,7 +148,6 @@ def test_experiment_case_inputs_and_terminal_context(case: dict[str, Any]) -> No
     assert (case["family"] == "parser") == (expected["status"] == "parse_error")
     if expected["status"] == "parse_error":
         return
-    assert all(rule.get("experiment_id", None) is None for rule in config["rules"])
     if "white_box" in case:
         injected = _from_hex(case["white_box"]["hash01_binary64_hex"])
         actual = _evaluate(case, lambda *_: injected)
@@ -220,7 +219,9 @@ def test_experiment_white_box_edges_use_exact_binary64(case: dict[str, Any]) -> 
         assert all(injected >= b for b in boundaries[:position])
 
 
-@pytest.mark.parametrize("reason", ["targeting_match", "rollout_miss", "experiment_paused", "holdout"])
+@pytest.mark.parametrize(
+    "reason", ["targeting_match", "experiment_split", "rollout_miss", "experiment_paused", "holdout"]
+)
 @pytest.mark.parametrize("rule_type", ["percentage_rollout", "experiment"])
 @pytest.mark.parametrize("include_variant", [False, True])
 def test_schema_requires_variant_exactly_for_an_experiment_split(
@@ -235,8 +236,11 @@ def test_schema_requires_variant_exactly_for_an_experiment_split(
     if include_variant:
         expected["variant"] = "control"
     corpus = {**CORPUS, "cases": [{**BY_ID["v2_experiment.ordering.split"], "expected": expected}]}
-    split = reason == "targeting_match" and rule_type == "experiment"
-    assert Draft202012Validator(SCHEMA).is_valid(corpus) == (include_variant == split)
+    split = reason == "experiment_split"
+    # Only an experiment rule reports a split, and an experiment rule never reports a targeting match.
+    consistent = {"experiment_split": "experiment", "targeting_match": "percentage_rollout"}.get(reason, rule_type)
+    valid = include_variant == split and rule_type == consistent
+    assert Draft202012Validator(SCHEMA).is_valid(corpus) == valid
 
 
 def test_variant_values_cover_every_return_type_and_equal_values_stay_distinct() -> None:
@@ -282,6 +286,10 @@ def test_parser_rows_cover_schema_and_semantic_rejections() -> None:
     assert set(semantic) == {"variant_keys_unique", "percentage_two_decimals", "variant_weights_sum_100"}
     schema_only = [case for case in parser if not _semantic_errors(case["config"])]
     assert all(list(CONFIG.iter_errors(case["config"])) for case in schema_only)
+    # An experiment rule has no experiment_id field; the link lives on the Experiment row.
+    linked = BY_ID["v2_experiment.parser.experiment_id"]["config"]
+    errors = [e for error in CONFIG.iter_errors(linked) for e in _all_errors(error)]
+    assert any(e.validator == "additionalProperties" and "experiment_id" in e.message for e in errors)
     assert re.fullmatch(r"v2_experiment\.parser\.[a-z0-9_]+", parser[0]["id"])
 
 
@@ -291,7 +299,7 @@ def test_experiment_family_counts_make_consumer_scope_explicit() -> None:
         "assignment": 22,
         "values": 9,
         "white_box": 10,
-        "parser": 21,
+        "parser": 19,
     }
     reasons = Counter(case["expected"].get("reason") for case in CASES)
-    assert {"targeting_match", "rollout_miss", "experiment_paused", "holdout", "no_rule_match"} <= set(reasons)
+    assert {"experiment_split", "rollout_miss", "experiment_paused", "holdout", "no_rule_match"} <= set(reasons)

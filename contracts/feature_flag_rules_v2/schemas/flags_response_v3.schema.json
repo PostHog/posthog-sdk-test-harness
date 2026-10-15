@@ -80,7 +80,10 @@
       "then": {
         "properties": {
           "reason": { "properties": { "code": { "$ref": "#/$defs/v2_reason_code" } } },
-          "metadata": { "properties": { "payload": { "type": "null" } }, "not": { "required": ["forced_variant"] } }
+          "metadata": {
+            "properties": { "payload": { "type": "null" } },
+            "not": { "anyOf": [{ "required": ["forced_variant"] }, { "required": ["experiment_id"] }] }
+          }
         },
         "allOf": [
           {
@@ -108,7 +111,7 @@
       "then": {
         "properties": {
           "metadata": {
-            "required": ["rule_type", "rule_id", "experiment_id", "variant_key"],
+            "required": ["rule_type", "rule_id", "variant_key"],
             "properties": { "rule_type": { "const": "experiment" }, "config_version": { "const": 2 } },
             "not": { "required": ["holdout_id"] }
           }

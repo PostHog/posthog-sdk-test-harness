@@ -34,10 +34,10 @@
       "required": [
         "rule_type",
         "rule_id",
-        "experiment_id",
         "variant_key"
       ],
       "forbidden": [
+        "experiment_id",
         "holdout_id"
       ],
       "failed": false
@@ -61,10 +61,10 @@
       "rule_type": "experiment",
       "required": [
         "rule_type",
-        "rule_id",
-        "experiment_id"
+        "rule_id"
       ],
       "forbidden": [
+        "experiment_id",
         "variant_key",
         "holdout_id"
       ],
@@ -75,10 +75,10 @@
       "rule_type": "experiment",
       "required": [
         "rule_type",
-        "rule_id",
-        "experiment_id"
+        "rule_id"
       ],
       "forbidden": [
+        "experiment_id",
         "variant_key",
         "holdout_id"
       ],
@@ -90,10 +90,10 @@
       "required": [
         "rule_type",
         "rule_id",
-        "experiment_id",
         "holdout_id"
       ],
       "forbidden": [
+        "experiment_id",
         "variant_key"
       ],
       "failed": false
