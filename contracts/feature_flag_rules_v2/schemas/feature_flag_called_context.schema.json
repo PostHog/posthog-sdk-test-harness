@@ -159,11 +159,15 @@
             "required": [
               "$feature_flag_rule_type",
               "$feature_flag_rule_id",
-              "$feature_flag_experiment_id",
               "$feature_flag_variant"
             ],
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
                 {
                   "required": [
                     "$feature_flag_holdout_id"
@@ -216,11 +220,15 @@
             },
             "required": [
               "$feature_flag_rule_type",
-              "$feature_flag_rule_id",
-              "$feature_flag_experiment_id"
+              "$feature_flag_rule_id"
             ],
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
                 {
                   "required": [
                     "$feature_flag_variant"
@@ -245,11 +253,15 @@
             },
             "required": [
               "$feature_flag_rule_type",
-              "$feature_flag_rule_id",
-              "$feature_flag_experiment_id"
+              "$feature_flag_rule_id"
             ],
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
                 {
                   "required": [
                     "$feature_flag_variant"
@@ -275,11 +287,15 @@
             "required": [
               "$feature_flag_rule_type",
               "$feature_flag_rule_id",
-              "$feature_flag_experiment_id",
               "$feature_flag_holdout_id"
             ],
             "not": {
               "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
                 {
                   "required": [
                     "$feature_flag_variant"

@@ -132,6 +132,7 @@
                   "reason": {
                     "enum": [
                       "targeting_match",
+                      "experiment_split",
                       "rollout_miss",
                       "experiment_paused",
                       "holdout",
@@ -167,7 +168,7 @@
                   "variant": {
                     "type": "string",
                     "pattern": "^[a-zA-Z0-9_-]+$",
-                    "description": "The assigned variant key. The internal evaluation result carries it; the response record of a rule without an experiment does not."
+                    "description": "The assigned variant key, which a response record carries as variant_key."
                   }
                 },
                 "required": [
@@ -199,13 +200,17 @@
                   },
                   {
                     "if": {
-                      "required": [
-                        "rule"
-                      ],
                       "properties": {
                         "reason": {
-                          "const": "targeting_match"
-                        },
+                          "const": "experiment_split"
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "variant"
+                      ],
+                      "properties": {
                         "rule": {
                           "properties": {
                             "rule_type": {
@@ -215,16 +220,34 @@
                         }
                       }
                     },
-                    "then": {
-                      "required": [
-                        "variant"
-                      ]
-                    },
                     "else": {
                       "not": {
                         "required": [
                           "variant"
                         ]
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "reason": {
+                          "const": "targeting_match"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "rule": {
+                          "properties": {
+                            "rule_type": {
+                              "enum": [
+                                "targeted_release",
+                                "percentage_rollout"
+                              ]
+                            }
+                          }
+                        }
                       }
                     }
                   }

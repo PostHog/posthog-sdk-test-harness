@@ -1,7 +1,7 @@
 {
   "corpus_version": "1.0.0",
   "config_version": 2,
-  "description": "Ordered evaluation of experiment rules without an experiment (experiment_id null): pause, rule-local holdout, rollout and weighted variant assignment, with the legacy rendering of each result. Expected terminal fields and legacy cells are exhaustive. Hash evidence lists every hash an evaluation draws. White-box rows replace every drawn hash through a private seam; parser rows run at the parser boundary.",
+  "description": "Ordered evaluation of experiment rules: pause, holdout, rollout and weighted variant assignment, with the legacy rendering of each result. Expected terminal fields and legacy cells are exhaustive. Hash evidence lists every hash an evaluation draws. White-box rows replace every drawn hash through a private seam; parser rows run at the parser boundary.",
   "cases": [
     {
       "id": "v2_experiment.ordering.split",
@@ -24,7 +24,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -59,7 +58,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -112,7 +111,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -182,7 +180,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -266,7 +263,6 @@
                 }
               ]
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -344,7 +340,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 0,
             "on_rollout_miss": "continue",
@@ -422,7 +417,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -497,7 +491,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -580,7 +573,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "return_default",
@@ -655,7 +647,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -695,7 +686,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -760,7 +751,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "return_default",
@@ -844,7 +834,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "continue",
@@ -936,7 +925,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "continue",
@@ -1032,7 +1020,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1119,7 +1106,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1154,7 +1140,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "22222222-2222-4222-8222-222222222222",
           "rule_type": "experiment",
@@ -1220,7 +1206,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1255,7 +1240,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "22222222-2222-4222-8222-222222222222",
           "rule_type": "experiment",
@@ -1329,7 +1314,6 @@
                 }
               ]
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1355,7 +1339,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1390,7 +1373,7 @@
       "expected": {
         "status": "success",
         "value": "yellow",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "22222222-2222-4222-8222-222222222222",
           "rule_type": "experiment",
@@ -1443,7 +1426,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "continue",
@@ -1469,7 +1451,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1504,7 +1485,7 @@
       "expected": {
         "status": "success",
         "value": "red",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "22222222-2222-4222-8222-222222222222",
           "rule_type": "experiment",
@@ -1569,7 +1550,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "return_default",
@@ -1639,7 +1619,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1722,7 +1701,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1792,7 +1770,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1827,7 +1804,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -1880,7 +1857,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -1915,7 +1891,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -1968,7 +1944,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2003,7 +1978,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2056,7 +2031,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2091,7 +2065,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2144,7 +2118,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2184,7 +2157,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2238,7 +2211,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2278,7 +2250,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2332,7 +2304,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2372,7 +2343,7 @@
       "expected": {
         "status": "success",
         "value": "red",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2426,7 +2397,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2461,7 +2431,7 @@
       "expected": {
         "status": "success",
         "value": "same",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2514,7 +2484,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2549,7 +2518,7 @@
       "expected": {
         "status": "success",
         "value": "same",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2602,7 +2571,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2637,7 +2605,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2690,7 +2658,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2815,7 +2782,7 @@
       "expected": {
         "status": "success",
         "value": "value-10",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2886,7 +2853,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -2921,7 +2887,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -2974,7 +2940,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3009,7 +2974,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -3062,7 +3027,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 50,
             "on_rollout_miss": "continue",
@@ -3097,7 +3061,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -3162,7 +3126,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 50,
             "on_rollout_miss": "return_default",
@@ -3246,7 +3209,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 50,
             "on_rollout_miss": "continue",
@@ -3338,7 +3300,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3427,7 +3388,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3467,7 +3427,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -3532,7 +3492,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3634,7 +3593,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 60,
             "on_rollout_miss": "continue",
@@ -3669,7 +3627,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "22222222-2222-4222-8222-222222222222",
           "rule_type": "experiment",
@@ -3746,7 +3704,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3781,7 +3738,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -3834,7 +3791,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3869,7 +3825,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -3922,7 +3878,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -3957,7 +3912,7 @@
       "expected": {
         "status": "success",
         "value": false,
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4010,7 +3965,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4045,7 +3999,7 @@
       "expected": {
         "status": "success",
         "value": true,
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4098,7 +4052,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4133,7 +4086,7 @@
       "expected": {
         "status": "success",
         "value": 0,
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4186,7 +4139,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4221,7 +4173,7 @@
       "expected": {
         "status": "success",
         "value": 12.5,
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4276,7 +4228,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4315,7 +4266,7 @@
       "expected": {
         "status": "success",
         "value": {},
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4370,7 +4321,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4413,7 +4363,7 @@
             "columns": 2
           }
         },
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4470,7 +4420,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": true,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4540,7 +4489,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4617,7 +4565,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 0,
             "on_rollout_miss": "return_default",
@@ -4707,7 +4654,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4742,7 +4688,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4784,7 +4730,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4819,7 +4764,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4861,7 +4806,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4901,7 +4845,7 @@
       "expected": {
         "status": "success",
         "value": "red",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -4943,7 +4887,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -4983,7 +4926,7 @@
       "expected": {
         "status": "success",
         "value": "green",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -5025,7 +4968,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5065,7 +5007,7 @@
       "expected": {
         "status": "success",
         "value": "red",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -5107,7 +5049,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5142,7 +5083,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -5184,7 +5125,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5265,7 +5205,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5305,7 +5244,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -5347,7 +5286,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 30,
             "on_rollout_miss": "return_default",
@@ -5382,7 +5320,7 @@
       "expected": {
         "status": "success",
         "value": "blue",
-        "reason": "targeting_match",
+        "reason": "experiment_split",
         "rule": {
           "id": "11111111-1111-4111-8111-111111111111",
           "rule_type": "experiment",
@@ -5424,7 +5362,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 30,
             "on_rollout_miss": "return_default",
@@ -5480,7 +5417,7 @@
       }
     },
     {
-      "id": "v2_experiment.parser.missing_experiment_id",
+      "id": "v2_experiment.parser.experiment_id",
       "family": "parser",
       "flag": {
         "key": "example-display-key",
@@ -5500,64 +5437,7 @@
             "targeting": {
               "properties": []
             },
-            "paused": false,
-            "rollout_percentage": 100,
-            "on_rollout_miss": "continue",
-            "assignment_algorithm": "sha1_60_v1",
-            "seed": "example-split",
-            "assign_by": "person",
-            "variants": [
-              {
-                "key": "control",
-                "weight": 50,
-                "value": "blue"
-              },
-              {
-                "key": "test",
-                "weight": 50,
-                "value": "green"
-              }
-            ]
-          }
-        ]
-      },
-      "context": {
-        "identifier": "person-example",
-        "properties": {
-          "plan": "pro"
-        },
-        "properties_complete": true,
-        "timezone": "UTC",
-        "explicit_exact_matching": true,
-        "now": "2024-03-31T12:00:00Z"
-      },
-      "expected": {
-        "status": "parse_error",
-        "kind": "malformed"
-      }
-    },
-    {
-      "id": "v2_experiment.parser.string_experiment_id",
-      "family": "parser",
-      "flag": {
-        "key": "example-display-key",
-        "name": "Example display name",
-        "active": true,
-        "deleted": false,
-        "requested": true
-      },
-      "config": {
-        "version": 2,
-        "return_type": "string",
-        "default_value": "default",
-        "rules": [
-          {
-            "id": "11111111-1111-4111-8111-111111111111",
-            "rule_type": "experiment",
-            "targeting": {
-              "properties": []
-            },
-            "experiment_id": "42",
+            "experiment_id": 42,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5615,7 +5495,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
             "assignment_algorithm": "sha1_60_v1",
@@ -5672,7 +5551,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5725,7 +5603,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5878,7 +5755,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5936,7 +5812,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -5994,7 +5869,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6052,7 +5926,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6110,7 +5983,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6168,7 +6040,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6227,7 +6098,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6246,69 +6116,6 @@
                 "value": "green"
               }
             ]
-          }
-        ]
-      },
-      "context": {
-        "identifier": "person-example",
-        "properties": {
-          "plan": "pro"
-        },
-        "properties_complete": true,
-        "timezone": "UTC",
-        "explicit_exact_matching": true,
-        "now": "2024-03-31T12:00:00Z"
-      },
-      "expected": {
-        "status": "parse_error",
-        "kind": "malformed"
-      }
-    },
-    {
-      "id": "v2_experiment.parser.shared_holdout",
-      "family": "parser",
-      "flag": {
-        "key": "example-display-key",
-        "name": "Example display name",
-        "active": true,
-        "deleted": false,
-        "requested": true
-      },
-      "config": {
-        "version": 2,
-        "return_type": "string",
-        "default_value": "default",
-        "rules": [
-          {
-            "id": "11111111-1111-4111-8111-111111111111",
-            "rule_type": "experiment",
-            "targeting": {
-              "properties": []
-            },
-            "experiment_id": null,
-            "paused": false,
-            "rollout_percentage": 100,
-            "on_rollout_miss": "continue",
-            "assignment_algorithm": "sha1_60_v1",
-            "seed": "example-split",
-            "assign_by": "person",
-            "variants": [
-              {
-                "key": "control",
-                "weight": 50,
-                "value": "blue"
-              },
-              {
-                "key": "test",
-                "weight": 50,
-                "value": "green"
-              }
-            ],
-            "holdout": {
-              "id": 7,
-              "seed": "holdout-",
-              "exclusion_percentage": 5
-            }
           }
         ]
       },
@@ -6348,7 +6155,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6410,7 +6216,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6474,7 +6279,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6533,7 +6337,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6596,7 +6399,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6654,7 +6456,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6712,7 +6513,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
@@ -6775,7 +6575,6 @@
             "targeting": {
               "properties": []
             },
-            "experiment_id": null,
             "paused": false,
             "rollout_percentage": 100,
             "on_rollout_miss": "continue",
