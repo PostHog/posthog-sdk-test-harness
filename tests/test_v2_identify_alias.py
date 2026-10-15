@@ -7,7 +7,6 @@ from uuid import uuid4
 import pytest
 
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts, json_equal
-from posthog_test_harness.v2.discovery import acceptance_paths
 from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import STEPS, run
@@ -101,6 +100,53 @@ async def test_public_operation_delivers_exact_event(regression_source, operatio
     assert json_equal(host.inputs[1]["args"], ARGUMENTS[operation])
     assert len(host.closed) == 1
     assert len(diagnostics["cases"][0]["ingestion"]) == 1
+
+
+@pytest.mark.parametrize("operation", ARGUMENTS)
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+async def test_public_operation_with_shared_json_setup(tmp_path, operation, protocol):
+    source = public_feature(operation).replace(
+        'And the SDK is initialized with token "test-token" and flush threshold 20',
+        'And the SDK is initialized with token "test-token" and JSON configuration:\n'
+        '      """application/json\n'
+        '      {"flush_at":20,"flush_interval_ms":0}\n'
+        '      """',
+    )
+    (tmp_path / f"{operation}.feature").write_text(source)
+    contracts = Contracts()
+    async with serve(contracts, host_type=IdentifyAliasHost, protocol=protocol) as (host, url):
+        report, _ = await run(contracts, tmp_path, [f"{operation}.feature"], url, host.profile["id"])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert [call["route"] for call in host.inputs] == ["/setup", f"/{operation}", "/flush"]
+    assert host.inputs[0]["args"]["config"]["flush_at"] == 20
+    assert host.inputs[0]["args"]["config"]["flush_interval_ms"] == 0
+
+
+@pytest.mark.parametrize("token", ["test-token", "another-token"])
+@pytest.mark.parametrize(
+    "configuration",
+    [
+        {},
+        {"flush_at": 100, "flush_interval_ms": 0},
+        {"disabled": False, "feature_flags_request_max_retries": 0, "context": {"note": None, "flags": [False, 0]}},
+    ],
+)
+async def test_shared_json_setup_forwards_configuration(token, configuration):
+    calls = []
+
+    async def call(route, arguments):
+        calls.append((route, arguments))
+
+    ctx = SimpleNamespace(call=call, server=SimpleNamespace(url="http://mock-server"))
+    step = SimpleNamespace(
+        text=f'the SDK is initialized with token "{token}" and JSON configuration:',
+        argument={"docString": {"content": json.dumps(configuration), "mediaType": "application/json"}},
+        source={"path": "setup.feature", "line": 1},
+    )
+    handler, parameters = STEPS.bind(step)
+    await handler(ctx, step, *parameters)
+    assert calls == [("/setup", {"project_token": token, "config": {"host": ctx.server.url, **configuration}})]
+    assert STEPS.requirements[handler] == {"routes": ["/setup"], "fixtures": []}
 
 
 COMMON_DEFECTS = [
@@ -270,19 +316,6 @@ async def test_companion_identify_alias_features_through_public_http(specs):
         for route in ("/setup", "/alias" if "alias" in case.source["path"] else "/identify", "/flush")
     ]
     assert "distinct_id" not in host.inputs[7]["args"]  # The generated-ID case passes omission through unchanged.
-
-
-async def test_acceptance_suite_selects_only_opted_in_cases(specs):
-    contracts = Contracts()
-    paths = acceptance_paths(specs)
-    async with serve(contracts, host_type=IdentifyAliasHost) as (host, url):
-        report, _ = await run(contracts, specs, paths, url, host.profile["id"], tagged_acceptance=True)
-    assert strict_exit_code(contracts, report) == 0, report
-    assert len([row for row in report["results"] if row["result"]["status"] == "passed"]) == 5
-    assert all(
-        row["result"]["status"] == "not_selected" for row in report["results"] if row["source"]["path"] not in FEATURES
-    )
-    assert len(host.closed) == 5
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,26 @@
 
 The opt-in `posthog-test-harness-v2` entry point runs SDK-independent Gherkin over HTTP. The SDK repository owns its native adapter, package build, and compliance caller. The harness owns mock services, input selection, assertions, deadlines, and reports. Existing YAML/v1 commands remain available.
 
+## Step reference
+
+The generated [Gherkin step catalogue](gherkin-steps.md) lists every registered
+phrase, argument kind, handler, required adapter route, and fixture capability.
+Use the reference from the harness revision used for validation. To inspect the
+installed runner's registry without an SDK host or specs bundle, run:
+
+```sh
+posthog-test-harness-v2 steps
+```
+
+Registry membership means the harness recognizes a phrase, not that an SDK
+adapter can execute it or that the SDK conforms. Check the feature with
+`discover --require-ready`, then execute it against the intended real SDK.
+
+CI regenerates the committed catalogue snapshot, runs its tests, and fails if
+`git diff` shows a change to `docs/gherkin-steps.md`. When bindings change, run
+`posthog-test-harness-v2 steps > docs/gherkin-steps.md` locally and commit the
+updated snapshot with the binding change.
+
 ## Run
 
 ```sh
@@ -46,10 +66,19 @@ Completion is exactly one of:
 
 The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
-## Server identify and alias delivery
+## Shared public setup and delivery
+
+`an isolated SDK instance` allocates a fresh receiver without private controls.
+`the SDK is initialized with token "TOKEN" and JSON configuration:` invokes
+`/setup` with that token, the mock host, and the supplied configuration unchanged.
+Batching thresholds, timers and retry settings belong in the scenario's JSON.
+`pending captures are flushed` invokes public `/flush`; subsequent assertions
+observe traffic received from initialization through flush.
+
+## Server identity delivery
 
 Run `--acceptance-suite` with a server adapter profile to select the opted-in
-server identify and alias cases from the acceptance features. This includes the
+server identify, alias and group-identify cases from the acceptance features. This includes the
 identify call without an explicit id; it checks a received personless `$identify`
 with a UUID-shaped root distinct id. The receiver assertion requires
 `properties.$process_person_profile: false` on legacy batch delivery or
@@ -59,10 +88,12 @@ unselected. The 157-case YAML-parity suite uses the same Gherkin runner but reta
 its independent capability-based selection.
 The steps `identify is called with JSON arguments:` and
 `alias is called with JSON arguments:` forward JSON doc strings unchanged to the
-negotiated `/identify` and `/alias` routes:
+negotiated `/identify` and `/alias` routes. The step
+`group identify is called with JSON arguments:` similarly invokes `/group_identify`:
 
 - `/identify`: `{ "distinct_id": "user-123", "set": { "active": false, "score": 0, "note": null } }`
 - `/alias`: `{ "distinct_id": "anon-123", "alias": "user-123" }`
+- `/group_identify`: `{ "group_type": "company", "group_key": "company-123", "distinct_id": "user-123", "properties": { "plan": "pro" } }`
 
 Adapters translate these arguments to their public SDK methods. Unexpected operation
 throws fail the scenario. After public setup, operation and explicit flush, received
@@ -71,7 +102,41 @@ events must have the exact event name (`$identify` or `$create_alias`), root
 previous identity and `properties.alias` is the target. JSON property assertions
 preserve boolean, numeric and null types and require the property to be present.
 These delivery cases require no private queue observations or identity persistence
-controls and do not establish broader client-side identity behavior.
+controls and do not establish broader client-side identity behavior. Group-identify
+cases check `$groupidentify`, the explicit root distinct ID, `$group_type`, `$group_key`,
+and supplied scalar or nested JSON properties under `$group_set`. A call without
+properties is checked for delivery and group identity.
+
+## Server exception delivery
+
+The opted-in server cases in `acceptance/public/capture-exception.feature` report a
+native handled exception, flush publicly, and inspect received `$exception` events.
+The step `capture exception is called with JSON arguments:` forwards a JSON object
+unchanged to the negotiated `/capture_exception` route, for example:
+
+```json
+{"error":{"type":"TypeError","message":"boom"},"distinct_id":"exception-user","properties":{"area":"checkout","retryable":false,"attempt":0}}
+```
+
+The error descriptor selects a native test exception with its own runtime stack.
+The adapter constructs that fixture and invokes the public exception method; the
+SDK owns normalization and event construction. The route does not implicitly flush.
+Unsupported native fixtures are harness failures, while unexpected SDK throws fail
+the scenario. Delivery checks use `properties.$exception_list[0].type`, `.value`,
+`.mechanism.handled`, and nonempty `.stacktrace.frames`, plus caller identity and
+supplied scalar/nested JSON properties. A second case omits caller properties.
+These cases exercise manual reporting, not automatic fatal-error or next-launch
+crash recovery.
+
+## Request-local snapshot reads
+
+`evaluate flags and read is called with JSON arguments:` invokes `/evaluate_flags/read` once. It passes evaluation `distinct_id`/`options` and ordered `reads` unchanged. The adapter evaluates once and calls public native snapshot getters, key enumeration, and `only`/`only_accessed` filters. Filters contain nested reads; subsequent siblings still address the original parent. Only JSON outcomes cross the boundary; no snapshot reference persists across requests. The route never flushes implicitly.
+
+`the public snapshot outcomes should have these semantics:` compares ordered outcomes to `value`, `payload`, `missing`, `keys`, or nested `results` expectations. Key lists are unordered sets with no duplicate entries. Negotiated SDK capabilities declare exactly one `flag_snapshot_value_scalar` or `flag_snapshot_value_rich`, and `flag_snapshot_payload_decoded` or `flag_snapshot_payload_serialized`. Rich value projection uses public fields/methods to supply `{key, enabled, variant}` with a boolean enabled field and nullable string variant. Payload access must invoke the silent public payload accessor. Serialized payloads are decoded once for comparison; decoded payloads are not decoded again.
+
+Missing results use `flag_snapshot_missing_undefined` or `flag_snapshot_missing_null`; serialized empty payload access can additionally declare `flag_snapshot_payload_missing_empty_string`. Missing exposure responses declare exactly one of `flag_snapshot_exposure_missing_absent`, `_null`, or `_false`. Enablement-default coverage requires `flag_snapshot_enablement_default`. A missing declaration is a visible binding gap, not guessed SDK semantics.
+
+After explicit public flush, `the flushed snapshot traffic should be:` checks evaluation count/status, caller-supplied context (allowing additional SDK enrichment), exact key scope, and delivered exposure identity, groups, canonical response, missing-key metadata and dedupe. Disabled/missing-identity snapshots deliver no exposure; failed remote evaluation with a valid identity retains canonical missing-key access tracking. `remote snapshot fixtures are:` supplies legacy `featureFlags` responses with JSON-encoded payload strings, including false, zero and null. Failing SDK results remain failed assertions with nonzero report checks; executable integration selection does not imply conformance.
 
 ## Black-box local evaluation
 

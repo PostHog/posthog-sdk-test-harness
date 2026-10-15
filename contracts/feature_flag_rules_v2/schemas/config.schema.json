@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:posthog:feature-flag-rules-v2:config:2.0.0",
+  "$id": "urn:posthog:feature-flag-rules-v2:config:1.0.0",
   "title": "Feature Flag Rules v2 config",
   "description": "Canonical stored configuration for Feature Flag Rules config version 2.",
   "type": "object",

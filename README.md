@@ -48,6 +48,12 @@ The action will run tests, generate reports, and comment on PRs with results.
 
 For example, a mobile SDK that posts `{ "api_key": "...", "batch": [...] }` to `/batch` should use `sdk-type: "server"` for harness filtering.
 
+## Gherkin acceptance tests
+
+For the opt-in v2 runner, see the [Gherkin harness guide](docs/harness-v2.md).
+The generated [step catalogue](docs/gherkin-steps.md) documents its registered
+phrases, argument kinds, routes, and fixture requirements for test authors and agents.
+
 ## Architecture
 
 ```

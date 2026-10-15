@@ -1,5 +1,19 @@
 # posthog-sdk-test-harness
 
+## 1.15.0 — 2026-10-11
+
+### Minor changes
+
+- [80bf272](https://github.com/posthog/posthog-sdk-test-harness/commit/80bf272dda324e342b5eff586261ae783ae3e8bf) Add public group-identify delivery bindings and acceptance coverage. — Thanks @dustinbyrne!
+- [683d871](https://github.com/posthog/posthog-sdk-test-harness/commit/683d871684c4c5a1ceec016fc8311ed53dd4fc3c) Add public capture-exception delivery bindings and structured exception assertions. — Thanks @dustinbyrne!
+- [2c5d2c9](https://github.com/posthog/posthog-sdk-test-harness/commit/2c5d2c9cfd0d5c2946590fc2d91239f69ec2442d) Add request-local feature-flag snapshot reads, public result and filter assertions, and flushed exposure/context coverage. — Thanks @dustinbyrne!
+
+## 1.14.0 — 2026-10-08
+
+### Minor changes
+
+- [41ee102](https://github.com/posthog/posthog-sdk-test-harness/commit/41ee10248e056294867fffc0d138fb9491ad09e8) Add a generated Gherkin step reference and the `posthog-test-harness-v2 steps` command to inspect registered phrases, argument kinds, routes, and fixture requirements. — Thanks @dustinbyrne!
+
 ## 1.13.1 — 2026-10-01
 
 ### Patch changes

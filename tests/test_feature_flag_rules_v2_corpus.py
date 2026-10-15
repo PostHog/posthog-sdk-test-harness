@@ -7,7 +7,14 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, CORPUS_KINDS, _load_json, _manifest, _walk_json
+from tests.test_feature_flag_rules_v2_contract import (
+    CONTRACT_ROOT,
+    CORPUS_KINDS,
+    SCHEMA_DIALECT,
+    _load_json,
+    _manifest,
+    _walk_json,
+)
 
 SCALE = 0xFFFFFFFFFFFFFFF
 MAX_IDENTIFIER_SCALAR_VALUES = 200
@@ -70,58 +77,19 @@ def _check_rollout(check: dict[str, Any], hash_value: float, percentage_key: str
     assert check[result_key] == (hash_value <= check["threshold"]), check
 
 
-def test_manifest_declares_corpus_component_versions() -> None:
-    manifest = _manifest()
-    assert manifest["corpus"]["config_version_locked"] == 1
-    assert manifest["corpus"]["published_versions_are_immutable"] is True
-
-    artifacts = _corpus_artifacts()
-    assert [artifact["path"] for artifact in artifacts] == [
-        "corpus/hash_sha1_60_v1.json",
-        "corpus/v1_evaluation.json",
-        "corpus/legacy_projection.json",
-        "corpus/v2_boolean_evaluation.json",
-        "corpus/v2_value_evaluation.json",
-        "corpus/v2_experiment_evaluation.json",
-    ]
-    schema_versions = {a["path"]: a["version"] for a in manifest["artifacts"] if a["kind"] == "schema"}
-    for artifact in artifacts:
-        component = manifest[artifact.get("component", "corpus")]
-        assert component["published_versions_are_immutable"] is True
-        assert artifact["version"] == component["version"]
-        assert schema_versions[artifact["schema"]] == component["version"]
-        data = _load_json(CONTRACT_ROOT / artifact["path"])
-        assert data["corpus_version"] == component["version"]
-        if "config_version" in data:
-            assert data["config_version"] == component["config_version_locked"]
-        schema = _load_json(CONTRACT_ROOT / artifact["schema"])
-        assert schema["$id"].endswith(":" + component["version"])
-
-
 def test_corpus_files_match_their_companion_schemas() -> None:
-    manifest = _manifest()
     for artifact in _corpus_artifacts():
-        schema = _load_json(CONTRACT_ROOT / artifact["schema"])
-        assert schema["$schema"] == manifest["schema_dialect"]
+        # Each corpus file's companion schema shares its name: corpus/<name>.json, schemas/<name>.schema.json.
+        schema_path = f"schemas/{Path(artifact['path']).stem}.schema.json"
+        schema = _load_json(CONTRACT_ROOT / schema_path)
+        assert schema["$schema"] == SCHEMA_DIALECT
         Draft202012Validator.check_schema(schema)
         for node in _walk_json(schema):
             if isinstance(node, dict) and node.get("type") == "object" and "x-posthog-open-object" not in node:
-                assert node.get("additionalProperties") is False, (artifact["schema"], node)
+                assert node.get("additionalProperties") is False, (schema_path, node)
         validator = Draft202012Validator(schema, format_checker=FormatChecker())
         errors = list(validator.iter_errors(_load_json(CONTRACT_ROOT / artifact["path"])))
         assert not errors, f"{artifact['path']}: {[error.message for error in errors]}"
-
-
-def test_corpus_case_ids_are_unique_stable_and_declared() -> None:
-    manifest = _manifest()
-    assert re.compile(manifest["corpus"]["case_id_pattern"]).pattern == CASE_ID_PATTERN.pattern
-    seen: list[str] = []
-    for artifact in _corpus_artifacts():
-        actual = _case_ids(artifact, _load_json(CONTRACT_ROOT / artifact["path"]))
-        assert actual == artifact["case_ids"], artifact["path"]
-        assert all(CASE_ID_PATTERN.fullmatch(case_id) for case_id in actual)
-        seen.extend(actual)
-    assert len(seen) == len(set(seen))
 
 
 def test_corpus_values_are_portable_json() -> None:

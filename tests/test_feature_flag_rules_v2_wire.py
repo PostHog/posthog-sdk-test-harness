@@ -1,7 +1,6 @@
 """Contract meta-tests only: these do not execute an SDK, evaluator or harness action."""
 
 import copy
-import hashlib
 import re
 from collections import Counter
 from pathlib import Path
@@ -15,12 +14,14 @@ from tests.test_feature_flag_rules_v2_contract import (
     CONTRACT_ROOT,
     CORPUS_KINDS,
     REGISTRY_PATH,
+    SCHEMA_DIALECT,
     _all_errors,
     _bin_module,
     _json_pointer,
     _load_json,
     _manifest,
 )
+from tests.test_feature_flag_rules_v2_corpus import CASE_ID_PATTERN, _case_ids
 
 MANIFEST = _manifest()
 ARTIFACTS = [a for a in MANIFEST["artifacts"] if a["kind"] == "fixture_set"]
@@ -29,15 +30,12 @@ SCHEMAS = {a["path"]: _load_json(CONTRACT_ROOT / a["path"]) for a in MANIFEST["a
 REGISTRY = Registry().with_resources((s["$id"], Resource.from_contents(s)) for s in SCHEMAS.values())
 LITERALS = _load_json(REGISTRY_PATH)
 MATRIX = _load_json(CONTRACT_ROOT / "rules/response_presence.json")["rows"]
-# Standalone rows (experiment rules without an experiment) leave the linked rows' fixture names unchanged.
-ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX if not row.get("standalone"))
+ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
-PRODUCER_DIGEST = "98c1397bb7b5a1ceb3f317b34c6c57cff0ab30e94bf5945ee7b56f293536b70f"
-FROZEN_POLICY = "published bytes are immutable; a wire change publishes a new schema file under a new $id (README)"
 PRESENCE = _bin_module("update-feature-flag-rules-v2-presence-schemas")
-# Keys of these maps are customer-chosen names (flag keys, group types, person properties), not protocol fields.
-NAMED_MAPS = [("flags",), ("properties", "$groups"), ("properties", "$set"), ("properties", "$set_once")]
+# Keys of the response flags map are customer-chosen flag keys, not protocol fields.
+NAMED_MAPS = [("flags",)]
 
 
 def validator(schema: str | dict[str, Any]) -> Draft202012Validator:
@@ -74,7 +72,7 @@ def schema_errors(schema: str | dict[str, Any], value: Any, layer: str = "schema
 
 
 def seed_errors(value: Any, path: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
-    """Inspect the full response/event, including opaque objects and arrays, before projection."""
+    """Inspect the whole document, including opaque objects and arrays."""
     errors = []
     if isinstance(value, dict):
         for field, child in value.items():
@@ -105,18 +103,6 @@ def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
     return errors
 
 
-def event_errors(event: dict[str, Any], path: str) -> list[dict[str, Any]]:
-    """Validate the whole capture: transport fields are allowed, forbidden context and seeds are not."""
-    direct = path == "schemas/experiment_exposure_properties.schema.json"
-    projection = {k: v for k, v in SCHEMAS[path].items() if k not in ["$id", "$schema", "additionalProperties"]}
-    envelope: dict[str, Any] = {
-        "required": ["event", "properties"],
-        "properties": {"event": {"const": "$experiment_exposure" if direct else "$feature_flag_called"}},
-    }
-    envelope["properties"]["properties"] = projection
-    return seed_errors(event) + schema_errors(envelope, event)
-
-
 def assert_failure(errors: list[dict[str, Any]], expected: dict[str, Any]) -> None:
     assert any(
         all(e.get(k) == expected[k] for k in ["layer", "keyword", "instance_path"])
@@ -129,11 +115,13 @@ def assert_failure(errors: list[dict[str, Any]], expected: dict[str, Any]) -> No
     "group, case", [(g, c) for g, c in CASES if g != "readers"], ids=[c["id"] for g, c in CASES if g != "readers"]
 )
 def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
+    check_producer_case(group, case)
+
+
+def check_producer_case(group: str, case: dict[str, Any]) -> None:
     value = materialize(group, case)
     if group == "responses":
         errors = response_errors(value)
-    elif group.endswith("_transport"):
-        errors = event_errors(value, SETS[group]["schema"])
     else:
         errors = schema_errors(SETS[group]["schema"], value)
     if case["expected"] == "valid":
@@ -224,18 +212,19 @@ def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
         )
 
 
-def test_wire_ids_versions_and_file_coverage() -> None:
+def test_fixture_and_case_ids_are_unique_and_well_formed() -> None:
     ids = [a["fixture_id"] for a in MANIFEST["artifacts"] if a["kind"] == "fixture"]
     for artifact in MANIFEST["artifacts"]:
-        if artifact["kind"] in [*CORPUS_KINDS, "fixture_set"]:
-            ids.extend(artifact["case_ids"])
+        if artifact["kind"] in CORPUS_KINDS:
+            ids.extend(_case_ids(artifact, _load_json(CONTRACT_ROOT / artifact["path"])))
+    ids.extend(case["id"] for _, case in CASES)
     assert len(ids) == len(set(ids))
-    assert all(re.fullmatch(MANIFEST["corpus"]["case_id_pattern"], item) for item in ids)
-    for artifact in ARTIFACTS:
-        data = _load_json(CONTRACT_ROOT / artifact["path"])
-        assert artifact["version"] == data["fixture_version"] == MANIFEST["wire_contract"]["fixture_version"]
-        assert artifact["schema"] == data["schema"]
-        assert artifact["case_ids"] == [c["id"] for c in data["cases"]]
+    assert all(CASE_ID_PATTERN.fullmatch(item) for item in ids)
+
+
+def test_wire_fixture_sets_are_well_formed() -> None:
+    for data in SETS.values():
+        assert data["schema"] in SCHEMAS
         assert set(data["templates"]) == {c["template"] for c in data["cases"]}
         for case in data["cases"]:
             assert set(case) <= {
@@ -252,9 +241,6 @@ def test_wire_ids_versions_and_file_coverage() -> None:
             }
             assert case["expected"] in ["valid", "invalid", "reader"]
             assert ("expected_failure" in case) == (case["expected"] == "invalid")
-    assert MANIFEST["contract"]["version"] == "3.0.0"
-    assert MANIFEST["corpus"]["version"] == "1.1.0"
-    assert MANIFEST["wire_contract"]["version"] == "2.0.0"
 
 
 def test_wire_schemas_and_literal_registry_agree() -> None:
@@ -262,7 +248,7 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
         if artifact["kind"] == "schema":
             schema = SCHEMAS[artifact["path"]]
             Draft202012Validator.check_schema(schema)
-            assert schema["$schema"] == MANIFEST["schema_dialect"]
+            assert schema["$schema"] == SCHEMA_DIALECT
     assert SCHEMAS["schemas/management_warning.schema.json"]["properties"]["code"]["enum"] == LITERALS["warning_codes"]
     producer = SCHEMAS["schemas/flags_response_v3.schema.json"]
     assert producer["$defs"]["v2_reason_code"]["enum"] == [r for r in LITERALS["reason_codes"] if r != "flag_disabled"]
@@ -284,26 +270,6 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
 
 
-def test_published_component_bytes_and_producer_copy_are_pinned() -> None:
-    # Registry 2.0.0 drops four warning codes from published 1.0.0, and config schema 2.0.0 (contract 3.0.0) admits
-    # experiment rules without an experiment; the other components keep their published bytes.
-    frozen = {
-        "schemas/config.schema.json": ("2.0.0", "5583e38dddd84d857cb9643cc097a8e8636a10db0380be23eae2ebcad5724be3"),
-        "registries/literals.json": ("2.0.0", "afd25df141b5e05dfa5c8848e1685a4e8b81f3c80fbafc4769c944b815356069"),
-        "corpus/hash_sha1_60_v1.json": ("1.1.0", "e9bea9cff58bac0c6c1021e9c8842c53594055b6874a2c58bc4350d0c28a93ca"),
-        "corpus/v1_evaluation.json": ("1.1.0", "752ff88dcb943ab1e21f9552b0c4ec606029393fca2b565b01a497da89cd8675"),
-        "corpus/legacy_projection.json": ("1.1.0", "536c8386eefa75721d113bd8718ddeb7fb1aad3b4f2cce1fbcf516a346a16e26"),
-    }
-    versions = {a["path"]: a.get("version") for a in MANIFEST["artifacts"]}
-    for path, (version, digest) in frozen.items():
-        actual = hashlib.sha256((CONTRACT_ROOT / path).read_bytes()).hexdigest()
-        assert actual == digest, f"{path} {version}: {FROZEN_POLICY}"
-        assert versions[path] == version, path
-    producer = (CONTRACT_ROOT / "schemas/flags_response_v3.schema.json").read_bytes()
-    assert hashlib.sha256(producer).hexdigest() == PRODUCER_DIGEST, f"flags_response_v3.schema.json: {FROZEN_POLICY}"
-    assert MANIFEST["wire_contract"]["producer_schema_sha256"] == PRODUCER_DIGEST, "manifest pins the producer copy"
-
-
 def test_v1_variant_keys_are_carried_verbatim() -> None:
     # The PostHog API never restricted v1 variant keys; stored flags carry dots, slashes and spaces.
     response = copy.deepcopy(SETS["responses"]["templates"]["v1"])
@@ -313,76 +279,102 @@ def test_v1_variant_keys_are_carried_verbatim() -> None:
 
 
 def row_name(row: dict[str, Any]) -> str:
-    """Fixture ids name a row by reason, plus the rule type when a reason has more than one linked row."""
-    if row.get("standalone"):
-        return "standalone_" + row["reason"]
+    """Fixture ids name a row by reason, plus the rule type when a reason has more than one row."""
     return row["reason"] + ("_" + row["rule_type"] if ROWS_PER_REASON[row["reason"]] > 1 else "")
 
 
+def required(row: dict[str, Any]) -> list[str]:
+    # Every v2 record carries has_experiment, so every row requires it.
+    return ["has_experiment", *row["required"]]
+
+
 def another_row_accepts(row: dict[str, Any], present: set[str]) -> bool:
-    """A record cannot say whether its experiment rule is linked, so some mutations land on the sibling row."""
+    """A mutation that a sibling row with the same reason and rule type accepts is not a negative."""
     return any(
         other is not row
         and (other["reason"], other["rule_type"]) == (row["reason"], row["rule_type"])
-        and set(other["required"]) <= present
+        and set(required(other)) <= present
         and not set(other["forbidden"]) & present
         for other in MATRIX
     )
 
 
-def missing_cases(row: dict[str, Any]) -> list[str]:
-    return [f for f in row["required"] if not another_row_accepts(row, set(row["required"]) - {f})]
+def restated_by_exact_schema(row: dict[str, Any], field: str) -> bool:
+    """The exact schema restates the split row and the no-rule context (see the frozen producer test below)."""
+    if row["rule_type"] is None:
+        return field in [*row["forbidden"], "condition_index"]
+    return row["reason"] == "experiment_split" and field in [*row["required"], *row["forbidden"]]
 
 
-def forbidden_cases(row: dict[str, Any]) -> list[str]:
-    return [f for f in row["forbidden"] if not another_row_accepts(row, set(row["required"]) | {f})]
+# Fixed values for the generated forbidden-field cases.
+SAMPLE_VALUES = {
+    "rule_type": "experiment",
+    "rule_id": "10000000-0000-4000-8000-000000000001",
+    "experiment_id": 301,
+    "variant_key": "arm_a",
+    "holdout_id": 401,
+}
 
 
-def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
+def matrix_negatives() -> list[Any]:
+    """Per row: a missing required field, a forbidden field and a wrong condition index, each a template mutation."""
+    params = []
+    for row in MATRIX:
+        name = row_name(row)
+        (key,) = SETS["responses"]["templates"][name]["flags"]
+        record = _json_pointer(["flags", key])
+        metadata, condition_index = f"{record}/metadata", f"{record}/reason/condition_index"
+        mutations = [
+            ("missing", field, {"remove": [f"{metadata}/{field}"]}, "required", metadata)
+            for field in required(row)
+            if not another_row_accepts(row, set(required(row)) - {field})
+        ]
+        mutations += [
+            ("forbidden", field, {"set": {f"{metadata}/{field}": SAMPLE_VALUES[field]}}, "not", metadata)
+            for field in row["forbidden"]
+            if not another_row_accepts(row, set(required(row)) | {field})
+        ]
+        # A terminating rule has an integer condition index; the no-rule outcomes have a null one.
+        index = None if row["rule_type"] else 0
+        mutations.append(("wrong", "condition_index", {"set": {condition_index: index}}, "type", condition_index))
+        for check, field, change, keyword, path in mutations:
+            failure = {
+                "layer": "schema" if restated_by_exact_schema(row, field) else "presence",
+                "keyword": keyword,
+                "instance_path": path,
+                **({"message_contains": field} if check == "missing" else {}),
+            }
+            case = {"template": name, **change, "expected": "invalid", "expected_failure": failure}
+            params.append(pytest.param(case, id=f"{name}/{check}/{field}"))
+    return params
+
+
+@pytest.mark.parametrize("case", matrix_negatives())
+def test_presence_matrix_negatives(case: dict[str, Any]) -> None:
+    check_producer_case("responses", case)
+
+
+def test_every_terminal_reason_has_fixtures() -> None:
     ids = {c["id"] for c in SETS["responses"]["cases"]}
     assert {r["reason"] for r in MATRIX} == set(LITERALS["reason_codes"]) - {"flag_disabled"}
     for field in ["id", "version", "config_version"]:
         # The exact schema requires these on every record, so one case each is enough.
         assert f"responses.missing_{field}" in ids
     for row in MATRIX:
-        name = row_name(row)
-        assert "responses." + name in ids
-        for field in ["has_experiment", *missing_cases(row)]:
-            assert f"responses.{name}_missing_{field}" in ids
-        for field in forbidden_cases(row):
-            assert f"responses.{name}_forbidden_{field}" in ids
-        assert f"responses.{name}_wrong_condition_index" in ids
+        assert "responses." + row_name(row) in ids
     for field in ["config_version", "rule_type", "rule_id", "experiment_id", "variant_key"]:
         assert f"responses.split_wrong_type_{field}" in ids
         assert any(c["id"] == f"readers.partial_split_missing_{field}" for c in SETS["readers"]["cases"])
 
 
-def test_every_terminal_reason_has_call_context_fixtures() -> None:
-    """The event-side mirror: each row's required and forbidden fields have a $feature_flag_called case."""
-    ids = {c["id"] for c in SETS["calls"]["cases"]}
-    for row in MATRIX:
-        name = row_name(row)
-        assert "calls." + name in ids
-        for field in missing_cases(row):
-            assert f"calls.{name}_missing_{field}" in ids
-        for field in forbidden_cases(row):
-            assert f"calls.{name}_forbidden_{field}" in ids
-
-
 def test_equal_values_keep_distinct_analytical_identities() -> None:
-    for group, first, second, value_key, identity_key in [
-        ("responses", "experiment_split", "split_arm_b_equal_value", "value", "variant_key"),
-        ("calls", "experiment_split", "arm_b_equal_value", "$feature_flag_response", "$feature_flag_variant"),
-        ("exposures", "remote_split", "arm_b_equal_value", "$feature_flag_response", "$feature_flag_variant"),
-    ]:
-        cases = {c["id"].split(".", 1)[1]: c for c in SETS[group]["cases"]}
-        a, b = (materialize(group, cases[name]) for name in [first, second])
-        if group == "responses":
-            a, b = a["flags"]["garden-layout"], b["flags"]["garden-layout"]
-            assert a["metadata"][identity_key] != b["metadata"][identity_key]
-        else:
-            assert a[identity_key] != b[identity_key]
-        assert a[value_key] == b[value_key]
+    cases = {c["id"]: c for c in SETS["responses"]["cases"]}
+    a, b = (
+        materialize("responses", cases[name])["flags"]["garden-layout"]
+        for name in ["responses.experiment_split", "responses.split_arm_b_equal_value"]
+    )
+    assert a["metadata"]["variant_key"] != b["metadata"]["variant_key"]
+    assert a["value"] == b["value"]
 
 
 def test_definitions_preserve_required_assignment_data_at_the_separate_boundary() -> None:

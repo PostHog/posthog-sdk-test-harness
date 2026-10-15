@@ -163,65 +163,6 @@
                     "reason": {
                       "properties": {
                         "code": {
-                          "const": "targeting_match"
-                        },
-                        "condition_index": {
-                          "type": "integer",
-                          "minimum": 0
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "required": [
-                        "has_experiment",
-                        "rule_type",
-                        "rule_id"
-                      ],
-                      "not": {
-                        "anyOf": [
-                          {
-                            "required": [
-                              "experiment_id"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "variant_key"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "holdout_id"
-                            ]
-                          }
-                        ]
-                      },
-                      "properties": {
-                        "rule_type": {
-                          "const": "experiment"
-                        }
-                      }
-                    },
-                    "value": {
-                      "type": [
-                        "boolean",
-                        "string",
-                        "number",
-                        "object"
-                      ]
-                    }
-                  },
-                  "not": {
-                    "required": [
-                      "failed"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "reason": {
-                      "properties": {
-                        "code": {
                           "const": "experiment_split"
                         },
                         "condition_index": {
@@ -371,57 +312,6 @@
                     "reason": {
                       "properties": {
                         "code": {
-                          "const": "rollout_miss"
-                        },
-                        "condition_index": {
-                          "type": "integer",
-                          "minimum": 0
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "required": [
-                        "has_experiment",
-                        "rule_type",
-                        "rule_id"
-                      ],
-                      "not": {
-                        "anyOf": [
-                          {
-                            "required": [
-                              "experiment_id"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "variant_key"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "holdout_id"
-                            ]
-                          }
-                        ]
-                      },
-                      "properties": {
-                        "rule_type": {
-                          "const": "experiment"
-                        }
-                      }
-                    }
-                  },
-                  "not": {
-                    "required": [
-                      "failed"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "reason": {
-                      "properties": {
-                        "code": {
                           "const": "experiment_paused"
                         },
                         "condition_index": {
@@ -439,57 +329,6 @@
                       ],
                       "not": {
                         "anyOf": [
-                          {
-                            "required": [
-                              "variant_key"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "holdout_id"
-                            ]
-                          }
-                        ]
-                      },
-                      "properties": {
-                        "rule_type": {
-                          "const": "experiment"
-                        }
-                      }
-                    }
-                  },
-                  "not": {
-                    "required": [
-                      "failed"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "reason": {
-                      "properties": {
-                        "code": {
-                          "const": "experiment_paused"
-                        },
-                        "condition_index": {
-                          "type": "integer",
-                          "minimum": 0
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "required": [
-                        "has_experiment",
-                        "rule_type",
-                        "rule_id"
-                      ],
-                      "not": {
-                        "anyOf": [
-                          {
-                            "required": [
-                              "experiment_id"
-                            ]
-                          },
                           {
                             "required": [
                               "variant_key"
@@ -541,57 +380,6 @@
                           {
                             "required": [
                               "variant_key"
-                            ]
-                          }
-                        ]
-                      },
-                      "properties": {
-                        "rule_type": {
-                          "const": "experiment"
-                        }
-                      }
-                    }
-                  },
-                  "not": {
-                    "required": [
-                      "failed"
-                    ]
-                  }
-                },
-                {
-                  "properties": {
-                    "reason": {
-                      "properties": {
-                        "code": {
-                          "const": "holdout"
-                        },
-                        "condition_index": {
-                          "type": "integer",
-                          "minimum": 0
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "required": [
-                        "has_experiment",
-                        "rule_type",
-                        "rule_id"
-                      ],
-                      "not": {
-                        "anyOf": [
-                          {
-                            "required": [
-                              "experiment_id"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "variant_key"
-                            ]
-                          },
-                          {
-                            "required": [
-                              "holdout_id"
                             ]
                           }
                         ]
