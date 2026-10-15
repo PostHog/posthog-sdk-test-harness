@@ -1,7 +1,7 @@
 {
   "contract": {
     "name": "feature_flag_rules_v2",
-    "version": "3.0.0",
+    "version": "4.0.0",
     "config_version": 2
   },
   "artifacts": [
@@ -460,39 +460,11 @@
       "kind": "fixture_set"
     },
     {
-      "path": "fixtures/wire/definitions_feed.json",
-      "kind": "fixture_set"
-    },
-    {
       "path": "fixtures/wire/responses.json",
       "kind": "fixture_set"
     },
     {
-      "path": "fixtures/wire/warnings.json",
-      "kind": "fixture_set"
-    },
-    {
-      "path": "fixtures/wire/errors.json",
-      "kind": "fixture_set"
-    },
-    {
-      "path": "fixtures/wire/calls.json",
-      "kind": "fixture_set"
-    },
-    {
-      "path": "fixtures/wire/exposures.json",
-      "kind": "fixture_set"
-    },
-    {
       "path": "fixtures/wire/readers.json",
-      "kind": "fixture_set"
-    },
-    {
-      "path": "fixtures/wire/exposure_transport.json",
-      "kind": "fixture_set"
-    },
-    {
-      "path": "fixtures/wire/call_transport.json",
       "kind": "fixture_set"
     },
     {
