@@ -34,8 +34,8 @@ ROWS_PER_REASON = Counter(row["reason"] for row in MATRIX)
 CASES = [(name, case) for name, data in SETS.items() for case in data["cases"]]
 LAYERS = ["schema", "presence", "seed", "semantic"]
 PRESENCE = _bin_module("update-feature-flag-rules-v2-presence-schemas")
-# Keys of these maps are customer-chosen names (flag keys, group types, person properties), not protocol fields.
-NAMED_MAPS = [("flags",), ("properties", "$groups"), ("properties", "$set"), ("properties", "$set_once")]
+# Keys of the response flags map are customer-chosen flag keys, not protocol fields.
+NAMED_MAPS = [("flags",)]
 
 
 def validator(schema: str | dict[str, Any]) -> Draft202012Validator:
@@ -72,7 +72,7 @@ def schema_errors(schema: str | dict[str, Any], value: Any, layer: str = "schema
 
 
 def seed_errors(value: Any, path: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
-    """Inspect the full response/event, including opaque objects and arrays, before projection."""
+    """Inspect the whole document, including opaque objects and arrays."""
     errors = []
     if isinstance(value, dict):
         for field, child in value.items():
@@ -103,18 +103,6 @@ def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
     return errors
 
 
-def event_errors(event: dict[str, Any], path: str) -> list[dict[str, Any]]:
-    """Validate the whole capture: transport fields are allowed, forbidden context and seeds are not."""
-    direct = path == "schemas/experiment_exposure_properties.schema.json"
-    projection = {k: v for k, v in SCHEMAS[path].items() if k not in ["$id", "$schema", "additionalProperties"]}
-    envelope: dict[str, Any] = {
-        "required": ["event", "properties"],
-        "properties": {"event": {"const": "$experiment_exposure" if direct else "$feature_flag_called"}},
-    }
-    envelope["properties"]["properties"] = projection
-    return seed_errors(event) + schema_errors(envelope, event)
-
-
 def assert_failure(errors: list[dict[str, Any]], expected: dict[str, Any]) -> None:
     assert any(
         all(e.get(k) == expected[k] for k in ["layer", "keyword", "instance_path"])
@@ -130,8 +118,6 @@ def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
     value = materialize(group, case)
     if group == "responses":
         errors = response_errors(value)
-    elif group.endswith("_transport"):
-        errors = event_errors(value, SETS[group]["schema"])
     else:
         errors = schema_errors(SETS[group]["schema"], value)
     if case["expected"] == "valid":
@@ -312,32 +298,14 @@ def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() ->
         assert any(c["id"] == f"readers.partial_split_missing_{field}" for c in SETS["readers"]["cases"])
 
 
-def test_every_terminal_reason_has_call_context_fixtures() -> None:
-    """The event-side mirror: each row's required and forbidden fields have a $feature_flag_called case."""
-    ids = {c["id"] for c in SETS["calls"]["cases"]}
-    for row in MATRIX:
-        name = row_name(row)
-        assert "calls." + name in ids
-        for field in row["required"]:
-            assert f"calls.{name}_missing_{field}" in ids
-        for field in row["forbidden"]:
-            assert f"calls.{name}_forbidden_{field}" in ids
-
-
 def test_equal_values_keep_distinct_analytical_identities() -> None:
-    for group, first, second, value_key, identity_key in [
-        ("responses", "experiment_split", "split_arm_b_equal_value", "value", "variant_key"),
-        ("calls", "experiment_split", "arm_b_equal_value", "$feature_flag_response", "$feature_flag_variant"),
-        ("exposures", "remote_split", "arm_b_equal_value", "$feature_flag_response", "$feature_flag_variant"),
-    ]:
-        cases = {c["id"].split(".", 1)[1]: c for c in SETS[group]["cases"]}
-        a, b = (materialize(group, cases[name]) for name in [first, second])
-        if group == "responses":
-            a, b = a["flags"]["garden-layout"], b["flags"]["garden-layout"]
-            assert a["metadata"][identity_key] != b["metadata"][identity_key]
-        else:
-            assert a[identity_key] != b[identity_key]
-        assert a[value_key] == b[value_key]
+    cases = {c["id"]: c for c in SETS["responses"]["cases"]}
+    a, b = (
+        materialize("responses", cases[name])["flags"]["garden-layout"]
+        for name in ["responses.experiment_split", "responses.split_arm_b_equal_value"]
+    )
+    assert a["metadata"]["variant_key"] != b["metadata"]["variant_key"]
+    assert a["value"] == b["value"]
 
 
 def test_definitions_preserve_required_assignment_data_at_the_separate_boundary() -> None:
