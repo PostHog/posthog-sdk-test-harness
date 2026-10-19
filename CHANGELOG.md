@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.17.0 — 2026-10-19
+
+### Minor changes
+
+- [a599572](https://github.com/posthog/posthog-sdk-test-harness/commit/a599572f06330e11a8aaed99246eff99841c54a6) Remove the feature flag rules v2 wire fixture sets that no consumer runs: `fixtures/wire/calls.json`, `call_transport.json`, `exposures.json`, `exposure_transport.json`, `definitions_feed.json`, `errors.json` and `warnings.json`, together with their `manifest.json` entries and the meta-tests that only checked them. The `definitions.json`, `responses.json` and `readers.json` fixture sets are unchanged. All schemas stay byte-identical and published as specifications, including the `$feature_flag_called` context, experiment exposure, management warning, management error and definitions feed schemas; the meta-tests still check each one as a valid JSON Schema 2020-12 document. Fixture sets are added together with the first consumer that runs them. The removal ships in contract package 4.0.0. — Thanks @andehen!
+
 ## 1.16.0 — 2026-10-19
 
 ### Minor changes
