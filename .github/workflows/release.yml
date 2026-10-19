@@ -87,7 +87,7 @@ jobs:
 
       - name: Get GitHub App token
         id: releaser
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ secrets.GH_APP_POSTHOG_SDK_TEST_HARNESS_RELEASER_APP_ID }}
           private-key: ${{ secrets.GH_APP_POSTHOG_SDK_TEST_HARNESS_RELEASER_PRIVATE_KEY }}
@@ -105,7 +105,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.91.1
           components: cargo
@@ -122,7 +122,7 @@ jobs:
         run: cargo install sampo@0.17.4
 
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.26"
           python-version: "3.12.12"
@@ -409,7 +409,7 @@ jobs:
 
       - name: Upload release handoff artifacts
         if: always() && steps.commit-release.outputs.commit-hash != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: harness-release-${{ steps.sampo-release.outputs.new_version }}-${{ github.run_attempt }}
           path: |
