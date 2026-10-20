@@ -26,20 +26,15 @@ updated snapshot with the binding change.
 
 ```sh
 posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
-  --migration-suite --require-ready --report discovery.json
-posthog-test-harness-v2 discover --specs /path/to/sdk-specs \
-  --acceptance-suite --require-ready --report acceptance-discovery.json
-posthog-test-harness-v2 run --specs /path/to/sdk-specs \
-  --migration-suite --adapter-url http://127.0.0.1:8080 \
-  --profile PROFILE --timeout-ms 60000 --report report.json
+  --acceptance-suite --require-ready --report discovery.json
 posthog-test-harness-v2 run --specs /path/to/sdk-specs \
   --acceptance-suite --adapter-url http://127.0.0.1:8080 \
-  --profile PROFILE --timeout-ms 60000 --report acceptance-report.json
+  --profile PROFILE --timeout-ms 60000 --report report.json
 ```
 
-Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--migration-suite` runs the YAML-parity capabilities. `discover --acceptance-suite` checks step bindings for all cases opted in with `@sdk:client` or `@sdk:server`, without contacting an adapter. `run --acceptance-suite` selects only the opted-in cases for the adapter profile; unrelated cases remain visible but unselected. `--feature` selects relative paths for explicit inspection, and `--all-features` includes unresolved cases. `--case-id` remains an explicit debugging selector outside the tag-selected acceptance suite.
+Omit `--specs` to use the verified [packaged features](harness-v2-distribution.md). `--acceptance-suite` combines the migrated YAML-parity cases and canonical cases opted in with `@sdk:client` or `@sdk:server` in one run and report. Migrated cases retain capability-based selection and SDK-type applicability; canonical cases retain explicit SDK-type opt-in. Unrelated cases remain visible but unselected. `discover --acceptance-suite` checks bindings for both groups without contacting an adapter. `--migration-suite` remains a compatibility filter for only the migrated cases; running it separately is not needed for SDK acceptance. `--feature` selects relative paths for explicit inspection, and `--all-features` includes unresolved cases. `--case-id` remains an explicit debugging selector outside the acceptance suite.
 
-The same official Cucumber parser expands backgrounds, rules and outlines across both suites. Ordinary scenarios use feature path and scenario name as their report identity; Scenario Outlines may use `@case:<case_id>` with a unique `case_id` Examples column to label each row. Unmigrated outlines without labels use their source-row locations. The source-content revision remains in the report separately. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability in the migration suite and opt scenarios into tag-based acceptance selection. Both tags together opt the case in for either SDK type. Required routes come from step bindings; a missing required route does not silently exclude a selected case.
+The official Cucumber parser expands backgrounds, rules and outlines across the suite. Ordinary scenarios use feature path and scenario name as their report identity; Scenario Outlines may use `@case:<case_id>` with a unique `case_id` Examples column to label each row. Unmigrated outlines without labels use their source-row locations. The source-content revision remains in the report separately. `@requires:<capability>` declares SDK features; `@sdk:server` and `@sdk:client` restrict applicability in the migration suite and opt scenarios into tag-based acceptance selection. Both tags together opt the case in for either SDK type. Required routes come from step bindings; a missing required route does not silently exclude a selected case.
 
 The migrated scope contains 157 cases. Canonical features are discoverable but many require operations or fixtures not yet implemented. Discovery readiness means steps are bound, not SDK conformance. Missing public operations are `unsupported_binding`; unavailable fixture controls are `blocked_fixture`; undefined steps are harness errors. Public getters such as `pending_events()` are legitimate future bindings when shared event/queued/in-flight/retry semantics are defined. Queue snapshots, evaluator hooks and fabricated counters are not substitutes. Retention and delivery may instead be proved by public flush/retry behavior and observed traffic where that preserves the scenario's assertion.
 
@@ -84,8 +79,9 @@ with a UUID-shaped root distinct id. The receiver assertion requires
 `properties.$process_person_profile: false` on legacy batch delivery or
 `options.process_person_profile: false` (without the legacy property) on Capture v1.
 Unmigrated client and validation cases remain
-unselected. The 157-case YAML-parity suite uses the same Gherkin runner but retains
-its independent capability-based selection.
+unselected. The same acceptance run includes the 157 migrated cases with their
+existing capability-based selection. Their source paths and migration metadata
+retain YAML provenance.
 The steps `identify is called with JSON arguments:` and
 `alias is called with JSON arguments:` forward JSON doc strings unchanged to the
 negotiated `/identify` and `/alias` routes. The step

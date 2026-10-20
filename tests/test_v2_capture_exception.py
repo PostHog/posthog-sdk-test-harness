@@ -169,16 +169,15 @@ async def test_server_exception_cases_are_not_selected_for_client_profile(specs)
     assert not host.fixtures and not host.inputs
 
 
-async def test_acceptance_suite_selects_only_opted_in_cases(specs):
+async def test_canonical_acceptance_selects_only_opted_in_cases(specs):
     from tests.v2_snapshot_host import SnapshotHost
 
     contracts = Contracts()
+    paths = [path for path in acceptance_paths(specs) if path.startswith("acceptance/")]
     async with serve(contracts, host_type=SnapshotHost) as (host, url):
-        report, _ = await run(
-            contracts, specs, acceptance_paths(specs), url, host.profile["id"], tagged_acceptance=True
-        )
+        report, _ = await run(contracts, specs, paths, url, host.profile["id"], tagged_acceptance=True)
     assert strict_exit_code(contracts, report) == 0, report
-    cases, _ = load_cases(specs, acceptance_paths(specs))
+    cases, _ = load_cases(specs, paths)
     selected_ids = {case.id for case in cases if "@sdk:server" in case.tags}
     assert len(selected_ids) == 31
     assert all(

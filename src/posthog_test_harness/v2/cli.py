@@ -39,10 +39,12 @@ def main():
 )
 @click.option("--feature", multiple=True, help="Relative feature path; defaults to public/flush.feature")
 @click.option("--all-features", is_flag=True, help="Include every selected feature, including missing harness routes")
+@click.option("--migration-suite", is_flag=True, help="Limit acceptance to the migrated YAML-parity cases")
 @click.option(
-    "--migration-suite", is_flag=True, help="Execute the versioned YAML-parity suite (adapter-driven selection)"
+    "--acceptance-suite",
+    is_flag=True,
+    help="Run SDK acceptance, including migrated cases with their capability selection",
 )
-@click.option("--acceptance-suite", is_flag=True, help="Run opted-in acceptance scenarios for the adapter SDK type")
 @click.option("--adapter-url", required=True)
 @click.option(
     "--allow-private-network",
@@ -151,8 +153,10 @@ def run(
 )
 @click.option("--report", "report_path", required=True, type=click.Path(path_type=Path, dir_okay=False))
 @click.option("--require-ready", is_flag=True, help="Exit nonzero if any case has missing harness bindings")
-@click.option("--migration-suite", is_flag=True, help="Discover the versioned YAML-parity suite")
-@click.option("--acceptance-suite", is_flag=True, help="Discover opted-in acceptance scenarios without an SDK host")
+@click.option("--migration-suite", is_flag=True, help="Limit discovery to migrated YAML-parity cases")
+@click.option(
+    "--acceptance-suite", is_flag=True, help="Discover SDK acceptance, including migrated cases, without an SDK host"
+)
 def discover(specs, feature, report_path, require_ready, migration_suite, acceptance_suite):
     """List execution routes and missing steps without contacting an SDK host."""
     if sum((bool(feature), migration_suite, acceptance_suite)) > 1:
@@ -167,7 +171,9 @@ def discover(specs, feature, report_path, require_ready, migration_suite, accept
             report = discover_routes(root, paths)
             if acceptance_suite:
                 report["cases"] = [
-                    case for case in report["cases"] if {"@sdk:client", "@sdk:server"}.intersection(case["tags"])
+                    case
+                    for case in report["cases"]
+                    if "migration" in case or {"@sdk:client", "@sdk:server"}.intersection(case["tags"])
                 ]
                 require(bool(report["cases"]), "zero_cases", "No opted-in acceptance scenarios")
             report["distribution"] = distribution(bundle)

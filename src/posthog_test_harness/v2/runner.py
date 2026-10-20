@@ -11,7 +11,7 @@ from .contracts import VERSION, BoundaryError, require
 from .fixtures import CaseServer
 from .gherkin import load_cases
 from .local_parity_steps import no_remote
-from .migration import selection
+from .migration import SUITE, selection
 from .snapshot_steps import STEPS
 from .steps import Context
 
@@ -223,9 +223,9 @@ async def run(
 ):
     require(not tagged_acceptance or not case_ids, "invalid_selector", "Tag-selected acceptance cannot use case IDs")
     require(
-        not tagged_acceptance or all(str(path).startswith("acceptance/") for path in features),
+        not tagged_acceptance or all(str(path).startswith(("acceptance/", SUITE + "/")) for path in features),
         "invalid_selector",
-        "Tag-selected acceptance requires acceptance feature paths",
+        "Acceptance suite requires acceptance or migrated feature paths",
     )
     run_id = str(uuid4())
     report = {
@@ -293,7 +293,7 @@ async def run(
                 declared_type = profile.get("sdk_type")
                 selected = (
                     declared_type in native_flag_sdk_types(case, include_legacy=False)
-                    if tagged_acceptance
+                    if tagged_acceptance and case.migration is None
                     else not invalid_selector and (not case_ids or case.id in case_ids)
                 )
                 reason = "SDK type not opted into acceptance case" if tagged_acceptance else "Excluded by case selector"

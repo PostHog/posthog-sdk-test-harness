@@ -51,7 +51,7 @@ commit must therefore include the Sampo version's updated `uv.lock`.
 Before release metadata or either image is published, the installed-wheel smoke
 runs a controlled healthy host and a deliberately defective host (not SDK
 conformance). Separate amd64 and arm64 v2 images verify their bundles and
-discovery readiness for the migration suite and opted-in acceptance cases; arm64
+discovery readiness for unified SDK acceptance and the migrated-case compatibility filter; arm64
 runs under QEMU on the amd64 release runner. Each architecture retains its own smoke reports. Both images are then
 built/pushed for amd64 and arm64.
 
