@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .contracts import BoundaryError, require
 from .gherkin import load_cases
+from .migration import SUITE
 from .snapshot_steps import STEPS
 
 
@@ -14,7 +15,10 @@ def feature_paths(specs):
 
 
 def acceptance_paths(specs):
-    paths = sorted(p.relative_to(specs).as_posix() for p in (Path(specs) / "acceptance").rglob("*.feature"))
+    paths = sorted(
+        p.relative_to(specs).as_posix()
+        for p in [*(Path(specs) / "acceptance").rglob("*.feature"), *(Path(specs) / SUITE).glob("*.feature")]
+    )
     require(bool(paths), "zero_cases", "No acceptance features")
     return paths
 
