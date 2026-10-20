@@ -115,6 +115,10 @@ def assert_failure(errors: list[dict[str, Any]], expected: dict[str, Any]) -> No
     "group, case", [(g, c) for g, c in CASES if g != "readers"], ids=[c["id"] for g, c in CASES if g != "readers"]
 )
 def test_wire_producer_fixtures(group: str, case: dict[str, Any]) -> None:
+    check_producer_case(group, case)
+
+
+def check_producer_case(group: str, case: dict[str, Any]) -> None:
     value = materialize(group, case)
     if group == "responses":
         errors = response_errors(value)
@@ -279,20 +283,85 @@ def row_name(row: dict[str, Any]) -> str:
     return row["reason"] + ("_" + row["rule_type"] if ROWS_PER_REASON[row["reason"]] > 1 else "")
 
 
-def test_every_terminal_reason_has_required_and_forbidden_metadata_fixtures() -> None:
+def required(row: dict[str, Any]) -> list[str]:
+    # Every v2 record carries has_experiment, so every row requires it.
+    return ["has_experiment", *row["required"]]
+
+
+def another_row_accepts(row: dict[str, Any], present: set[str]) -> bool:
+    """A mutation that a sibling row with the same reason and rule type accepts is not a negative."""
+    return any(
+        other is not row
+        and (other["reason"], other["rule_type"]) == (row["reason"], row["rule_type"])
+        and set(required(other)) <= present
+        and not set(other["forbidden"]) & present
+        for other in MATRIX
+    )
+
+
+def restated_by_exact_schema(row: dict[str, Any], field: str) -> bool:
+    """The exact schema restates the split row and the no-rule context (see the frozen producer test below)."""
+    if row["rule_type"] is None:
+        return field in [*row["forbidden"], "condition_index"]
+    return row["reason"] == "experiment_split" and field in [*row["required"], *row["forbidden"]]
+
+
+# Fixed values for the generated forbidden-field cases.
+SAMPLE_VALUES = {
+    "rule_type": "experiment",
+    "rule_id": "10000000-0000-4000-8000-000000000001",
+    "experiment_id": 301,
+    "variant_key": "arm_a",
+    "holdout_id": 401,
+}
+
+
+def matrix_negatives() -> list[Any]:
+    """Per row: a missing required field, a forbidden field and a wrong condition index, each a template mutation."""
+    params = []
+    for row in MATRIX:
+        name = row_name(row)
+        (key,) = SETS["responses"]["templates"][name]["flags"]
+        record = _json_pointer(["flags", key])
+        metadata, condition_index = f"{record}/metadata", f"{record}/reason/condition_index"
+        mutations = [
+            ("missing", field, {"remove": [f"{metadata}/{field}"]}, "required", metadata)
+            for field in required(row)
+            if not another_row_accepts(row, set(required(row)) - {field})
+        ]
+        mutations += [
+            ("forbidden", field, {"set": {f"{metadata}/{field}": SAMPLE_VALUES[field]}}, "not", metadata)
+            for field in row["forbidden"]
+            if not another_row_accepts(row, set(required(row)) | {field})
+        ]
+        # A terminating rule has an integer condition index; the no-rule outcomes have a null one.
+        index = None if row["rule_type"] else 0
+        mutations.append(("wrong", "condition_index", {"set": {condition_index: index}}, "type", condition_index))
+        for check, field, change, keyword, path in mutations:
+            failure = {
+                "layer": "schema" if restated_by_exact_schema(row, field) else "presence",
+                "keyword": keyword,
+                "instance_path": path,
+                **({"message_contains": field} if check == "missing" else {}),
+            }
+            case = {"template": name, **change, "expected": "invalid", "expected_failure": failure}
+            params.append(pytest.param(case, id=f"{name}/{check}/{field}"))
+    return params
+
+
+@pytest.mark.parametrize("case", matrix_negatives())
+def test_presence_matrix_negatives(case: dict[str, Any]) -> None:
+    check_producer_case("responses", case)
+
+
+def test_every_terminal_reason_has_fixtures() -> None:
     ids = {c["id"] for c in SETS["responses"]["cases"]}
     assert {r["reason"] for r in MATRIX} == set(LITERALS["reason_codes"]) - {"flag_disabled"}
     for field in ["id", "version", "config_version"]:
         # The exact schema requires these on every record, so one case each is enough.
         assert f"responses.missing_{field}" in ids
     for row in MATRIX:
-        name = row_name(row)
-        assert "responses." + name in ids
-        for field in ["has_experiment", *row["required"]]:
-            assert f"responses.{name}_missing_{field}" in ids
-        for field in row["forbidden"]:
-            assert f"responses.{name}_forbidden_{field}" in ids
-        assert f"responses.{name}_wrong_condition_index" in ids
+        assert "responses." + row_name(row) in ids
     for field in ["config_version", "rule_type", "rule_id", "experiment_id", "variant_key"]:
         assert f"responses.split_wrong_type_{field}" in ids
         assert any(c["id"] == f"readers.partial_split_missing_{field}" for c in SETS["readers"]["cases"])
