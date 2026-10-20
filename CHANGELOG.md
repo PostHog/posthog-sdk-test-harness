@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.19.0 — 2026-10-20
+
+### Minor changes
+
+- [65b0eb7](https://github.com/posthog/posthog-sdk-test-harness/commit/65b0eb7ad8f2cc7a2c3a00f7e9b1fe42c7c39728) Include migrated YAML-parity cases in the SDK acceptance suite while preserving their capability-based selection. — Thanks @dustinbyrne!
+
 ## 1.18.0 — 2026-10-20
 
 ### Minor changes
