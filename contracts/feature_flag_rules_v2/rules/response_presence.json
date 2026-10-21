@@ -9,8 +9,7 @@
       ],
       "forbidden": [
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": false
     },
@@ -23,8 +22,7 @@
       ],
       "forbidden": [
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": false
     },
@@ -34,11 +32,10 @@
       "required": [
         "rule_type",
         "rule_id",
-        "experiment_id",
         "variant_key"
       ],
       "forbidden": [
-        "holdout_id"
+        "experiment_id"
       ],
       "failed": false
     },
@@ -51,8 +48,7 @@
       ],
       "forbidden": [
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": false
     },
@@ -61,12 +57,11 @@
       "rule_type": "experiment",
       "required": [
         "rule_type",
-        "rule_id",
-        "experiment_id"
+        "rule_id"
       ],
       "forbidden": [
-        "variant_key",
-        "holdout_id"
+        "experiment_id",
+        "variant_key"
       ],
       "failed": false
     },
@@ -75,12 +70,11 @@
       "rule_type": "experiment",
       "required": [
         "rule_type",
-        "rule_id",
-        "experiment_id"
+        "rule_id"
       ],
       "forbidden": [
-        "variant_key",
-        "holdout_id"
+        "experiment_id",
+        "variant_key"
       ],
       "failed": false
     },
@@ -89,11 +83,10 @@
       "rule_type": "experiment",
       "required": [
         "rule_type",
-        "rule_id",
-        "experiment_id",
-        "holdout_id"
+        "rule_id"
       ],
       "forbidden": [
+        "experiment_id",
         "variant_key"
       ],
       "failed": false
@@ -106,8 +99,7 @@
         "rule_type",
         "rule_id",
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": false
     },
@@ -119,8 +111,7 @@
         "rule_type",
         "rule_id",
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": false
     },
@@ -132,8 +123,7 @@
         "rule_type",
         "rule_id",
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": true
     },
@@ -145,8 +135,7 @@
         "rule_type",
         "rule_id",
         "experiment_id",
-        "variant_key",
-        "holdout_id"
+        "variant_key"
       ],
       "failed": true
     }
