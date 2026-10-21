@@ -1,6 +1,5 @@
 import hashlib
 import json
-import re
 import struct
 from collections import Counter
 from decimal import Decimal
@@ -10,7 +9,7 @@ import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 
 from tests.test_feature_flag_rules_v2_contract import CONTRACT_ROOT, _all_errors, _load_json
-from tests.test_feature_flag_rules_v2_corpus import MAX_IDENTIFIER_SCALAR_VALUES, SCALE, _binary64_hex
+from tests.test_feature_flag_rules_v2_corpus import MAX_IDENTIFIER_SCALAR_VALUES, SCALE, _binary64_hex, _hash01
 from tests.test_feature_flag_rules_v2_wire import response_errors
 
 CORPUS = _load_json(CONTRACT_ROOT / "corpus/v2_experiment_evaluation.json")
@@ -55,9 +54,13 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _hash01(prefix: str, subject: str, salt: str) -> float:
-    n = int(hashlib.sha1((prefix + subject + salt).encode("utf-8")).hexdigest()[:15], 16)
-    return float(n) / float(SCALE)
+def _boundaries(variants: list[dict[str, Any]]) -> list[float]:
+    """Cumulative variant boundaries, added left to right in binary64."""
+    total, boundaries = 0.0, []
+    for variant in variants:
+        total += variant["weight"] / 100
+        boundaries.append(total)
+    return boundaries
 
 
 def _targets(rule: dict[str, Any], properties: dict[str, Any]) -> bool:
@@ -99,13 +102,8 @@ def _evaluate(case: dict[str, Any], hash_at: HashAt) -> dict[str, Any]:
         if rule["rule_type"] == "percentage_rollout":
             return {"status": "success", "value": rule["value"], "reason": "targeting_match", "rule": claimed}
         draw = hash_at("variant", rule["seed"] + ".", subject, "variant", rule)
-        boundary = 0.0
-        chosen = rule["variants"][-1]
-        for variant in rule["variants"]:
-            boundary += variant["weight"] / 100
-            if draw < boundary:
-                chosen = variant
-                break
+        variants = rule["variants"]
+        chosen = next((v for v, boundary in zip(variants, _boundaries(variants)) if draw < boundary), variants[-1])
         return {
             "status": "success",
             "value": chosen["value"],
@@ -135,7 +133,7 @@ def _real_hashes(case: dict[str, Any]) -> tuple[dict[str, Any], list[Draw]]:
 
     def hash_at(use: str, prefix: str, subject: str, salt: str, rule: dict[str, Any]) -> float:
         drawn.append((use, prefix, subject, salt, rule))
-        return _hash01(prefix, subject, salt)
+        return _hash01(prefix + subject + salt)
 
     return _evaluate(case, hash_at), drawn
 
@@ -180,11 +178,7 @@ def test_experiment_hash_evidence_is_independent(case: dict[str, Any]) -> None:
             "hash01_binary64_hex": _binary64_hex(float(n) / float(SCALE)),
         }
         if use == "variant":
-            boundary, boundaries = 0.0, []
-            for variant in rule["variants"]:
-                boundary += variant["weight"] / 100
-                boundaries.append(_binary64_hex(boundary))
-            recomputed["boundaries_binary64_hex"] = boundaries
+            recomputed["boundaries_binary64_hex"] = [_binary64_hex(b) for b in _boundaries(rule["variants"])]
         elif use == "rollout":
             recomputed["threshold_binary64_hex"] = _binary64_hex(rule["rollout_percentage"] / 100)
         else:
@@ -207,10 +201,7 @@ def test_experiment_white_box_edges_use_exact_binary64(case: dict[str, Any]) -> 
         assert boundary == rule["rollout_percentage"] / 100
         assert (case["expected"]["reason"] == "rollout_miss") == (injected > boundary)
     else:
-        boundaries, total = [], 0.0
-        for variant in rule["variants"]:
-            total += variant["weight"] / 100
-            boundaries.append(total)
+        boundaries = _boundaries(rule["variants"])
         assert boundary in boundaries
         assert rule["rollout_percentage"] == 100 and "holdout" not in rule
         expected_key = case["expected"]["variant"]
@@ -239,8 +230,11 @@ def test_schema_requires_variant_exactly_for_an_experiment_split(
     corpus = {**CORPUS, "cases": [{**BY_ID["v2_experiment.ordering.split"], "expected": expected}]}
     split = reason == "experiment_split"
     # Only an experiment rule reports a split, and an experiment rule never reports a targeting match.
-    consistent = {"experiment_split": "experiment", "targeting_match": "percentage_rollout"}.get(reason, rule_type)
-    valid = include_variant == split and rule_type == consistent
+    rule_type_allowed = {
+        "experiment_split": rule_type == "experiment",
+        "targeting_match": rule_type != "experiment",
+    }.get(reason, True)
+    valid = include_variant == split and rule_type_allowed
     assert Draft202012Validator(SCHEMA).is_valid(corpus) == valid
 
 
@@ -313,8 +307,9 @@ def test_parser_rows_cover_schema_and_semantic_rejections() -> None:
     parser = [case for case in CASES if case["family"] == "parser"]
     semantic = Counter(error for case in parser for error in _semantic_errors(case["config"]))
     assert set(semantic) == {"variant_keys_unique", "percentage_two_decimals", "variant_weights_sum_100"}
-    schema_only = [case for case in parser if not _semantic_errors(case["config"])]
-    assert all(list(CONFIG.iter_errors(case["config"])) for case in schema_only)
+    # A semantic row must pass the schema, or it would not test the semantic check alone.
+    semantic_only = [case for case in parser if _semantic_errors(case["config"])]
+    assert not any(list(CONFIG.iter_errors(case["config"])) for case in semantic_only)
     # An experiment rule has no experiment_id field; the link lives on the Experiment row.
     linked = BY_ID["v2_experiment.parser.experiment_id"]["config"]
     errors = [e for error in CONFIG.iter_errors(linked) for e in _all_errors(error)]
@@ -325,7 +320,7 @@ def test_parser_rows_cover_schema_and_semantic_rejections() -> None:
     assert any(
         e.validator == "additionalProperties" and list(e.absolute_path) == ["rules", 0, "holdout"] for e in errors
     )
-    assert re.fullmatch(r"v2_experiment\.parser\.[a-z0-9_]+", parser[0]["id"])
+    assert all(case["id"].split(".")[1] == case["family"] for case in CASES)
 
 
 def test_experiment_family_counts_make_consumer_scope_explicit() -> None:

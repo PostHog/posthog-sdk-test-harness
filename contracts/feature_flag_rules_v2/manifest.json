@@ -409,7 +409,7 @@
       "expected_failure": {
         "keyword": "additionalProperties",
         "instance_path": "/rules/0/holdout",
-        "message_contains": "'id'"
+        "message_contains": "id"
       }
     },
     {

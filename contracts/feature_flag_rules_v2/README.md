@@ -254,7 +254,7 @@ Cases use the boolean corpus case shape and context rules, and `expected` is exh
 For a rule whose targeting matches, in this order:
 
 1. `paused: true` returns the flag default with `experiment_paused`. Nothing is hashed.
-2. A holdout returns the flag default with `holdout` when the subject's holdout hash is at most `exclusion_percentage / 100`. A holdout is terminal whatever `on_rollout_miss` says.
+2. A holdout returns the flag default with `holdout` when the subject's holdout hash is at most `exclusion_percentage / 100`. 100 percent holds out every non-empty subject without hashing. A holdout is terminal whatever `on_rollout_miss` says.
 3. The rollout check works as for a percentage rollout: 100 percent includes every non-empty subject without hashing. A miss returns the flag default with `rollout_miss` under `return_default` and moves to the next rule under `continue`.
 4. The variant hash selects the first variant whose cumulative boundary is above the hash; past the final boundary, the last variant is selected even when its weight is 0. The result is `experiment_split` with that variant's value.
 
