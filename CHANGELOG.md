@@ -1,5 +1,16 @@
 # posthog-sdk-test-harness
 
+## 1.20.0 — 2026-10-21
+
+### Minor changes
+
+- [34fd648](https://github.com/posthog/posthog-sdk-test-harness/commit/34fd648a2be1caed203104079e6ad2110c8d4b0f) Add the feature flag rules v2 experiment rule evaluation corpus and drop the experiment and holdout references from v2 experiment rules (contract package 6.0.0). An experiment links to its rule from the Experiment row, so the rule carries no experiment reference, and every variant assignment by an experiment rule reports `experiment_split`, whether or not an experiment links to the rule. A holdout belongs to its rule: it holds only a seed and an exclusion percentage, and a holdout result is identified by its rule ID and the `holdout` reason.
+  
+  - Config schema: `experiment_id` is no longer a rule field and `id` is no longer a holdout field, so a rule or holdout that carries one is rejected. `config.invalid.null_experiment_id` is removed; `config.valid.experiment_rule_local_holdout`, `config.invalid.experiment_rule_with_experiment_id` and `config.invalid.holdout_with_id` are added; the other experiment rule fixtures drop `experiment_id` and `holdout.id` and keep their expectations.
+  - Corpus: `corpus/v2_experiment_evaluation.json` (81 cases in the `ordering`, `assignment`, `values`, `white_box` and `parser` families) and its companion schema.
+  - Wire: no config version 2 record carries `experiment_id`, and no record or event carries a holdout ID. The producer schema forbids `experiment_id` on v2 records, no longer requires it on a split, and has no `holdout_id`; the presence rows for experiment rules forbid `experiment_id`; the event schemas have no `$feature_flag_holdout_id`, and `$experiment_exposure` has no `$feature_flag_experiment_id`. Version 1 records keep `experiment_id`. The wire templates drop both fields from v2 records and `id` from the definitions holdout. Removed cases: `responses.split_wrong_type_experiment_id`, `responses.experiment_split_contradicted_has_experiment`, `responses.rollout_miss_percentage_rollout_wrong_rule_type`, `responses.rollout_miss_experiment_wrong_rule_type`, `responses.holdout_missing_holdout_id`, `responses.v1_forbidden_holdout_id` and `readers.partial_split_missing_experiment_id`. Added cases: `responses.experiment_split_flag_without_experiment`, `responses.holdout_missing_rule_id` (the committed presence-layer `required` failure) and `readers.split_extra_experiment_id`. `responses.json` now has 26 valid and 44 invalid cases.
+  - Registry: `experiment_id` leaves `fields`, and `experiment_id` and `holdout_id` leave `openfeature_mapping.flag_metadata_keys`. — Thanks @andehen!
+
 ## 1.19.0 — 2026-10-20
 
 ### Minor changes
