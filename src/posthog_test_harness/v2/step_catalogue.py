@@ -2,6 +2,7 @@
 
 from itertools import groupby
 
+from .contracts import require
 from .runner import STEPS
 
 EXAMPLE = '''@sdk:server
@@ -67,6 +68,21 @@ The table allows the listed ingestion paths without requiring a particular trans
 
 def render_catalogue(registry=STEPS):
     """Render every registered pattern and its declared execution requirements."""
+    patterns, handlers = set(), set()
+    for regex, handler, _ in registry.definitions:
+        require(
+            regex.pattern not in patterns,
+            "duplicate_step_pattern",
+            f"Duplicate catalogue step pattern: {regex.pattern}",
+        )
+        require(
+            handler not in handlers,
+            "duplicate_step_handler",
+            f"Handler registered more than once: {handler.__module__}.{handler.__name__}",
+        )
+        patterns.add(regex.pattern)
+        handlers.add(handler)
+
     lines = [HEADER.rstrip(), EXAMPLE.rstrip(), "```", "", "## Registered bindings", ""]
     definitions = sorted(registry.definitions, key=lambda row: (row[1].__module__, row[0].pattern))
     for module, entries in groupby(definitions, key=lambda row: row[1].__module__):
