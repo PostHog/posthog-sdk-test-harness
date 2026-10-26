@@ -241,8 +241,8 @@ def test_schema_requires_variant_exactly_for_an_experiment_split(
 @pytest.mark.parametrize(
     "case", [case for case in CASES if case["expected"]["status"] == "success"], ids=lambda case: case["id"]
 )
-def test_every_result_projects_to_a_valid_v3_record(case: dict[str, Any]) -> None:
-    """The v3 record carries the terminal rule and the variant key, and nothing else from the result."""
+def test_every_result_projects_to_a_valid_v4_record(case: dict[str, Any]) -> None:
+    """The v4 record carries the terminal rule and the variant key, and nothing else from the result."""
     expected = case["expected"]
     rule = expected.get("rule")
     metadata: dict[str, Any] = {"id": 201, "version": 7, "config_version": 2, "has_experiment": False, "payload": None}

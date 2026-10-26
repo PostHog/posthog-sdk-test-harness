@@ -1,5 +1,5 @@
 {
-  "schema": "schemas/flags_response_v3.schema.json",
+  "schema": "schemas/flags_response_v4.schema.json",
   "templates": {
     "targeting_match_targeted_release": {
       "errorsWhileComputingFlags": false,
@@ -695,7 +695,7 @@
       }
     },
     {
-      "id": "readers.v3_value_takes_precedence",
+      "id": "readers.v4_value_takes_precedence",
       "template": "experiment_split",
       "set": {
         "/flags/garden-layout/enabled": true,
@@ -983,7 +983,7 @@
       }
     },
     {
-      "id": "readers.v1_at_v3",
+      "id": "readers.v1_at_v4",
       "template": "v1",
       "expected": "reader",
       "reader": {

@@ -127,7 +127,7 @@ Run `python -m pytest tests/test_feature_flag_rules_v2_*.py` from the repository
 
 - `schemas/definitions_entry.schema.json` selects v1 for absent/1 `filters.version`, or references the frozen config schema for v2. The entry's row `version` is independent. Row `version` and `ensure_experience_continuity` retain their existing nullable types. Existing v1 filters are opaque in this schema; this package does not redefine legacy evaluation semantics.
 - `schemas/definitions_v2.schema.json` describes the mixed-version definitions feed, including its required cohort map and optional boolean `minimal_flag_called_events`. Unsupported config versions or v2 semantic fields require per-flag remote fallback in auto mode and an unsupported result in strict local mode.
-- `schemas/flags_response_v3.schema.json` is the exact producer schema. It forbids `experiment_id` on v2 records; only version 1 records carry one. `schemas/flags_response_v3_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects a version 1 `experiment_id` alongside `has_experiment: false`; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
+- `schemas/flags_response_v4.schema.json` is the exact producer schema. It forbids `experiment_id` on v2 records; only version 1 records carry one. `schemas/flags_response_v4_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects a version 1 `experiment_id` alongside `has_experiment: false`; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
 - `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
 - `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A malformed-split diagnostic may retain config version 2 and the split reason while omitting the whole rule and variant attribution tuple; a partly populated tuple is rejected. Direct exposure requires the complete v2 split tuple (rule type, rule ID and variant), SDK origin and `locally_evaluated`, and forbids experiment ID and forced-variant context. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
 - `fixtures/wire/` contains definitions entry and producer response fixtures, and separate tolerant-reader expectations. Fixture sets are added together with the first consumer that runs them; the definitions feed, management diagnostic and event schemas have no fixtures and are specifications. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes. The meta-tests generate each presence-matrix row's per-field response negatives (each missing required field, each forbidden field and a wrong condition index) from `rules/response_presence.json` and the row's template; the committed invalid response cases are the hand-made ones, plus `responses.holdout_missing_rule_id`, which keeps a presence-layer `required` failure in the committed set for consumers that port the validator.
@@ -140,7 +140,7 @@ The first event release permits only booleans and non-empty strings in the respo
 
 ## Variant keys
 
-`metadata.variant_key` in `schemas/flags_response_v3.schema.json` and `$feature_flag_variant` in the two event schemas accept any string: the PostHog API has never restricted version 1 variant keys, and stored flags carry dots, slashes and spaces because variant keys double as configuration values. Version 2 variant keys stay constrained by `schemas/config.schema.json` at admission.
+`metadata.variant_key` in `schemas/flags_response_v4.schema.json` and `$feature_flag_variant` in the two event schemas accept any string: the PostHog API has never restricted version 1 variant keys, and stored flags carry dots, slashes and spaces because variant keys double as configuration values. Version 2 variant keys stay constrained by `schemas/config.schema.json` at admission.
 
 ## Person boolean evaluation corpus
 
@@ -230,7 +230,7 @@ Parser rows require whole-document rejection: an empty string, a value or defaul
 
 ### Legacy rendering
 
-Each success row carries `legacy`, the rendering of its value in the response shapes before v3:
+Each success row carries `legacy`, the rendering of its value in the response shapes before v4:
 
 | Value | `enabled` | `variant` | Flag map value | Payload |
 | --- | --- | --- | --- | --- |
@@ -242,7 +242,7 @@ Each success row carries `legacy`, the rendering of its value in the response sh
 Zero and the empty object are values, so they render as enabled.
 The payload travels as a JSON-encoded string in `metadata.payload` and `featureFlagPayloads`, like a version 1 payload, so existing payload accessors decode it.
 The corpus records the decoded value because key order and number spelling in the encoded string are not canonical; decode before comparing.
-A v3 record carries `expected.value` in `value`, and its `metadata.payload` stays null for config version 2, as the wire schema requires.
+A v4 record carries `expected.value` in `value`, and its `metadata.payload` stays null for config version 2, as the wire schema requires.
 
 ## Experiment rule evaluation corpus
 
@@ -273,7 +273,7 @@ These are the version 1 hashes: a rule seed equal to the flag key reproduces the
 
 `expected.variant` is the assigned variant key, so consumers can tell equal-valued variants apart; a response record carries it as `metadata.variant_key`.
 Every experiment rule result names the rule, which a response record carries as `rule_type: "experiment"`, `rule_id` and the condition index, with no experiment or holdout ID.
-The meta-tests project every success result into a v3 record and validate it against the producer and presence schemas.
+The meta-tests project every success result into a v4 record and validate it against the producer and presence schemas.
 A targeted release or percentage rollout never reports `experiment_split`, and an experiment rule never reports `targeting_match`.
 
 ### Legacy rendering
