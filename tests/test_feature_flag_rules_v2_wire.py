@@ -90,9 +90,9 @@ def seed_errors(value: Any, path: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
 
 
 def response_errors(value: dict[str, Any]) -> list[dict[str, Any]]:
-    errors = schema_errors("schemas/flags_response_v3.schema.json", value)
+    errors = schema_errors("schemas/flags_response_v4.schema.json", value)
     # Keep the schema copy and the additional presence constraints independently visible.
-    errors += schema_errors("schemas/flags_response_v3_presence.schema.json", value, "presence")
+    errors += schema_errors("schemas/flags_response_v4_presence.schema.json", value, "presence")
     errors += seed_errors(value)
     # JSON Schema cannot compare a record to its own map key; everything else lives in the schemas.
     for key, record in value["flags"].items():
@@ -148,7 +148,7 @@ def has_split_context(record: dict[str, Any]) -> bool:
 def known_type_error(value: Any, shape: dict[str, Any]) -> bool:
     """Only known JSON types: missing tuple members and unknown keys are handled separately."""
     if "$ref" in shape:
-        shape = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"][shape["$ref"].rsplit("/", 1)[-1]]
+        shape = SCHEMAS["schemas/flags_response_v4.schema.json"]["$defs"][shape["$ref"].rsplit("/", 1)[-1]]
     expected = shape.get("type")
     if expected is None and "enum" in shape:
         # Enum-only fields still have a known JSON type, even if their future literals are unknown.
@@ -178,7 +178,7 @@ def check_reader_expectation(response: dict[str, Any], expected: dict[str, Any])
         assert expected["experiment_exposure"] is False
         assert expected["error_code"] is None
         return
-    shape = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"]["record"]
+    shape = SCHEMAS["schemas/flags_response_v4.schema.json"]["$defs"]["record"]
     if known_type_error(record, shape):
         assert expected["error_code"] == "PARSE_ERROR"
         assert expected["value"] == expected["caller_default"]
@@ -250,7 +250,7 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
             Draft202012Validator.check_schema(schema)
             assert schema["$schema"] == SCHEMA_DIALECT
     assert SCHEMAS["schemas/management_warning.schema.json"]["properties"]["code"]["enum"] == LITERALS["warning_codes"]
-    producer = SCHEMAS["schemas/flags_response_v3.schema.json"]
+    producer = SCHEMAS["schemas/flags_response_v4.schema.json"]
     assert producer["$defs"]["v2_reason_code"]["enum"] == [r for r in LITERALS["reason_codes"] if r != "flag_disabled"]
     assert producer["$defs"]["metadata"]["properties"]["rule_type"]["enum"] == [
         r["value"] for r in LITERALS["rule_types"]
@@ -399,7 +399,7 @@ def test_seed_scanner_reaches_opaque_objects_and_arrays(field: str) -> None:
 
 
 def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
-    presence = SCHEMAS["schemas/flags_response_v3_presence.schema.json"]
+    presence = SCHEMAS["schemas/flags_response_v4_presence.schema.json"]
     called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]
     branches = presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"]
     # Hand-written called branches (local-only flag_disabled and the diagnostic split) carry a description.
@@ -415,7 +415,7 @@ def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
 
 def test_frozen_producer_rules_agree_with_the_matrix() -> None:
     """The frozen producer copy restates the split, no-rule and failed rows; a matrix edit must not diverge from it."""
-    defs = SCHEMAS["schemas/flags_response_v3.schema.json"]["$defs"]
+    defs = SCHEMAS["schemas/flags_response_v4.schema.json"]["$defs"]
 
     def forbidden(schema: dict[str, Any]) -> list[str]:
         if "not" not in schema:
