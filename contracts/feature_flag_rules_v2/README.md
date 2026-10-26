@@ -51,7 +51,7 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - schemas/hash_sha1_60_v1.schema.json, schemas/v1_evaluation.schema.json, and schemas/legacy_projection.schema.json are the companion schemas for the corpus files.
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
-- corpus/v2_experiment_evaluation.json contains the experiment rule evaluation corpus with each result's legacy rendering, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
+- corpus/v2_experiment_evaluation.json contains the experiment rule evaluation corpus, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
 - manifest.json holds the contract and config versions, lists every package file with its kind, and records each config fixture's ID and expected result.
 
 In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
@@ -247,7 +247,8 @@ A v4 record carries `expected.value` in `value`, and its `metadata.payload` stay
 ## Experiment rule evaluation corpus
 
 `corpus/v2_experiment_evaluation.json` and its companion schema cover experiment rules.
-Cases use the boolean corpus case shape and context rules, and `expected` is exhaustive in the same way.
+Cases use the boolean corpus context rules, and `expected` is exhaustive in the same way.
+Every case evaluates the flag in `defaults.flag`, with `defaults.context` as its context; a case's own `context` fields replace the default fields of the same name.
 
 ### Evaluation
 
@@ -278,11 +279,12 @@ A targeted release or percentage rollout never reports `experiment_split`, and a
 
 ### Legacy rendering
 
-Each success row carries `legacy`, which depends on the value only, as in the typed value corpus. A boolean `true` is enabled with no variant; `false` and null are disabled and leave the enabled-only maps and lists; a string is the variant; a number or an object is enabled with the value as the JSON-encoded payload. The variant key never appears in a legacy shape.
+The legacy rendering depends on the value only, so rows do not record it: consumers derive it from `expected.value` with the typed value corpus [table](#legacy-rendering). A boolean `true` is enabled with no variant; `false` and null are disabled and leave the enabled-only maps and lists; a string is the variant; a number or an object is enabled with the value as the JSON-encoded payload. The variant key never appears in a legacy shape.
 
 ### Corpus families
 
 Consumers report `ordering`, `assignment`, `values`, `white_box` and `parser` separately.
-`hash_evidence` lists every hash an evaluation draws, in draw order, with the real SHA-1 arithmetic and the comparison it feeds; the meta-tests recompute it with hashlib and binary64 arithmetic.
+`hash_evidence` lists every hash an evaluation draws, in draw order, with its use, prefix, identifier after truncation, salt and binary64 hash; the meta-tests recompute it with hashlib.
+The threshold or boundaries each hash is compared with follow from the rule, and `corpus/hash_sha1_60_v1.json` pins the SHA-1 arithmetic.
 `white_box` rows replay through a private test seam that returns `white_box.hash01_binary64_hex` for every hash the evaluation draws; `boundary_binary64_hex` and `relation` name the comparison that decides the row.
-`parser` rows require whole-document rejection with `malformed`, including a rule that carries an `experiment_id`, a holdout that carries an `id`, and the semantic constraints the schema cannot express: duplicate variant keys, weights that do not total 100, and percentages with more than two decimal places.
+`parser` rows require whole-document rejection with `malformed` for the experiment rule rejections that no config fixture covers, including the semantic constraints the schema cannot express: duplicate variant keys, weights that do not total 100, and percentages with more than two decimal places.
