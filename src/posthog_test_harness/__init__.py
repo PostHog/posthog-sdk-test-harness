@@ -3,7 +3,7 @@
 A language-agnostic test harness for validating PostHog SDK compliance.
 """
 
-__version__ = "1.20.0"
+__version__ = "1.21.0"
 
 from .actions import Action, get_all_actions
 from .contract import ContractExecutor
