@@ -15,7 +15,7 @@ from tests.v2_ai_host import AIEngine, AIHost
 
 
 class AnalyticsWireEngine(AIEngine):
-    retryable_statuses = {408, 500, 503, 504}
+    retryable_statuses = {404, 408, 429, 500, 502, 503, 504}
 
     def __init__(self, storage, host, config, token, protocol, defect):
         super().__init__(storage, host, config, protocol, defect)
