@@ -9,6 +9,11 @@ This test harness validates that PostHog SDKs correctly implement the PostHog AP
 2. Exercising your SDK through a simple HTTP adapter
 3. Verifying behavior matches the contract defined in [CONTRACT.yaml](CONTRACT.yaml)
 
+## SDK performance reports
+
+For paired benchmark result validation, local Markdown reports, and trusted PR
+comment publishing, see [SDK benchmark reporting](benchmarks/README.md).
+
 ## Quick Start
 
 ### Using Docker (Recommended)

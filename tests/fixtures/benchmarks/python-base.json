@@ -1,0 +1,629 @@
+{
+  "schema_version": 1,
+  "sdk": "posthog-python",
+  "revision": {
+    "role": "base",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dirty": false
+  },
+  "suite": {
+    "id": "python-sdk-performance",
+    "version": 1,
+    "source_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_digest": "77449378b7ba55b91d978a5383ee32f8bceaab69e83e7d262f4669f4e42ed317",
+    "profile": "full",
+    "repetitions": 2,
+    "allocation_tracking": {
+      "trace_python_allocators": true,
+      "file_format": "ALL_ALLOCATIONS",
+      "scope": "PYMALLOC_MALLOC/CALLOC/REALLOC requests; all worker threads"
+    },
+    "transport": "loopback HTTP receiver in coordinator process; uncompressed v0",
+    "settling": "two gc.collect calls separated by sleep(0)",
+    "memory_sampling": "operation checkpoints; lifetime high-water mark includes setup and warmup",
+    "capture": {
+      "flush_at": 100000,
+      "flush_interval_seconds": 3600,
+      "consumer_threads": 1,
+      "drain_every": 100
+    },
+    "flag_poll_interval_seconds": 3600
+  },
+  "execution": {
+    "runtime": "cpython",
+    "runtime_version": "3.12.12",
+    "implementation": "3.12.12 (main, Oct 31 2025, 23:21:56) [Clang 21.1.4 ]",
+    "os": "darwin",
+    "arch": "arm64",
+    "kernel": "25.6.0",
+    "cpu": "arm",
+    "entry": "/synthetic/sdk/entry",
+    "build_digest": "730edbd69df5111e43ada6fc395e2eb329a2a3a5c86a4ac2731d0d056ea8c718",
+    "packages": {
+      "pygments": "2.21.0",
+      "rich": "15.0.0",
+      "requests": "2.33.0",
+      "charset-normalizer": "3.4.2",
+      "posthog": "7.76.0",
+      "mdit-py-plugins": "0.6.1",
+      "urllib3": "2.8.0",
+      "mdurl": "0.1.2",
+      "textual": "8.2.8",
+      "idna": "3.19",
+      "linkify-it-py": "2.2.0",
+      "jinja2": "3.1.6",
+      "markdown-it-py": "4.2.0",
+      "distro": "1.9.0",
+      "certifi": "2026.10.19",
+      "typing-extensions": "4.16.0",
+      "markupsafe": "3.0.4",
+      "memray": "1.20.0",
+      "backoff": "2.2.1",
+      "psutil": "7.2.2",
+      "platformdirs": "4.13.5"
+    },
+    "sdk_version": "7.76.0",
+    "measurement_tools": {
+      "memray": "1.20.0",
+      "psutil": "7.2.2"
+    },
+    "pair_id": "example-pair",
+    "runtime_flags": [
+      "-B"
+    ],
+    "python_hash_seed": 0,
+    "bytecode_policy": "uv precompiles both environments; workers do not write bytecode",
+    "runner_class": "local",
+    "runner_image": null,
+    "dependency_lock_digest": "f9c1329b3eb2ef295d5913a328d8e67c92bcb19a6142a2a918ac9b61b8744a6a",
+    "resource_limits": {
+      "process_rss_limit_bytes": 536870912,
+      "worker_timeout_ms": 120000
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "flags.single.boolean",
+      "parameters": {
+        "id": "flags.single.boolean",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 0,
+        "operations": 16000,
+        "allocation_operations": 2000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "a18a5143bd9edebbe2586a84ab72d2041d90c17b4eeb55423718f68fa4b01131",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "time.perf_counter_ns",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 3914.2265625,
+              "operations": 16000,
+              "elapsed_ns": 62627625
+            },
+            {
+              "repetition": 1,
+              "value": 3942.0260625,
+              "operations": 16000,
+              "elapsed_ns": 63072417
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "time.process_time_ns",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 3879.9375,
+              "operations": 16000,
+              "elapsed_ns": 62627625
+            },
+            {
+              "repetition": 1,
+              "value": 3937.875,
+              "operations": 16000,
+              "elapsed_ns": 63072417
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "memray.python_allocator_requests",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 14805.996,
+              "operations": 2000
+            },
+            {
+              "repetition": 1,
+              "value": 14805.996,
+              "operations": 2000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "method": "memray.python_allocator_requests",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 160.8935,
+              "operations": 2000
+            },
+            {
+              "repetition": 1,
+              "value": 160.8935,
+              "operations": 2000
+            }
+          ]
+        }
+      ],
+      "runs": [
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "timing",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "elapsed_ns": 62627625,
+          "elapsed_time_per_op": 3914.2265625,
+          "process_cpu_time_per_op": 3879.9375,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 64
+          },
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "allocation",
+          "operations": 2000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "allocated_bytes": 29611992,
+          "allocation_calls": 321787,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 64
+          },
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "timing",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "elapsed_ns": 63072417,
+          "elapsed_time_per_op": 3942.0260625,
+          "process_cpu_time_per_op": 3937.875,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 64
+          },
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "allocation",
+          "operations": 2000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "allocated_bytes": 29611992,
+          "allocation_calls": 321787,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 64
+          },
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "id": "flags.refresh.1000",
+      "parameters": {
+        "id": "flags.refresh.1000",
+        "mode": "refresh",
+        "flag_count": 1000,
+        "operations": 40,
+        "concurrency": 1,
+        "passes": [
+          "memory"
+        ]
+      },
+      "fixture_digest": "6c8bab719abd9b61a1073abe748dbc91fd03ff6feadbc6bc59113224046fec39",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "idle_process_rss",
+          "unit": "bytes",
+          "method": "psutil.Process.memory_info.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 49659904,
+              "operations": 40,
+              "elapsed_ns": 3435970917
+            },
+            {
+              "repetition": 1,
+              "value": 49364992,
+              "operations": 40,
+              "elapsed_ns": 2891613125
+            }
+          ]
+        },
+        {
+          "id": "observed_workload_peak_rss",
+          "unit": "bytes",
+          "method": "psutil.Process.memory_info.rss.operation_checkpoints",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 51200000,
+              "operations": 40,
+              "elapsed_ns": 3435970917
+            },
+            {
+              "repetition": 1,
+              "value": 50364416,
+              "operations": 40,
+              "elapsed_ns": 2891613125
+            }
+          ]
+        },
+        {
+          "id": "process_lifetime_peak_rss",
+          "unit": "bytes",
+          "method": "resource.getrusage.ru_maxrss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 51216384,
+              "operations": 40,
+              "elapsed_ns": 3435970917
+            },
+            {
+              "repetition": 1,
+              "value": 50380800,
+              "operations": 40,
+              "elapsed_ns": 2891613125
+            }
+          ]
+        },
+        {
+          "id": "post_settling_process_rss",
+          "unit": "bytes",
+          "method": "psutil.Process.memory_info.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 51200000,
+              "operations": 40,
+              "elapsed_ns": 3435970917
+            },
+            {
+              "repetition": 1,
+              "value": 50364416,
+              "operations": 40,
+              "elapsed_ns": 2891613125
+            }
+          ]
+        },
+        {
+          "id": "post_settling_heap_used",
+          "unit": "bytes",
+          "status": "unsupported",
+          "reason": "CPython has no uninstrumented total managed-heap byte counter; tracing would distort this RSS pass."
+        }
+      ],
+      "runs": [
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "memory",
+          "operations": 40,
+          "warmup_operations": 2,
+          "entry": "/synthetic/sdk/entry",
+          "before": {
+            "rss": 49659904
+          },
+          "checkpoints": [
+            {
+              "operations": 5,
+              "rss": 49692672
+            },
+            {
+              "operations": 10,
+              "rss": 51150848
+            },
+            {
+              "operations": 15,
+              "rss": 51167232
+            },
+            {
+              "operations": 20,
+              "rss": 51167232
+            },
+            {
+              "operations": 25,
+              "rss": 51167232
+            },
+            {
+              "operations": 30,
+              "rss": 51200000
+            },
+            {
+              "operations": 35,
+              "rss": 51200000
+            },
+            {
+              "operations": 40,
+              "rss": 51200000
+            }
+          ],
+          "elapsed_ns": 3435970917,
+          "after_work": {
+            "rss": 51200000
+          },
+          "observed_peak_rss": 51200000,
+          "process_lifetime_peak_rss": 51216384,
+          "after_settling": {
+            "rss": 51200000
+          },
+          "validation": {
+            "definitions": 43,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 736
+          },
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "memory",
+          "operations": 40,
+          "warmup_operations": 2,
+          "entry": "/synthetic/sdk/entry",
+          "before": {
+            "rss": 49364992
+          },
+          "checkpoints": [
+            {
+              "operations": 5,
+              "rss": 49397760
+            },
+            {
+              "operations": 10,
+              "rss": 49430528
+            },
+            {
+              "operations": 15,
+              "rss": 49807360
+            },
+            {
+              "operations": 20,
+              "rss": 50298880
+            },
+            {
+              "operations": 25,
+              "rss": 50331648
+            },
+            {
+              "operations": 30,
+              "rss": 50364416
+            },
+            {
+              "operations": 35,
+              "rss": 50364416
+            },
+            {
+              "operations": 40,
+              "rss": 50364416
+            }
+          ],
+          "elapsed_ns": 2891613125,
+          "after_work": {
+            "rss": 50364416
+          },
+          "observed_peak_rss": 50364416,
+          "process_lifetime_peak_rss": 50380800,
+          "after_settling": {
+            "rss": 50364416
+          },
+          "validation": {
+            "definitions": 43,
+            "delivered": 0,
+            "requests": 0,
+            "invalid_events": 0,
+            "delivered_by_user": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "unexpected": [],
+            "captured": 0,
+            "evaluations": 736
+          },
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    }
+  ]
+}

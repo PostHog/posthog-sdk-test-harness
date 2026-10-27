@@ -1,0 +1,1677 @@
+{
+  "schema_version": 1,
+  "sdk": "posthog-node",
+  "revision": {
+    "role": "head",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "dirty": false
+  },
+  "suite": {
+    "id": "node-sdk-performance",
+    "version": 1,
+    "source_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_digest": "032d1d844bc9a8a4e954f6e8d700b494729582f69c93316ec89826759503457f",
+    "profile": "full",
+    "repetitions": 2,
+    "allocation_sampling": {
+      "samplingInterval": 32768,
+      "includeObjectsCollectedByMajorGC": true,
+      "includeObjectsCollectedByMinorGC": true
+    },
+    "transport": "public fetch adapter; in-process JSON; no network",
+    "settling": "two explicit GC requests separated by event-loop turns",
+    "memory_sampling": "operation checkpoints; lifetime high-water mark includes setup and warmup"
+  },
+  "execution": {
+    "pair_id": "example-pair",
+    "runtime": "node",
+    "runtime_version": "v24.13.0",
+    "v8_version": "13.6.233.17-node.37",
+    "runtime_flags": [
+      "--expose-gc",
+      "--max-old-space-size=512"
+    ],
+    "os": "darwin",
+    "arch": "arm64",
+    "kernel": "25.6.0",
+    "cpu": "Apple M4 Pro",
+    "runner_class": "local",
+    "runner_image": null,
+    "dependency_lock_digest": "c3657194c11a07914083cb9087263cdc3d50712c6c9acc995d3ba9b605298b72",
+    "build_digest": "fd96537a5f482554b4907b68c04a9338d35b514404adb7bc82a06f558693afbc",
+    "core_build": {
+      "entry": "/synthetic/sdk/entry",
+      "digest": "1bfad3d21a775d5c83cfc0f766ecaeb35ffd5c832e5a2fb14b0dc8211c322bc1"
+    },
+    "sdk_version": "5.57.2",
+    "resource_limits": {
+      "v8_old_space_mb": 512,
+      "process_rss_limit_bytes": null,
+      "worker_timeout_ms": 120000
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "flags.single.boolean",
+      "parameters": {
+        "id": "flags.single.boolean",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 0,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "3622ecb7382395d5cd358d53085fefa07e80c6abb4e2b90c13b8f49c59a6d80f",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 24220.0911875,
+              "operations": 16000,
+              "elapsed_ns": 387521459
+            },
+            {
+              "repetition": 1,
+              "value": 23317.8801875,
+              "operations": 16000,
+              "elapsed_ns": 373086083
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 28010.5625,
+              "operations": 16000,
+              "elapsed_ns": 387521459
+            },
+            {
+              "repetition": 1,
+              "value": 27506.125,
+              "operations": 16000,
+              "elapsed_ns": 373086083
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 20723.7,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 20533.181,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.rollout",
+      "parameters": {
+        "id": "flags.single.rollout",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 1,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "f0aadeaa1e94de0a830969af9d64e308ac5191873d36b6c4e805385552c31446",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17914.6458125,
+              "operations": 16000,
+              "elapsed_ns": 286634333
+            },
+            {
+              "repetition": 1,
+              "value": 18454.3203125,
+              "operations": 16000,
+              "elapsed_ns": 295269125
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 21350.875,
+              "operations": 16000,
+              "elapsed_ns": 286634333
+            },
+            {
+              "repetition": 1,
+              "value": 21848.375,
+              "operations": 16000,
+              "elapsed_ns": 295269125
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17031.788,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 16985.316,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.variant",
+      "parameters": {
+        "id": "flags.single.variant",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 2,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "6e8ee590538f89fcb65a47601425959ce480e7730068a3460073823641892bfb",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 24070.1640625,
+              "operations": 16000,
+              "elapsed_ns": 385122625
+            },
+            {
+              "repetition": 1,
+              "value": 23840.296875,
+              "operations": 16000,
+              "elapsed_ns": 381444750
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 27900.5625,
+              "operations": 16000,
+              "elapsed_ns": 385122625
+            },
+            {
+              "repetition": 1,
+              "value": 27677.9375,
+              "operations": 16000,
+              "elapsed_ns": 381444750
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 21340.3305,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 21302.417,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.property",
+      "parameters": {
+        "id": "flags.single.property",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 3,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "fd9712badeda5ddf2d637cde064d87671c10fd7d45e1234ef43a6c41bbaa0e34",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 12840.151,
+              "operations": 16000,
+              "elapsed_ns": 205442416
+            },
+            {
+              "repetition": 1,
+              "value": 12862.2864375,
+              "operations": 16000,
+              "elapsed_ns": 205796583
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 16501.6875,
+              "operations": 16000,
+              "elapsed_ns": 205442416
+            },
+            {
+              "repetition": 1,
+              "value": 16292.875,
+              "operations": 16000,
+              "elapsed_ns": 205796583
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 14278.814,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 14393.112,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.regex",
+      "parameters": {
+        "id": "flags.single.regex",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 4,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "14dcea4d4a3b68838929a114a402cc914ce5b4e157789cf6e798dce598918471",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 22357.6015625,
+              "operations": 16000,
+              "elapsed_ns": 357721625
+            },
+            {
+              "repetition": 1,
+              "value": 21291.4609375,
+              "operations": 16000,
+              "elapsed_ns": 340663375
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 27434.5625,
+              "operations": 16000,
+              "elapsed_ns": 357721625
+            },
+            {
+              "repetition": 1,
+              "value": 26517.875,
+              "operations": 16000,
+              "elapsed_ns": 340663375
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 21714.4585,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 21738.954,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.cohort",
+      "parameters": {
+        "id": "flags.single.cohort",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 5,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "4b1771937bc181170041d2a503f5940e689e0a7c111e97422c1a540b49c54313",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 13332.7291875,
+              "operations": 16000,
+              "elapsed_ns": 213323667
+            },
+            {
+              "repetition": 1,
+              "value": 12793.724,
+              "operations": 16000,
+              "elapsed_ns": 204699584
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17212.25,
+              "operations": 16000,
+              "elapsed_ns": 213323667
+            },
+            {
+              "repetition": 1,
+              "value": 16807.5,
+              "operations": 16000,
+              "elapsed_ns": 204699584
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 15794.813,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 15655.0615,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.early",
+      "parameters": {
+        "id": "flags.single.early",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 6,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "6c6b135eb967c9ec62350f5d675329c3972ff12e1c83fb426d9f28a2e7b027b7",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 13651.08075,
+              "operations": 16000,
+              "elapsed_ns": 218417292
+            },
+            {
+              "repetition": 1,
+              "value": 13630.9115,
+              "operations": 16000,
+              "elapsed_ns": 218094584
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17075.6875,
+              "operations": 16000,
+              "elapsed_ns": 218417292
+            },
+            {
+              "repetition": 1,
+              "value": 17093.75,
+              "operations": 16000,
+              "elapsed_ns": 218094584
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 19417.508,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 19632.0915,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.late",
+      "parameters": {
+        "id": "flags.single.late",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 7,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "11fd86f58bda1ae9b3c66a724ea5f877e3cea7c50731df961194b755f00cf981",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 14455.5703125,
+              "operations": 16000,
+              "elapsed_ns": 231289125
+            },
+            {
+              "repetition": 1,
+              "value": 14381.328125,
+              "operations": 16000,
+              "elapsed_ns": 230101250
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17931.625,
+              "operations": 16000,
+              "elapsed_ns": 231289125
+            },
+            {
+              "repetition": 1,
+              "value": 17839.5,
+              "operations": 16000,
+              "elapsed_ns": 230101250
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 24590.9875,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 24576.676,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.single.no-match",
+      "parameters": {
+        "id": "flags.single.no-match",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 8,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "eadae028c525aa88c0b0488eab6ca2cadc67969c9b7e5e74e668d7d862b6d402",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 1912.862,
+              "operations": 16000,
+              "elapsed_ns": 30605792
+            },
+            {
+              "repetition": 1,
+              "value": 1930.453125,
+              "operations": 16000,
+              "elapsed_ns": 30887250
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 3635.75,
+              "operations": 16000,
+              "elapsed_ns": 30605792
+            },
+            {
+              "repetition": 1,
+              "value": 3659.4375,
+              "operations": 16000,
+              "elapsed_ns": 30887250
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 17220.415,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 17570.8535,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.all.10",
+      "parameters": {
+        "id": "flags.all.10",
+        "mode": "all",
+        "flag_count": 10,
+        "operations": 1600,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "20165e70c1fd37a263143ada015dd08026d90494faad376c254a79d7b46667cb",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 82473.77625,
+              "operations": 1600,
+              "elapsed_ns": 131958042
+            },
+            {
+              "repetition": 1,
+              "value": 81382.318125,
+              "operations": 1600,
+              "elapsed_ns": 130211709
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 167243.75,
+              "operations": 1600,
+              "elapsed_ns": 131958042
+            },
+            {
+              "repetition": 1,
+              "value": 162017.5,
+              "operations": 1600,
+              "elapsed_ns": 130211709
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 151583.105,
+              "operations": 1600
+            },
+            {
+              "repetition": 1,
+              "value": 155848.125,
+              "operations": 1600
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.all.100",
+      "parameters": {
+        "id": "flags.all.100",
+        "mode": "all",
+        "flag_count": 100,
+        "operations": 160,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "133de92e110e6ee3c2bde38226242aac4302fff953ad423dbeecfc92abc164c7",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 655395.56875,
+              "operations": 160,
+              "elapsed_ns": 104863291
+            },
+            {
+              "repetition": 1,
+              "value": 677104.94375,
+              "operations": 160,
+              "elapsed_ns": 108336791
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 1295731.25,
+              "operations": 160,
+              "elapsed_ns": 104863291
+            },
+            {
+              "repetition": 1,
+              "value": 1341325,
+              "operations": 160,
+              "elapsed_ns": 108336791
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 1474595.55,
+              "operations": 160
+            },
+            {
+              "repetition": 1,
+              "value": 1461157.9,
+              "operations": 160
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.all.1000",
+      "parameters": {
+        "id": "flags.all.1000",
+        "mode": "all",
+        "flag_count": 1000,
+        "operations": 160,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "cfaf7acdd2056c29e867677d5280fd52eb28f93459053e1e62dc839103e669b3",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 6647329.425,
+              "operations": 160,
+              "elapsed_ns": 1063572708
+            },
+            {
+              "repetition": 1,
+              "value": 6680127.6,
+              "operations": 160,
+              "elapsed_ns": 1068820416
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 11793781.25,
+              "operations": 160,
+              "elapsed_ns": 1063572708
+            },
+            {
+              "repetition": 1,
+              "value": 11838550,
+              "operations": 160,
+              "elapsed_ns": 1068820416
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 14686163.4,
+              "operations": 160
+            },
+            {
+              "repetition": 1,
+              "value": 14629267.4,
+              "operations": 160
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "flags.load.1000",
+      "parameters": {
+        "id": "flags.load.1000",
+        "mode": "all",
+        "flag_count": 1000,
+        "operations": 1600,
+        "concurrency": 8,
+        "passes": [
+          "memory"
+        ]
+      },
+      "fixture_digest": "9c35736c1c79903e10fcc2288b1ccfc3016590a22029795a65a32888b94a6075",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "idle_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 354271232,
+              "operations": 1600,
+              "elapsed_ns": 14539833167
+            },
+            {
+              "repetition": 1,
+              "value": 353189888,
+              "operations": 1600,
+              "elapsed_ns": 14683788958
+            }
+          ]
+        },
+        {
+          "id": "observed_workload_peak_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss.operation_checkpoints",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 386007040,
+              "operations": 1600,
+              "elapsed_ns": 14539833167
+            },
+            {
+              "repetition": 1,
+              "value": 380108800,
+              "operations": 1600,
+              "elapsed_ns": 14683788958
+            }
+          ]
+        },
+        {
+          "id": "process_lifetime_peak_rss",
+          "unit": "bytes",
+          "method": "process.resourceUsage.maxRSS",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 386023424,
+              "operations": 1600,
+              "elapsed_ns": 14539833167
+            },
+            {
+              "repetition": 1,
+              "value": 380125184,
+              "operations": 1600,
+              "elapsed_ns": 14683788958
+            }
+          ]
+        },
+        {
+          "id": "post_settling_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 386072576,
+              "operations": 1600,
+              "elapsed_ns": 14539833167
+            },
+            {
+              "repetition": 1,
+              "value": 380174336,
+              "operations": 1600,
+              "elapsed_ns": 14683788958
+            }
+          ]
+        },
+        {
+          "id": "post_settling_heap_used",
+          "unit": "bytes",
+          "method": "process.memoryUsage.heapUsed",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 9127592,
+              "operations": 1600,
+              "elapsed_ns": 14539833167
+            },
+            {
+              "repetition": 1,
+              "value": 9116720,
+              "operations": 1600,
+              "elapsed_ns": 14683788958
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flags.refresh.1000",
+      "parameters": {
+        "id": "flags.refresh.1000",
+        "mode": "refresh",
+        "flag_count": 1000,
+        "operations": 40,
+        "concurrency": 1,
+        "passes": [
+          "memory"
+        ]
+      },
+      "fixture_digest": "6f498a6af80b614c92d658628decdbfd4b56402974da502015c082bd7a14610e",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "idle_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 225476608,
+              "operations": 40,
+              "elapsed_ns": 4196690625
+            },
+            {
+              "repetition": 1,
+              "value": 224215040,
+              "operations": 40,
+              "elapsed_ns": 4194177625
+            }
+          ]
+        },
+        {
+          "id": "observed_workload_peak_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss.operation_checkpoints",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 230883328,
+              "operations": 40,
+              "elapsed_ns": 4196690625
+            },
+            {
+              "repetition": 1,
+              "value": 229703680,
+              "operations": 40,
+              "elapsed_ns": 4194177625
+            }
+          ]
+        },
+        {
+          "id": "process_lifetime_peak_rss",
+          "unit": "bytes",
+          "method": "process.resourceUsage.maxRSS",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 230883328,
+              "operations": 40,
+              "elapsed_ns": 4196690625
+            },
+            {
+              "repetition": 1,
+              "value": 229703680,
+              "operations": 40,
+              "elapsed_ns": 4194177625
+            }
+          ]
+        },
+        {
+          "id": "post_settling_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 228753408,
+              "operations": 40,
+              "elapsed_ns": 4196690625
+            },
+            {
+              "repetition": 1,
+              "value": 227573760,
+              "operations": 40,
+              "elapsed_ns": 4194177625
+            }
+          ]
+        },
+        {
+          "id": "post_settling_heap_used",
+          "unit": "bytes",
+          "method": "process.memoryUsage.heapUsed",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 11239984,
+              "operations": 40,
+              "elapsed_ns": 4196690625
+            },
+            {
+              "repetition": 1,
+              "value": 11242336,
+              "operations": 40,
+              "elapsed_ns": 4194177625
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "capture.enqueue.32",
+      "parameters": {
+        "id": "capture.enqueue.32",
+        "mode": "capture",
+        "payload_bytes": 32,
+        "operations": 2000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "65961f598e5917166a73bc754237304803c5f76536ed23cfe61f6c441ecfaf39",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 4105.4375,
+              "operations": 2000,
+              "elapsed_ns": 8210875
+            },
+            {
+              "repetition": 1,
+              "value": 4073.3335,
+              "operations": 2000,
+              "elapsed_ns": 8146667
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 6975,
+              "operations": 2000,
+              "elapsed_ns": 8210875
+            },
+            {
+              "repetition": 1,
+              "value": 6932,
+              "operations": 2000,
+              "elapsed_ns": 8146667
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 8906.228,
+              "operations": 2000
+            },
+            {
+              "repetition": 1,
+              "value": 8420.576,
+              "operations": 2000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "capture.enqueue.4096",
+      "parameters": {
+        "id": "capture.enqueue.4096",
+        "mode": "capture",
+        "payload_bytes": 4096,
+        "operations": 2000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "06edc0baaf6e302e2cc37659a605f64eb24282f5ca8c87ef2915ae907e376826",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 4064.458,
+              "operations": 2000,
+              "elapsed_ns": 8128916
+            },
+            {
+              "repetition": 1,
+              "value": 4113.729,
+              "operations": 2000,
+              "elapsed_ns": 8227458
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 6951.5,
+              "operations": 2000,
+              "elapsed_ns": 8128916
+            },
+            {
+              "repetition": 1,
+              "value": 6998,
+              "operations": 2000,
+              "elapsed_ns": 8227458
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 8568.984,
+              "operations": 2000
+            },
+            {
+              "repetition": 1,
+              "value": 8131.808,
+              "operations": 2000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ]
+    },
+    {
+      "id": "capture.drain.4096",
+      "parameters": {
+        "id": "capture.drain.4096",
+        "mode": "drain",
+        "payload_bytes": 4096,
+        "operations": 10000,
+        "concurrency": 1,
+        "passes": [
+          "memory"
+        ]
+      },
+      "fixture_digest": "ba591d6aa9238b5f2776ac74287bd19a4f07d0e81bfb1c02af29c60e20c43f0e",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "idle_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 74399744,
+              "operations": 10000,
+              "elapsed_ns": 86248667
+            },
+            {
+              "repetition": 1,
+              "value": 74235904,
+              "operations": 10000,
+              "elapsed_ns": 85617375
+            }
+          ]
+        },
+        {
+          "id": "observed_workload_peak_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss.operation_checkpoints",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 89817088,
+              "operations": 10000,
+              "elapsed_ns": 86248667
+            },
+            {
+              "repetition": 1,
+              "value": 89636864,
+              "operations": 10000,
+              "elapsed_ns": 85617375
+            }
+          ]
+        },
+        {
+          "id": "process_lifetime_peak_rss",
+          "unit": "bytes",
+          "method": "process.resourceUsage.maxRSS",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 89817088,
+              "operations": 10000,
+              "elapsed_ns": 86248667
+            },
+            {
+              "repetition": 1,
+              "value": 89636864,
+              "operations": 10000,
+              "elapsed_ns": 85617375
+            }
+          ]
+        },
+        {
+          "id": "post_settling_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 86720512,
+              "operations": 10000,
+              "elapsed_ns": 86248667
+            },
+            {
+              "repetition": 1,
+              "value": 86573056,
+              "operations": 10000,
+              "elapsed_ns": 85617375
+            }
+          ]
+        },
+        {
+          "id": "post_settling_heap_used",
+          "unit": "bytes",
+          "method": "process.memoryUsage.heapUsed",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 9604016,
+              "operations": 10000,
+              "elapsed_ns": 86248667
+            },
+            {
+              "repetition": 1,
+              "value": 9603952,
+              "operations": 10000,
+              "elapsed_ns": 85617375
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

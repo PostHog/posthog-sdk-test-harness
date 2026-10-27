@@ -1,0 +1,667 @@
+{
+  "schema_version": 1,
+  "sdk": "posthog-node",
+  "revision": {
+    "role": "base",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "dirty": false
+  },
+  "suite": {
+    "id": "node-sdk-performance",
+    "version": 1,
+    "source_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "source_digest": "032d1d844bc9a8a4e954f6e8d700b494729582f69c93316ec89826759503457f",
+    "profile": "full",
+    "repetitions": 2,
+    "allocation_sampling": {
+      "samplingInterval": 32768,
+      "includeObjectsCollectedByMajorGC": true,
+      "includeObjectsCollectedByMinorGC": true
+    },
+    "transport": "public fetch adapter; in-process JSON; no network",
+    "settling": "two explicit GC requests separated by event-loop turns",
+    "memory_sampling": "operation checkpoints; lifetime high-water mark includes setup and warmup"
+  },
+  "execution": {
+    "pair_id": "example-pair",
+    "runtime": "node",
+    "runtime_version": "v24.13.0",
+    "v8_version": "13.6.233.17-node.37",
+    "runtime_flags": [
+      "--expose-gc",
+      "--max-old-space-size=512"
+    ],
+    "os": "darwin",
+    "arch": "arm64",
+    "kernel": "25.6.0",
+    "cpu": "Apple M4 Pro",
+    "runner_class": "local",
+    "runner_image": null,
+    "dependency_lock_digest": "c3657194c11a07914083cb9087263cdc3d50712c6c9acc995d3ba9b605298b72",
+    "build_digest": "fd96537a5f482554b4907b68c04a9338d35b514404adb7bc82a06f558693afbc",
+    "core_build": {
+      "entry": "/synthetic/sdk/entry",
+      "digest": "1bfad3d21a775d5c83cfc0f766ecaeb35ffd5c832e5a2fb14b0dc8211c322bc1"
+    },
+    "sdk_version": "5.57.2",
+    "resource_limits": {
+      "v8_old_space_mb": 512,
+      "process_rss_limit_bytes": null,
+      "worker_timeout_ms": 120000
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "flags.single.boolean",
+      "parameters": {
+        "id": "flags.single.boolean",
+        "mode": "single",
+        "flag_count": 10,
+        "flag_index": 0,
+        "operations": 16000,
+        "concurrency": 1,
+        "passes": [
+          "timing",
+          "allocation"
+        ]
+      },
+      "fixture_digest": "3622ecb7382395d5cd358d53085fefa07e80c6abb4e2b90c13b8f49c59a6d80f",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "elapsed_time_per_op",
+          "unit": "ns/op",
+          "method": "process.hrtime.bigint",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 23715.815125,
+              "operations": 16000,
+              "elapsed_ns": 379453042
+            },
+            {
+              "repetition": 1,
+              "value": 22059.3854375,
+              "operations": 16000,
+              "elapsed_ns": 352950167
+            }
+          ]
+        },
+        {
+          "id": "process_cpu_time_per_op",
+          "unit": "ns/op",
+          "method": "process.cpuUsage",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 27478.125,
+              "operations": 16000,
+              "elapsed_ns": 379453042
+            },
+            {
+              "repetition": 1,
+              "value": 26465.5625,
+              "operations": 16000,
+              "elapsed_ns": 352950167
+            }
+          ]
+        },
+        {
+          "id": "allocated_bytes_per_op",
+          "unit": "bytes/op",
+          "method": "v8.HeapProfiler.startSampling",
+          "quality": "estimated",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 20589.468,
+              "operations": 16000
+            },
+            {
+              "repetition": 1,
+              "value": 20836.4235,
+              "operations": 16000
+            }
+          ]
+        },
+        {
+          "id": "allocations_per_op",
+          "unit": "count/op",
+          "status": "unsupported",
+          "reason": "V8 samples do not expose total allocation count; sample count is not object count."
+        }
+      ],
+      "runs": [
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "timing",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "elapsed_ns": 379453042,
+          "elapsed_time_per_op": 23715.815125,
+          "process_cpu_time_per_op": 27478.125,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 48,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        },
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "allocation",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "estimated_bytes": 329431488,
+          "sampled_allocations": 10027,
+          "sampling_interval_bytes": 32768,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 48,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "timing",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "elapsed_ns": 352950167,
+          "elapsed_time_per_op": 22059.3854375,
+          "process_cpu_time_per_op": 26465.5625,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 48,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "allocation",
+          "operations": 16000,
+          "warmup_operations": 160,
+          "entry": "/synthetic/sdk/entry",
+          "estimated_bytes": 333382776,
+          "sampled_allocations": 10147,
+          "sampling_interval_bytes": 32768,
+          "validation": {
+            "definitions": 1,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 48,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        }
+      ]
+    },
+    {
+      "id": "flags.refresh.1000",
+      "parameters": {
+        "id": "flags.refresh.1000",
+        "mode": "refresh",
+        "flag_count": 1000,
+        "operations": 40,
+        "concurrency": 1,
+        "passes": [
+          "memory"
+        ]
+      },
+      "fixture_digest": "6f498a6af80b614c92d658628decdbfd4b56402974da502015c082bd7a14610e",
+      "status": "ok",
+      "metrics": [
+        {
+          "id": "idle_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 223641600,
+              "operations": 40,
+              "elapsed_ns": 4316754167
+            },
+            {
+              "repetition": 1,
+              "value": 224296960,
+              "operations": 40,
+              "elapsed_ns": 4199492916
+            }
+          ]
+        },
+        {
+          "id": "observed_workload_peak_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss.operation_checkpoints",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 229195776,
+              "operations": 40,
+              "elapsed_ns": 4316754167
+            },
+            {
+              "repetition": 1,
+              "value": 229982208,
+              "operations": 40,
+              "elapsed_ns": 4199492916
+            }
+          ]
+        },
+        {
+          "id": "process_lifetime_peak_rss",
+          "unit": "bytes",
+          "method": "process.resourceUsage.maxRSS",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 229195776,
+              "operations": 40,
+              "elapsed_ns": 4316754167
+            },
+            {
+              "repetition": 1,
+              "value": 229982208,
+              "operations": 40,
+              "elapsed_ns": 4199492916
+            }
+          ]
+        },
+        {
+          "id": "post_settling_process_rss",
+          "unit": "bytes",
+          "method": "process.memoryUsage.rss",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 227065856,
+              "operations": 40,
+              "elapsed_ns": 4316754167
+            },
+            {
+              "repetition": 1,
+              "value": 227852288,
+              "operations": 40,
+              "elapsed_ns": 4199492916
+            }
+          ]
+        },
+        {
+          "id": "post_settling_heap_used",
+          "unit": "bytes",
+          "method": "process.memoryUsage.heapUsed",
+          "quality": "measured",
+          "direction": "lower",
+          "status": "ok",
+          "samples": [
+            {
+              "repetition": 0,
+              "value": 11243712,
+              "operations": 40,
+              "elapsed_ns": 4316754167
+            },
+            {
+              "repetition": 1,
+              "value": 11243096,
+              "operations": 40,
+              "elapsed_ns": 4199492916
+            }
+          ]
+        }
+      ],
+      "runs": [
+        {
+          "repetition": 0,
+          "status": "ok",
+          "pass": "memory",
+          "operations": 40,
+          "warmup_operations": 2,
+          "entry": "/synthetic/sdk/entry",
+          "before": {
+            "rss": 223641600,
+            "heap_used": 11134400,
+            "external": 3708754,
+            "array_buffers": 19743
+          },
+          "checkpoints": [
+            {
+              "operations": 5,
+              "rss": 223739904,
+              "heap_used": 11088536,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 10,
+              "rss": 225001472,
+              "heap_used": 11210032,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 15,
+              "rss": 226508800,
+              "heap_used": 11162808,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 20,
+              "rss": 226885632,
+              "heap_used": 11231512,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 25,
+              "rss": 226902016,
+              "heap_used": 11179480,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 30,
+              "rss": 226951168,
+              "heap_used": 11264696,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 35,
+              "rss": 226967552,
+              "heap_used": 11222656,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 40,
+              "rss": 227065856,
+              "heap_used": 11293768,
+              "external": 3708794,
+              "array_buffers": 19743
+            }
+          ],
+          "elapsed_ns": 4316754167,
+          "after_work": {
+            "rss": 227065856,
+            "heap_used": 11294720,
+            "external": 3708794,
+            "array_buffers": 19743
+          },
+          "observed_peak_rss": 229195776,
+          "process_lifetime_peak_rss": 229195776,
+          "after_settling": {
+            "rss": 227065856,
+            "heap_used": 11243712,
+            "external": 3708794,
+            "array_buffers": 19743
+          },
+          "validation": {
+            "definitions": 43,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 720,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        },
+        {
+          "repetition": 1,
+          "status": "ok",
+          "pass": "memory",
+          "operations": 40,
+          "warmup_operations": 2,
+          "entry": "/synthetic/sdk/entry",
+          "before": {
+            "rss": 224296960,
+            "heap_used": 11134896,
+            "external": 3708754,
+            "array_buffers": 19743
+          },
+          "checkpoints": [
+            {
+              "operations": 5,
+              "rss": 227065856,
+              "heap_used": 11088224,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 10,
+              "rss": 227590144,
+              "heap_used": 11209440,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 15,
+              "rss": 227672064,
+              "heap_used": 11162216,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 20,
+              "rss": 227737600,
+              "heap_used": 11230560,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 25,
+              "rss": 227737600,
+              "heap_used": 11178528,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 30,
+              "rss": 227753984,
+              "heap_used": 11263864,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 35,
+              "rss": 227753984,
+              "heap_used": 11221920,
+              "external": 3708794,
+              "array_buffers": 19743
+            },
+            {
+              "operations": 40,
+              "rss": 227852288,
+              "heap_used": 11293152,
+              "external": 3708794,
+              "array_buffers": 19743
+            }
+          ],
+          "elapsed_ns": 4199492916,
+          "after_work": {
+            "rss": 227852288,
+            "heap_used": 11294104,
+            "external": 3708794,
+            "array_buffers": 19743
+          },
+          "observed_peak_rss": 229982208,
+          "process_lifetime_peak_rss": 229982208,
+          "after_settling": {
+            "rss": 227852288,
+            "heap_used": 11243096,
+            "external": 3708794,
+            "array_buffers": 19743
+          },
+          "validation": {
+            "definitions": 43,
+            "delivered": 0,
+            "deliveredByUser": {
+              "benchmark-user-0": 0,
+              "benchmark-user-1": 0,
+              "benchmark-user-2": 0,
+              "benchmark-user-3": 0,
+              "benchmark-user-4": 0,
+              "benchmark-user-5": 0,
+              "benchmark-user-6": 0,
+              "benchmark-user-7": 0,
+              "benchmark-user-8": 0,
+              "benchmark-user-9": 0,
+              "benchmark-user-10": 0,
+              "benchmark-user-11": 0,
+              "benchmark-user-12": 0,
+              "benchmark-user-13": 0,
+              "benchmark-user-14": 0,
+              "benchmark-user-15": 0
+            },
+            "requests": 0,
+            "invalidEvents": 0,
+            "unexpected": [],
+            "evaluations": 720,
+            "captured": 0
+          },
+          "stderr": "",
+          "stdout": ""
+        }
+      ]
+    }
+  ]
+}

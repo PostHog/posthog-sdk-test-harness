@@ -1,0 +1,537 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SDK benchmark result v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "sdk": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "revision": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "enum": [
+            "base",
+            "head"
+          ]
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "maxLength": 40
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role",
+        "commit"
+      ],
+      "additionalProperties": false
+    },
+    "suite": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "maxLength": 40
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "maxLength": 64
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "repetitions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "source_commit",
+        "source_digest",
+        "profile",
+        "repetitions"
+      ],
+      "additionalProperties": true
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "pair_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "runtime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "runtime_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "runtime_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "arch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kernel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "cpu": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "runner_class": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "runner_image": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "dependency_lock_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "maxLength": 64
+        },
+        "build_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "maxLength": 64
+        },
+        "resource_limits": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "measurement_tools": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "sdk_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "entry": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "packages": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "core_build": {
+          "type": "object",
+          "properties": {
+            "entry": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "entry",
+            "digest"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "pair_id",
+        "runtime",
+        "runtime_version",
+        "runtime_flags",
+        "os",
+        "arch",
+        "kernel",
+        "cpu",
+        "runner_class",
+        "runner_image",
+        "dependency_lock_digest",
+        "resource_limits"
+      ],
+      "additionalProperties": true
+    },
+    "benchmarks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "fixture_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "maxLength": 64
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error",
+              "timeout",
+              "oom",
+              "unsupported"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "unit": {
+                  "enum": [
+                    "ns/op",
+                    "bytes/op",
+                    "count/op",
+                    "bytes",
+                    "ns",
+                    "count",
+                    "ops/s"
+                  ]
+                },
+                "direction": {
+                  "enum": [
+                    "lower",
+                    "higher"
+                  ]
+                },
+                "method": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "quality": {
+                  "enum": [
+                    "measured",
+                    "estimated"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "error",
+                    "timeout",
+                    "oom",
+                    "unsupported"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "samples": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "repetition": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 99
+                      },
+                      "value": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1e+100
+                      },
+                      "operations": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "elapsed_ns": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1e+100
+                      }
+                    },
+                    "required": [
+                      "repetition",
+                      "value",
+                      "operations"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100,
+                  "minItems": 0
+                },
+                "configuration": {
+                  "type": "object"
+                },
+                "scope": {
+                  "type": "string",
+                  "maxLength": 4096
+                }
+              },
+              "required": [
+                "id",
+                "unit",
+                "status"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "ok"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "method",
+                      "quality",
+                      "direction",
+                      "samples"
+                    ],
+                    "properties": {
+                      "method": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "samples": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "repetition": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 99
+                            },
+                            "value": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1e+100
+                            },
+                            "operations": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "elapsed_ns": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1e+100
+                            }
+                          },
+                          "required": [
+                            "repetition",
+                            "value",
+                            "operations"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 100,
+                        "minItems": 1
+                      }
+                    }
+                  },
+                  "else": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ]
+            },
+            "maxItems": 64,
+            "minItems": 0
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "repetition": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 99
+                },
+                "pass": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "status": {
+                  "enum": [
+                    "ok",
+                    "error",
+                    "timeout",
+                    "oom",
+                    "unsupported"
+                  ]
+                },
+                "operations": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "warmup_operations": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "elapsed_ns": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1e+100
+                },
+                "entry": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "stdout": {
+                  "type": "string",
+                  "maxLength": 65536
+                },
+                "stderr": {
+                  "type": "string",
+                  "maxLength": 65536
+                },
+                "checkpoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "operations"
+                    ],
+                    "properties": {
+                      "operations": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      }
+                    }
+                  },
+                  "maxItems": 1000,
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "repetition",
+                "pass",
+                "status"
+              ],
+              "additionalProperties": true,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "ok"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "operations"
+                    ]
+                  }
+                }
+              ]
+            },
+            "maxItems": 400,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "id",
+          "fixture_digest",
+          "parameters",
+          "status",
+          "metrics"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 128,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "sdk",
+    "revision",
+    "suite",
+    "execution",
+    "benchmarks"
+  ],
+  "additionalProperties": false
+}
