@@ -35,7 +35,7 @@ def _number(value) -> str:
     return "—" if value is None else f"{value:,.4g}"
 
 
-def _row(row: dict, details=False) -> str:
+def _row(row: dict, details=False, workload=None) -> str:
     metric = row["head"] or row["base"] or {}
     label = safe_text(row["metric"], 100)
     if metric.get("quality") == "estimated":
@@ -57,6 +57,17 @@ def _row(row: dict, details=False) -> str:
             )
         for explanation in row.get("explanations", []):
             status += "; " + safe_text(explanation, 220)
+        for role, context in (workload or {}).items():
+            failures = context.get("failures", [])
+            for failure in failures[:3]:
+                reason = failure.get("reason") or failure.get("error")
+                if reason:
+                    status += (
+                        f"; {role} {safe_text(failure['pass'], 32)} repetition {failure['repetition']}: "
+                        + safe_text(reason, 220)
+                    )
+            if len(failures) > 3:
+                status += f"; {len(failures) - 3} more {role} failures in comparison.json"
         status += "; method: " + safe_text(metric.get("method", "unavailable"), 160)
     return (
         f"| {safe_text(row['workload'], 100)} | {label} | {_number(row.get('base_median'))} | "
@@ -168,7 +179,7 @@ def render(comparison: dict) -> str:
     size = len("".join(chunks).encode("utf-8"))
     shown = 0
     for row in rows:
-        line = _row(row, details=True)
+        line = _row(row, details=True, workload=comparison["workloads"][row["workload"]])
         if size + len(line.encode("utf-8")) > MAX_REPORT_BYTES - 1000:
             break
         chunks.append(line)

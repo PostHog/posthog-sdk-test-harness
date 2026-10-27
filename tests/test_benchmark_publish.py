@@ -1,6 +1,7 @@
 """Trusted publisher identity and stale-result checks; all GitHub calls are mocked."""
 
 import copy
+import html
 import json
 
 import pytest
@@ -29,6 +30,7 @@ class FakeGitHub:
             "head_repository": REPO,
             "event": "pull_request",
             "status": "completed",
+            "conclusion": "success",
             "workflow_id": 3,
             "run_started_at": "2026-10-27T10:00:00Z",
             "pull_requests": [{"number": 7, "head": {"sha": HEAD}, "base": {"sha": TARGET}}],
@@ -300,6 +302,21 @@ def test_publisher_failed_execution_is_still_reported():
     result, report = publisher(api).publish(api.event)
     assert result["execution_failed"]
     assert "Benchmark execution failed" in report and api.writes
+
+
+@pytest.mark.parametrize(
+    "conclusion",
+    ["failure", "cancelled", "timed_out", "action_required", "neutral", "skipped", "stale", "startup_failure"],
+)
+def test_failed_source_run_cannot_publish_successful_partial_results(conclusion):
+    api = FakeGitHub()
+    api.run["conclusion"] = conclusion
+    result, report = publisher(api).publish(api.event)
+    assert result["execution_failed"]
+    assert result["source_execution_status"] == conclusion
+    assert all("base_median" not in row and "change_percent" not in row for row in result["rows"])
+    assert "Benchmark execution failed" in report and api.writes
+    assert f"Source execution: {conclusion}" in html.unescape(api.writes[0][2]["body"]).replace("\u200b", "")
 
 
 def test_publish_cli_uses_environment_token_and_writes_skip_outputs(tmp_path, monkeypatch):

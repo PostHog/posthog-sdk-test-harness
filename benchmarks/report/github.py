@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 import zlib
+from http.client import HTTPException
 
 from .render import json_text
 from .validate import MAX_DOCUMENT_BYTES, InvalidResult, bounded_json, require
@@ -54,7 +55,7 @@ class GitHub:
             response = self.opener.open(request, timeout=min(20, max(1, self.deadline - time.monotonic())))
         except urllib.error.HTTPError as exc:
             response = exc
-        except (OSError, ValueError):
+        except (OSError, ValueError, HTTPException):
             raise InvalidResult("GitHub transport failed") from None
         try:
             with response:
@@ -63,7 +64,7 @@ class GitHub:
                 content = response.read(limit + 1)
                 require(len(content) <= limit, "GitHub response exceeds limit")
                 return status, location, content
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, HTTPException) as exc:
             if isinstance(exc, InvalidResult):
                 raise
             raise InvalidResult("GitHub response could not be read") from None
@@ -72,7 +73,11 @@ class GitHub:
         require(path.startswith("/repos/") and not any(c in path for c in "\r\n#"), "Invalid API path")
         status, _, data = self._request(API_ORIGIN + path, authenticated=True, method=method, body=body)
         require(200 <= status < 300, f"GitHub API request failed (HTTP {status})")
-        return bounded_json(data, text_limit=65536) if data else None
+        # Compare responses may contain large patches; only their merge-base metadata is consumed.
+        comparison = method == "GET" and re.fullmatch(
+            r"/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/compare/[0-9a-f]{40}\.\.\.[0-9a-f]{40}", path
+        )
+        return bounded_json(data, text_limit=MAX_DOCUMENT_BYTES if comparison else 65536) if data else None
 
     def pages(self, path: str, key: str | None = None) -> list:
         result = []

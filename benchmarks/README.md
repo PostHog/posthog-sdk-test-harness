@@ -26,6 +26,12 @@ produce a nonzero status. Execution failures still produce a report; partial
 samples cannot appear as an improvement. Input and API failures produce an
 explicit failure summary, without echoing raw input or logs.
 
+In CI, pass the measurement step's outcome as `source-status` (CLI:
+`--source-status`). A failed source suppresses numerical comparisons even if the
+last saved pair contains only successful workers. Publish mode instead uses the
+verified workflow run's conclusion, so an aborted suite cannot publish a successful
+partial comparison.
+
 Representative sanitized Node and Python pairs live in
 `tests/fixtures/benchmarks/`. They retain two repetitions of single-flag and
 refresh workloads, including allocation measurements and memory checkpoints.
@@ -82,7 +88,9 @@ explicit rows, never zeros. Zero baselines have no percentage change.
 
 The report shows medians, percentage change in the median, and descriptive
 paired absolute-delta median/min/max. JSON retains individual paired percentage
-changes, original metric samples, parameters, checkpoints and both contexts.
+changes, original metric samples, parameters, checkpoints, failure explanations
+with pass/repetition identities, and both contexts. Markdown shows up to three
+raw failure explanations per side; raw stdout/stderr are never copied.
 All numeric comparisons are **inconclusive**: these ranges are not calibrated
 confidence intervals. There is no universal threshold or aggregate score.
 Incomplete repetitions are labeled. Execution failures sort first. The headline
@@ -125,7 +133,8 @@ Give the trusted job only `contents: read`, `actions: read`, and
 PR code in the publishing job; use only trusted, SHA-pinned reporting code.
 
 The caller must serialize publishers **per repository/report-key**, with
-`cancel-in-progress: false`. The publisher also rejects equal or older source
+`cancel-in-progress: false` and `queue: max`. GitHub retains up to 100 pending
+publishers; arrivals beyond that queue limit are canceled. The publisher also rejects equal or older source
 run numbers/IDs/attempts already recorded in the bot comment, including older
 runs for the same head SHA. This is a stale-result guard, not a substitute for
 workflow concurrency serialization.
@@ -167,7 +176,8 @@ Authenticated requests are restricted to `https://api.github.com`. Signed
 artifact downloads use HTTPS without forwarding authorization, with at most
 three redirects. API requests have 20-second socket timeouts, a 100-request /
 180-second request-start budget, ten-page pagination limits and bounded response
-bodies. API errors fail explicitly; raw responses and credentials are not logged.
+bodies. Compare responses may contain patches up to the total 8 MiB response
+budget; other API text remains limited to 65,536 characters. API errors fail explicitly; raw responses and credentials are not logged.
 GitHub Enterprise API origins are not supported.
 
 New `workflow_run` consumers generally must land on the **default branch** before

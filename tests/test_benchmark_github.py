@@ -1,12 +1,15 @@
 """Bounded HTTP and ZIP handling without network access."""
 
 import io
+import json
 import stat
 import urllib.error
 import zipfile
+from http.client import BadStatusLine, IncompleteRead
 
 import pytest
 
+from benchmarks.report import cli
 from benchmarks.report.github import MAX_ARCHIVE_BYTES, GitHub, NoRedirect, read_archive
 from benchmarks.report.validate import MAX_DOCUMENT_BYTES, InvalidResult
 
@@ -144,6 +147,61 @@ def test_api_errors_do_not_disclose_response_or_token(response):
     with pytest.raises(InvalidResult) as error:
         api.api("/repos/PostHog/sdk")
     assert "SECRET" not in str(error.value) and "synthetic-token" not in str(error.value)
+
+
+def test_compare_api_accepts_large_patches_without_relaxing_other_endpoints():
+    payload = json.dumps(
+        {"merge_base_commit": {"sha": "a" * 40}, "files": [{"patch": "+changed line\\n" * 9000}]}
+    ).encode()
+    path = "/repos/PostHog/sdk/compare/" + "a" * 40 + "..." + "b" * 40
+    assert client([Response(body=payload)]).api(path)["merge_base_commit"]["sha"] == "a" * 40
+    with pytest.raises(InvalidResult, match="Text exceeds limit"):
+        client([Response(body=payload)]).api("/repos/PostHog/sdk/pulls/1")
+    with pytest.raises(InvalidResult, match="response exceeds limit"):
+        client([Response(body=b"x" * (MAX_DOCUMENT_BYTES + 1))]).api(path)
+
+
+@pytest.mark.parametrize("stage", ["open", "read"])
+def test_protocol_errors_write_safe_cli_failure_artifacts(stage, tmp_path, monkeypatch):
+    class TruncatedResponse(Response):
+        def read(self, limit):
+            raise IncompleteRead(b"PRIVATE_SERVER_DATA")
+
+    api = client([BadStatusLine("PRIVATE_SERVER_DATA") if stage == "open" else TruncatedResponse()])
+    monkeypatch.setattr(cli, "GitHub", lambda token: api)
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps({"action": "completed", "repository": {"full_name": "PostHog/sdk"}, "workflow_run": {"id": 1}})
+    )
+    out = tmp_path / "out"
+    summary = tmp_path / "summary.md"
+    args = [
+        "--mode",
+        "publish",
+        "--workflow-path",
+        ".github/workflows/benchmarks.yml",
+        "--artifact-name",
+        "benchmark-results",
+        "--report-key",
+        "node",
+        "--sdk",
+        "posthog-node",
+        "--output-directory",
+        str(out),
+    ]
+    env = {
+        "GITHUB_EVENT_NAME": "workflow_run",
+        "GITHUB_EVENT_PATH": str(event),
+        "GITHUB_REPOSITORY": "PostHog/sdk",
+        "GH_TOKEN": "synthetic-token",
+        "GITHUB_STEP_SUMMARY": str(summary),
+    }
+    assert cli.main(args, env) == 1
+    for path in (out / "report.md", out / "comparison.json", summary):
+        assert path.exists()
+        assert "PRIVATE_SERVER_DATA" not in path.read_text()
+        assert "synthetic-token" not in path.read_text()
+    assert "Reporting failed" in summary.read_text()
 
 
 def test_request_and_pagination_budgets():

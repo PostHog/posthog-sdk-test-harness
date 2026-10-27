@@ -4,6 +4,9 @@ inputs:
   mode:
     description: render (offline) or publish (trusted workflow_run only)
     default: render
+  source-status:
+    description: Measurement step outcome for render mode; publish mode uses the verified source run conclusion
+    default: ''
   base-results:
     description: Baseline result JSON path for render mode
     default: ''
@@ -45,6 +48,7 @@ runs:
       env:
         REPORT_ACTION_ROOT: ${{ github.action_path }}
         REPORT_MODE: ${{ inputs.mode }}
+        REPORT_SOURCE_STATUS: ${{ inputs.source-status }}
         REPORT_BASE: ${{ inputs.base-results }}
         REPORT_HEAD: ${{ inputs.head-results }}
         REPORT_OUTPUT: ${{ inputs.output-directory }}
@@ -58,6 +62,7 @@ runs:
         uv sync --no-config --project "$root" --frozen --no-dev --no-install-project
         uv run --no-config --project "$root" --no-sync \
           python -I "$root/benchmarks/report/cli.py" \
-          --mode "$REPORT_MODE" --base-results "$REPORT_BASE" --head-results "$REPORT_HEAD" \
+          --mode "$REPORT_MODE" --source-status "$REPORT_SOURCE_STATUS" \
+          --base-results "$REPORT_BASE" --head-results "$REPORT_HEAD" \
           --output-directory "$REPORT_OUTPUT" --workflow-path "$REPORT_WORKFLOW" \
           --artifact-name "$REPORT_ARTIFACT" --report-key "$REPORT_KEY" --sdk "$REPORT_SDK"

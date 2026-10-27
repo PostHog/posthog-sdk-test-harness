@@ -8,6 +8,17 @@ from .validate import require, validate
 # These describe the SDK under test, not the measurement environment.
 SDK_BUILD_FIELDS = {"dependency_lock_digest", "build_digest", "core_build", "entry", "sdk_version", "packages"}
 FAILURES = {"error", "timeout", "oom"}
+SOURCE_STATUSES = {
+    "success",
+    "failure",
+    "cancelled",
+    "timed_out",
+    "action_required",
+    "neutral",
+    "skipped",
+    "stale",
+    "startup_failure",
+}
 
 
 def without(value: dict, keys: set) -> dict:
@@ -49,14 +60,19 @@ def _percentage(base: float, head: float):
     return value if math.isfinite(value) else None
 
 
-def compare(base: dict, head: dict) -> dict:
+def compare(base: dict, head: dict, *, source_status: str | None = None) -> dict:
+    require(
+        source_status is None or (isinstance(source_status, str) and source_status in SOURCE_STATUSES),
+        "Invalid source execution status",
+    )
+    source_failed = source_status not in (None, "success")
     validate(base)
     validate(head)
     require(base["revision"]["role"] == "base" and head["revision"]["role"] == "head", "Wrong revision roles")
     mismatch = global_mismatches(base, head)
     rows = []
     workloads = {}
-    execution_failed = False
+    execution_failed = source_failed
     bases = {b["id"]: b for b in base["benchmarks"]}
     heads = {b["id"]: b for b in head["benchmarks"]}
     for workload_id in sorted(bases.keys() | heads.keys()):
@@ -67,6 +83,24 @@ def compare(base: dict, head: dict) -> dict:
                 "fixture_digest": workload["fixture_digest"],
                 "status": workload["status"],
                 "reason": workload.get("reason"),
+                "failures": [
+                    {
+                        key: run[key]
+                        for key in (
+                            "pass",
+                            "repetition",
+                            "status",
+                            "reason",
+                            "error",
+                            "code",
+                            "signal",
+                            "rss_limit_exceeded",
+                        )
+                        if key in run
+                    }
+                    for run in workload.get("runs", [])
+                    if run["status"] != "ok"
+                ],
                 "checkpoints": [
                     {"repetition": r["repetition"], "pass": r["pass"], "points": r["checkpoints"]}
                     for r in workload.get("runs", [])
@@ -96,8 +130,12 @@ def compare(base: dict, head: dict) -> dict:
                     row_failed |= bool(statuses & FAILURES)
             execution_failed |= row_failed
             reasons = list(mismatch)
-            if failures:
-                row.update(status="unavailable", reasons=failures, execution_failed=row_failed)
+            if source_failed or failures:
+                row.update(
+                    status="unavailable",
+                    reasons=([f"Source execution: {source_status}"] if source_failed else []) + failures,
+                    execution_failed=source_failed or row_failed,
+                )
             elif left is None or bm is None:
                 row.update(status="no baseline", reasons=["baseline workload or metric missing"])
             elif right is None or hm is None:
@@ -145,6 +183,7 @@ def compare(base: dict, head: dict) -> dict:
         "comparison_version": 1,
         "sdk": head["sdk"],
         "execution_failed": execution_failed,
+        "source_execution_status": source_status,
         "compatibility": mismatch,
         "context": {
             role: {k: doc[k] for k in ("revision", "suite", "execution")}

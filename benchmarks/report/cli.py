@@ -9,7 +9,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from benchmarks.report.compare import compare
+from benchmarks.report.compare import SOURCE_STATUSES, compare
 from benchmarks.report.github import GitHub
 from benchmarks.report.publish import Publisher
 from benchmarks.report.render import render, write_outputs
@@ -20,6 +20,7 @@ def main(argv=None, environ=None) -> int:
     env = os.environ if environ is None else environ
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("render", "publish"), default="render")
+    parser.add_argument("--source-status", choices=sorted(SOURCE_STATUSES | {""}), default="")
     parser.add_argument("--base-results", default="")
     parser.add_argument("--head-results", default="")
     parser.add_argument("--output-directory", default="benchmark-report")
@@ -31,7 +32,9 @@ def main(argv=None, environ=None) -> int:
     try:
         if args.mode == "render":
             require(args.base_results and args.head_results, "Both result paths are required")
-            comparison = compare(load_result(args.base_results), load_result(args.head_results))
+            comparison = compare(
+                load_result(args.base_results), load_result(args.head_results), source_status=args.source_status or None
+            )
             report = render(comparison)
         else:
             require(env.get("GITHUB_EVENT_NAME") == "workflow_run", "Publish requires a workflow_run event")

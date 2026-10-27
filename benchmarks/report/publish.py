@@ -153,7 +153,8 @@ class Publisher:
             require(doc["revision"]["role"] == role and doc["revision"]["commit"] == commit, "Result revision differs")
             require(not doc["revision"].get("dirty", False), "Dirty SDK result cannot be published")
             require(doc["suite"]["source_commit"] == run["head_sha"], "Benchmark source revision differs")
-        return compare(base, head)
+        require(isinstance(run.get("conclusion"), str), "Missing source run conclusion")
+        return compare(base, head, source_status=run["conclusion"])
 
     def upsert(self, event: dict, run: dict, pr: dict, target: str, fallback: bool) -> str:
         comments = self.api.pages(f"{self.root}/issues/{positive_id(pr['number'])}/comments")

@@ -40,6 +40,52 @@ def test_producer_fixtures_render_with_checkpoints(sdk):
     assert len(report.encode()) < MAX_REPORT_BYTES
 
 
+@pytest.mark.parametrize("status", ["error", "timeout", "oom", "unsupported"])
+@pytest.mark.parametrize("field", ["reason", "error"])
+def test_raw_failure_explanations_retain_pass_and_repetition(status, field):
+    base, head = pair()
+    raw = head["benchmarks"][0]["runs"][0]
+    raw.update(status=status, stdout="PRIVATE_RAW_LOG")
+    raw[field] = "controlled raw failure <script> @all"
+    result = compare(base, head)
+    failure = result["workloads"][head["benchmarks"][0]["id"]]["head"]["failures"][0]
+    assert failure[field] == raw[field]
+    assert failure["pass"] == "timing" and failure["repetition"] == 0
+    report = render(result)
+    assert "head timing repetition 0: controlled raw failure" in report
+    assert "<script>" not in report and "@all" not in report
+    assert "PRIVATE_RAW_LOG" not in report and "PRIVATE_RAW_LOG" not in json_text(result)
+
+
+def test_render_cli_marks_saved_successful_pairs_as_failed_when_measurement_aborted(tmp_path):
+    base, head = pair()
+    paths = [tmp_path / "base.json", tmp_path / "head.json"]
+    for path, doc in zip(paths, (base, head)):
+        path.write_text(json_text(doc))
+    output = tmp_path / "report"
+    assert (
+        cli.main(
+            [
+                "--base-results",
+                str(paths[0]),
+                "--head-results",
+                str(paths[1]),
+                "--source-status",
+                "failure",
+                "--output-directory",
+                str(output),
+            ],
+            {},
+        )
+        == 1
+    )
+    result = json.loads((output / "comparison.json").read_text())
+    assert result["execution_failed"] and result["source_execution_status"] == "failure"
+    assert all("change_percent" not in row for row in result["rows"])
+    assert "Benchmark execution failed" in (output / "report.md").read_text()
+    assert not compare(base, head, source_status="success")["execution_failed"]
+
+
 def test_escaped_context_stays_within_report_budget(tmp_path):
     base, head = pair()
     for doc in (base, head):
