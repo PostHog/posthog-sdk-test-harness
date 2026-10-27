@@ -22,11 +22,17 @@
               optional: true
               description: >
                 V1 partial batch: per-event results by position. Each entry
-                is a string shorthand ("ok", "retry", "drop", "limited") or
+                is a string shorthand ("ok", "retry", "drop", "warning") or
                 a dict with explicit "result" and optional "details". Generates
                 a 200 response with UUID-keyed results map
                 {"results": {"<uuid>": {"result": "...", "details": "..."}}}.
                 Retry-After header is auto-added when any result is "retry".
+                Like capture, a repeated uuid keeps the first copy's result
+                and adds "duplicates_dropped" to it.
+            path:
+              type: string
+              optional: true
+              description: Serve this response only to requests on this path; responses without a path serve any request
 
   configure_local_evaluation_definitions:
     description: Replace the isolated definitions GET envelope, separately from capture and remote response queues
@@ -58,6 +64,10 @@
       expected:
         type: integer
         required: true
+      path:
+        type: string
+        optional: true
+        description: Count only requests to this path
 
   assert_request_count_gte:
     description: Assert number of requests is greater than or equal to expected
@@ -65,6 +75,10 @@
       expected:
         type: integer
         required: true
+      path:
+        type: string
+        optional: true
+        description: Count only requests to this path
 
   # Assertion actions - Event level
   assert_event_field:
@@ -149,6 +163,10 @@
         type: array
         optional: true
         description: List of success status codes (default [200])
+      path:
+        type: string
+        optional: true
+        description: Check only requests to this path
 
   assert_retry_delay:
     description: Assert that retry delay meets minimum requirement
@@ -163,8 +181,12 @@
     params:
       min_first_delay_ms:
         type: integer
-        required: true
+        optional: true
         description: Minimum delay for first retry in milliseconds
+      min_delays_ms:
+        type: array
+        optional: true
+        description: Minimum delay for each consecutive retry in milliseconds, in order (overrides min_first_delay_ms)
 
   # Assertion actions - Decide (Feature Flags)
   assert_flags_request_count:
@@ -288,6 +310,20 @@
         type: array
         required: true
         description: List of forbidden paths
+
+  assert_request_received_before:
+    description: Assert the first request on one path arrived before a given request on another path
+    params:
+      path:
+        type: string
+        required: true
+      other_path:
+        type: string
+        required: true
+      other_index:
+        type: integer
+        optional: true
+        description: Which request on other_path to compare against (default 0)
 
   # V1 Header Assertions
   assert_header_value_matches:
@@ -451,6 +487,10 @@
         type: integer
         optional: true
         description: Which recorded request to inspect (default 0, the first request; supports negative indexing e.g. -1 for last)
+      path:
+        type: string
+        optional: true
+        description: Index only requests to this path
 
   # V1 Header Retry Assertions
   assert_attempt_header_increments:
@@ -524,7 +564,7 @@
       expected_result:
         type: string
         required: true
-        description: Expected result value (ok, drop, limited, retry)
+        description: Expected result value (ok, drop, warning, retry)
       expected_details:
         type: string
         optional: true

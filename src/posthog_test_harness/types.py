@@ -82,14 +82,18 @@ class MockResponse:
 
     When v1_event_results is set, the mock server generates a V1 partial
     batch response (HTTP 200) with per-event results keyed by event UUID.
-    Each entry can be a string shorthand ("ok", "retry", "drop", "limited")
+    Each entry can be a string shorthand ("ok", "retry", "drop", "warning")
     or a dict with explicit ``result`` and optional ``details`` keys.
+    "limited" is a legacy shorthand; capture never sends it.
+
+    When path is set, the response serves only requests to that path.
     """
 
     status_code: int = 200
     headers: Dict[str, str] = field(default_factory=dict)
     body: Optional[str] = None
     v1_event_results: Optional[List[Any]] = None
+    path: Optional[str] = None
 
 
 @dataclass

@@ -77,6 +77,79 @@
                   paths:
                     - /i/v1/ai/events
 
+          - name: capture_ai_does_not_reroute_non_ai_events
+            description: capture_ai sends a non-$ai_ event to the AI endpoint; capture reports the misroute
+            sdk_types: [server]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: assert_request_path
+                params:
+                  expected: /i/v1/ai/events
+              - action: assert_event_field
+                params:
+                  field: event
+                  expected: test_event
+
+      lane_isolation:
+        description: The AI and analytics lanes queue, send and retry independently
+        tests:
+          - name: failing_ai_lane_does_not_delay_analytics
+            description: While the AI lane waits to retry, an analytics event is still sent
+            sdk_types: [server]
+            requires: capture_v1
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - path: /i/v1/ai/events
+                      status_code: 503
+                    - path: /i/v1/ai/events
+                      status_code: 503
+                    - path: /i/v1/ai/events
+                      status_code: 400
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 1
+              - action: assert_final_success
+                params:
+                  path: /i/v1/analytics/events
+                  success_statuses: [200]
+              - action: assert_request_count_gte
+                params:
+                  path: /i/v1/ai/events
+                  expected: 2
+              - action: assert_request_received_before
+                params:
+                  path: /i/v1/analytics/events
+                  other_path: /i/v1/ai/events
+                  other_index: 1
+
       required_headers:
         description: All V1-required headers are present and well-formed
         tests:
@@ -469,6 +542,7 @@
           - name: capture_ai_keeps_supplied_uuid
             description: A caller-supplied UUID is returned and preserved on the wire
             sdk_types: [server]
+            requires: event_uuid_override
             steps:
               - action: init
                 params:
@@ -492,6 +566,25 @@
           # request so the per-event schema is validated under batching, not just
           # for a lone event. assert_v1_event_format checks every event in the
           # batch; the remaining assertions check the first event.
+          - name: caller_uuid_is_sent_lowercase
+            description: An uppercase caller-supplied uuid is sent in canonical lowercase form
+            sdk_types: [server]
+            requires: event_uuid_override
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  uuid: 0198C0DE-0000-7000-8000-000000000ABC
+              - action: flush
+              - action: assert_event_field
+                params:
+                  field: uuid
+                  expected: 0198c0de-0000-7000-8000-000000000abc
+
           - name: event_has_required_root_fields_batch
             description: Each event in a multi-event batch has event, uuid, distinct_id, timestamp at root
             sdk_types: [server]
@@ -911,6 +1004,53 @@
                   expected: 1
               - action: assert_no_duplicate_events_in_batch
 
+          - name: duplicate_uuid_copies_are_not_retried
+            description: When capture keeps the first copy of a uuid and returns retry for it, only that copy is resent
+            sdk_types: [server]
+            requires: event_uuid_override
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - v1_event_results: ["retry"]
+                    - status_code: 200
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  uuid: 0198c0de-0000-7000-8000-000000000d0b
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_span
+                  uuid: 0198c0de-0000-7000-8000-000000000d0b
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count
+                params:
+                  expected: 2
+              - action: assert_events_in_batch_count
+                params:
+                  expected: 2
+                  request_index: 0
+              - action: assert_events_in_batch_count
+                params:
+                  expected: 1
+                  request_index: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: $ai_generation
+                  expected: 2
+              - action: assert_event_count_with_name
+                params:
+                  name: $ai_span
+                  expected: 1
+
       header_behavior_on_retry:
         description: V1-specific header semantics during retries
         tests:
@@ -1253,6 +1393,84 @@
                 params:
                   success_statuses: [200]
 
+          - name: retries_on_404
+            description: SDK retries on 404 Not Found (a proxy or route not ready yet)
+            sdk_types: [server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 404
+                      body: '{"error":"not_found","error_description":"Mock 404","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+              - action: init
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [200]
+
+          - name: retries_on_429
+            description: SDK retries on 429 Too Many Requests
+            sdk_types: [server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 429
+                      body: '{"error":"rate_limited","error_description":"Mock 429","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+              - action: init
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [200]
+
+          - name: retries_on_502
+            description: SDK retries on 502 Bad Gateway (sent by the proxy in front of capture)
+            sdk_types: [server]
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 502
+                      body: '{"error":"bad_gateway","error_description":"Mock 502","error_uri":"https://posthog.com/docs/api"}'
+                    - status_code: 200
+              - action: init
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  success_statuses: [200]
+
           - name: retryable_errors_have_retry_after
             description: Mock confirms 408/500/503/504 responses include Retry-After header
             sdk_types: [server]
@@ -1420,15 +1638,15 @@
               - action: assert_v1_retry_after_absent
 
           - name: implements_backoff
-            description: Exponential backoff with minimum 100ms first delay
+            description: Waits of 100, 200 and 400 ms, each scaled by jitter down to 0.75x (lower bounds keep 5 ms slack)
             sdk_types: [server]
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - status_code: 503
-                    - status_code: 503
-                    - status_code: 503
+                    - status_code: 502
+                    - status_code: 502
+                    - status_code: 502
                     - status_code: 200
               - action: init
               - action: capture_ai
@@ -1438,17 +1656,18 @@
               - action: flush
               - action: wait
                 params:
-                  duration_ms: 15000
+                  duration_ms: 12000
               - action: assert_request_count_gte
                 params:
-                  expected: 3
+                  expected: 4
               - action: assert_backoff_implemented
                 params:
-                  min_first_delay_ms: 100
+                  min_delays_ms: [70, 140, 280]
 
           - name: max_retries_respected
             description: Stops retrying after max_retries attempts
             sdk_types: [server]
+            requires: bounded_retries
             steps:
               - action: configure_mock_responses
                 params:
@@ -1545,14 +1764,14 @@
                 params:
                   expected: 1
 
-          - name: does_not_retry_limited_events
-            description: Events with result "limited" are NOT retried
+          - name: does_not_retry_warning_events
+            description: Events with result "warning" (delivered with person processing off) are NOT retried
             sdk_types: [server]
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_results: ["ok", "limited"]
+                    - v1_event_results: ["ok", "warning"]
               - action: init
                 params:
                   flush_at: 10
@@ -1797,14 +2016,14 @@
                 params:
                   expected: 1
 
-          - name: mixed_ok_drop_limited_no_retry
-            description: Batch with only ok, drop, limited results does not trigger retry
+          - name: mixed_ok_drop_warning_no_retry
+            description: Batch with only ok, drop, warning results does not trigger retry
             sdk_types: [server]
             steps:
               - action: configure_mock_responses
                 params:
                   responses:
-                    - v1_event_results: ["ok", "drop", "limited", "ok"]
+                    - v1_event_results: ["ok", "drop", "warning", "ok"]
               - action: init
                 params:
                   flush_at: 10
@@ -2244,6 +2463,7 @@
           - name: geoip_disable_injected_into_properties
             description: disable_geoip init option injects $geoip_disable into event properties
             sdk_types: [server]
+            requires: disable_geoip
             steps:
               - action: init
                 params:

@@ -53,6 +53,10 @@
         type: object
         optional: true
         description: V1 event options map; pass it to the SDK unchanged
+      uuid:
+        type: string
+        optional: true
+        description: Caller-supplied event UUID (requires the event_uuid_override capability); pass it to the SDK as given
 
   capture_ai:
     description: Call the SDK's capture_ai / captureAi method (dedicated AI capture endpoint)
@@ -77,7 +81,7 @@
       uuid:
         type: string
         optional: true
-        description: Caller-supplied event UUID; when provided, it must be preserved on the wire
+        description: Caller-supplied event UUID (requires the event_uuid_override capability); pass it to the SDK as given
 
   capture_multiple:
     description: Capture multiple events
