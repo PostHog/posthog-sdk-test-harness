@@ -259,6 +259,14 @@ class TestV1DuplicateUuids:
         assert recorded.response_headers["Retry-After"] == "1"
 
 
+    def test_wildcard_result_applies_to_every_event(self) -> None:
+        state = MockServerState()
+        entry = {"result": "drop", "details": "misrouted_event"}
+        state.set_response_queue([MockResponse(v1_event_results={"*": entry})])
+
+        assert _v1_results(state, _v1_body((UUID_A, "a"), (UUID_B, "b")), V1_AI) == {UUID_A: entry, UUID_B: entry}
+
+
 class TestV1ResultShorthands:
     @pytest.mark.parametrize(
         "shorthand,details",

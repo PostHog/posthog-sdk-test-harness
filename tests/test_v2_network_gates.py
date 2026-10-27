@@ -280,3 +280,30 @@ def test_request_override_preserves_legacy_response_queue(partition):
     assert state.record_request(**args).response_status == 503
     assert state.record_request(**args).response_status == 200
     assert len(state.get_requests(test_id=partition)) == 3
+
+
+async def test_path_hold_delays_only_that_path_until_released():
+    batch = {"created_at": "2026-10-27T00:00:00Z", "batch": [{"uuid": "0198c0de-0000-7000-8000-000000000001"}]}
+    async with service() as (server, send):
+        server.hold_path("/i/v1/ai/events")
+        held = send(batch, "/i/v1/ai/events")
+        analytics = await send(batch, "/i/v1/analytics/events")
+        await asyncio.sleep(0.2)
+
+        assert analytics[0] == 200 and not held.done()
+        assert [r.path for r in server.state.get_requests()] == ["/i/v1/analytics/events"]
+
+        server.release_path("/i/v1/ai/events/")
+        assert (await held)[0] == 200
+        assert [r.path for r in server.state.get_requests()] == ["/i/v1/analytics/events", "/i/v1/ai/events"]
+        with pytest.raises(BoundaryError):
+            server.release_path("/i/v1/ai/events")
+
+
+async def test_retirement_releases_a_held_path():
+    async with service() as (server, send):
+        server.hold_path("/i/v1/ai/events")
+        held = send({"batch": []}, "/i/v1/ai/events")
+        await asyncio.sleep(0.1)
+        server.retire()
+        assert (await held)[0] == 410
