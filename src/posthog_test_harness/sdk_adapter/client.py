@@ -8,6 +8,41 @@ import aiohttp
 from ..types import CaptureRequest, FeatureFlagRequest, HealthResponse, InitRequest, StateResponse
 from .interface import SDKAdapterInterface
 
+_INIT_OPTIONAL_FIELDS = (
+    "flush_at",
+    "flush_interval_ms",
+    "max_retries",
+    "enable_compression",
+    "disable_geoip",
+    "historical_migration",
+    "personal_api_key",
+    "super_properties",
+    "before_send",
+)
+
+
+def _init_payload(config: InitRequest) -> Dict[str, Any]:
+    """Adapter body for /init; optional fields are sent only when set."""
+    payload: Dict[str, Any] = {"api_key": config.api_key, "host": config.host}
+    for name in _INIT_OPTIONAL_FIELDS:
+        value = getattr(config, name)
+        if value is not None:
+            payload[name] = value
+    return payload
+
+
+def _state_response(data: Dict[str, Any]) -> StateResponse:
+    return StateResponse(
+        pending_events=data["pending_events"],
+        total_events_captured=data["total_events_captured"],
+        total_events_sent=data["total_events_sent"],
+        total_retries=data["total_retries"],
+        last_error=data.get("last_error"),
+        requests_made=data.get("requests_made", []),
+        reported_drops=data.get("reported_drops", []),
+        log_lines=data.get("log_lines", []),
+    )
+
 
 def _capture_payload(event: CaptureRequest) -> Dict[str, Any]:
     """Adapter body for /capture and /capture_ai; optional fields are sent only when set."""
@@ -21,6 +56,10 @@ def _capture_payload(event: CaptureRequest) -> Dict[str, Any]:
         payload["options"] = event.options
     if event.uuid is not None:
         payload["uuid"] = event.uuid
+    if event.pad_properties_to_bytes is not None:
+        payload["pad_properties_to_bytes"] = event.pad_properties_to_bytes
+    if event.marker is not None:
+        payload["marker"] = event.marker
     return payload
 
 
@@ -76,25 +115,7 @@ class SDKAdapterClient(SDKAdapterInterface):
 
     async def init(self, config: InitRequest) -> Dict[str, bool]:
         """Initialize the SDK."""
-        payload: Dict[str, Any] = {
-            "api_key": config.api_key,
-            "host": config.host,
-        }
-
-        if config.flush_at is not None:
-            payload["flush_at"] = config.flush_at
-        if config.flush_interval_ms is not None:
-            payload["flush_interval_ms"] = config.flush_interval_ms
-        if config.max_retries is not None:
-            payload["max_retries"] = config.max_retries
-        if config.enable_compression is not None:
-            payload["enable_compression"] = config.enable_compression
-        if config.disable_geoip is not None:
-            payload["disable_geoip"] = config.disable_geoip
-        if config.historical_migration is not None:
-            payload["historical_migration"] = config.historical_migration
-        if config.personal_api_key is not None:
-            payload["personal_api_key"] = config.personal_api_key
+        payload = _init_payload(config)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -141,14 +162,7 @@ class SDKAdapterClient(SDKAdapterInterface):
             async with session.get(f"{self.base_url}/state") as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-                return StateResponse(
-                    pending_events=data["pending_events"],
-                    total_events_captured=data["total_events_captured"],
-                    total_events_sent=data["total_events_sent"],
-                    total_retries=data["total_retries"],
-                    last_error=data.get("last_error"),
-                    requests_made=data.get("requests_made", []),
-                )
+                return _state_response(data)
 
     async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
         """Evaluate a feature flag."""
@@ -212,24 +226,7 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
         return await self._client.health()
 
     async def init(self, config: InitRequest) -> Dict[str, bool]:
-        payload: Dict[str, Any] = {
-            "api_key": config.api_key,
-            "host": config.host,
-        }
-        if config.flush_at is not None:
-            payload["flush_at"] = config.flush_at
-        if config.flush_interval_ms is not None:
-            payload["flush_interval_ms"] = config.flush_interval_ms
-        if config.max_retries is not None:
-            payload["max_retries"] = config.max_retries
-        if config.enable_compression is not None:
-            payload["enable_compression"] = config.enable_compression
-        if config.disable_geoip is not None:
-            payload["disable_geoip"] = config.disable_geoip
-        if config.historical_migration is not None:
-            payload["historical_migration"] = config.historical_migration
-        if config.personal_api_key is not None:
-            payload["personal_api_key"] = config.personal_api_key
+        payload = _init_payload(config)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -272,14 +269,7 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
             async with session.get(self._client._url("/state", self._test_id)) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-                return StateResponse(
-                    pending_events=data["pending_events"],
-                    total_events_captured=data["total_events_captured"],
-                    total_events_sent=data["total_events_sent"],
-                    total_retries=data["total_retries"],
-                    last_error=data.get("last_error"),
-                    requests_made=data.get("requests_made", []),
-                )
+                return _state_response(data)
 
     async def get_feature_flag(self, request: FeatureFlagRequest) -> Dict:
         async with aiohttp.ClientSession() as session:

@@ -2457,6 +2457,113 @@
                   property: $product_tour_id
                   absent: true
 
+      event_size:
+        description: The AI per-event ceiling and byte-aware batches, with adapter-generated payloads
+        tests:
+          - name: event_over_ceiling_is_not_sent
+            description: An AI event with properties under the 8 MiB ceiling is sent; one at 9 MiB is not
+            sdk_types: [server]
+            requires: generated_payloads
+            steps:
+              - action: init
+                params:
+                  flush_at: 2
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  properties:
+                    case: under-ceiling
+                  pad_properties_to_bytes: 8323072
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_trace
+                  properties:
+                    case: over-ceiling
+                  pad_properties_to_bytes: 9437184
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_events_property_values
+                params:
+                  path: /i/v1/ai/events
+                  property: case
+                  expected: [under-ceiling]
+
+          - name: over_ceiling_drop_is_reported_or_logged_without_content
+            description: An over-ceiling AI event is reported through the SDK's error surface or a log line naming it, and no log line includes its content
+            sdk_types: [server]
+            requires: [generated_payloads, log_capture]
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_trace
+                  pad_properties_to_bytes: 9437184
+                  marker: SECRET-MARKER-7f3a
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_drop_reported_or_logged
+                params:
+                  event: $ai_trace
+              - action: assert_log_output
+                params:
+                  not_contains: [SECRET-MARKER-7f3a]
+
+          - name: batches_close_before_byte_target_and_keep_order
+            description: Three 3 MiB AI events go out in at least two requests under 5 MiB each, in capture order
+            sdk_types: [server]
+            requires: generated_payloads
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  properties:
+                    case: gen-0
+                  pad_properties_to_bytes: 3145728
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  properties:
+                    case: gen-1
+                  pad_properties_to_bytes: 3145728
+              - action: capture_ai
+                params:
+                  distinct_id: test_user
+                  event: $ai_generation
+                  properties:
+                    case: gen-2
+                  pad_properties_to_bytes: 3145728
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  path: /i/v1/ai/events
+                  expected: 2
+              - action: assert_request_body_max_bytes
+                params:
+                  path: /i/v1/ai/events
+                  max_bytes: 5308416
+              - action: assert_events_property_values
+                params:
+                  path: /i/v1/ai/events
+                  property: case
+                  expected: [gen-0, gen-1, gen-2]
+
       geoip_and_historical_migration:
         description: disable_geoip injection, and no historical_migration flag by default (V1)
         tests:

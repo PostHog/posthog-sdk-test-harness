@@ -39,7 +39,8 @@ adapter_interface:
             Common values: "capture_v0", "capture_v1", "capture_ai_v0",
             "capture_ai_v1", "event_options", "flags_response_v4",
             "event_uuid_override", "bounded_retries", "disable_geoip",
-            "historical_migration",
+            "historical_migration", "reported_drops", "log_capture",
+            "generated_payloads", "property_layers", "fail_open",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
           default: []
 

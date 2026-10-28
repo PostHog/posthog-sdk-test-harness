@@ -9,11 +9,16 @@ from posthog_test_harness.actions import (
     AssertActionResultUuidMatchesEventAction,
     AssertBackoffImplementedAction,
     AssertBodyFieldAction,
+    AssertDropReportedOrLoggedAction,
     AssertEventFieldIsRfc3339Action,
     AssertEventOptionAction,
     AssertEventPropertyAction,
     AssertEventsInBatchCountAction,
+    AssertEventsPropertyValuesAction,
     AssertHeaderIsRfc3339Action,
+    AssertLogOutputAction,
+    AssertReportedDropAction,
+    AssertRequestBodyMaxBytesAction,
     AssertRequestCountAction,
     AssertRequestReceivedBeforeAction,
     AssertUuidFormatAction,
@@ -367,3 +372,101 @@ class TestPathFilteredAssertions:
             await AssertRequestReceivedBeforeAction().execute(
                 {"path": self.ANALYTICS, "other_path": self.AI, "other_index": 1}, ctx
             )
+
+
+def _state_ctx(**state):
+    async def get_state():
+        return SimpleNamespace(**{"reported_drops": [], "log_lines": [], **state})
+
+    return SimpleNamespace(sdk_adapter=SimpleNamespace(get_state=get_state))
+
+
+class TestAdapterDiagnostics:
+    DROPS = [{"uuid": "u1", "event": "first", "details": "invalid_options"}, {"uuid": "u2", "event": "second"}]
+
+    @pytest.mark.parametrize(
+        "params,ok",
+        [
+            ({"event": "first", "details": "invalid_options"}, True),
+            ({"event": "second"}, True),
+            ({"event": "first", "details": "duplicate_event_uuid"}, False),
+            ({"uuid": "u3"}, False),
+        ],
+    )
+    async def test_reported_drop_matches_every_given_field(self, params, ok):
+        run = AssertReportedDropAction().execute(params, _state_ctx(reported_drops=self.DROPS))
+        if ok:
+            await run
+        else:
+            with pytest.raises(AssertionError):
+                await run
+
+    @pytest.mark.parametrize(
+        "params,ok",
+        [
+            ({"contains": ["$ai_trace"], "not_contains": ["SECRET"]}, True),
+            ({"contains": ["missing"]}, False),
+            ({"not_contains": ["9437184"]}, False),
+        ],
+    )
+    async def test_log_output(self, params, ok):
+        ctx = _state_ctx(log_lines=["dropping $ai_trace", "event is 9437184 bytes"])
+        run = AssertLogOutputAction().execute(params, ctx)
+        if ok:
+            await run
+        else:
+            with pytest.raises(AssertionError):
+                await run
+
+
+class TestPayloadAssertions:
+    AI = "/i/v1/ai/events"
+
+    def _ctx(self, *bodies):
+        requests = [
+            SimpleNamespace(
+                path=self.AI,
+                body_decompressed=json.dumps({"batch": events}),
+                parsed_events=events,
+                timestamp_ms=0,
+            )
+            for events in bodies
+        ]
+        return _ctx(requests)
+
+    async def test_body_size_is_checked_per_request(self):
+        small = [{"properties": {"case": "a"}}]
+        ctx = self._ctx(small, [{"properties": {"case": "b" * 100}}])
+        await AssertRequestBodyMaxBytesAction().execute({"path": self.AI, "max_bytes": 200}, ctx)
+        with pytest.raises(AssertionError, match="Request 1"):
+            await AssertRequestBodyMaxBytesAction().execute({"path": self.AI, "max_bytes": 100}, ctx)
+
+    @pytest.mark.parametrize("expected,ok", [(["g0", "g1", "g2"], True), (["g0", "g2", "g1"], False), (["g0"], False)])
+    async def test_property_values_follow_send_order_across_requests(self, expected, ok):
+        first, rest = [{"properties": {"case": "g0"}}], [{"properties": {"case": c}} for c in ("g1", "g2")]
+        params = {"path": self.AI, "property": "case", "expected": expected}
+        run = AssertEventsPropertyValuesAction().execute(params, self._ctx(first, rest))
+        if ok:
+            await run
+        else:
+            with pytest.raises(AssertionError):
+                await run
+
+
+@pytest.mark.parametrize(
+    "drops,lines,ok",
+    [
+        ([{"event": "$ai_trace"}], [], True),
+        ([], ["dropping $ai_trace (9437184 bytes)"], True),
+        ([{"event": "$ai_generation"}], ["capture-ai: message exceeds maximum size"], False),
+    ],
+)
+async def test_drop_reported_or_logged_accepts_either_surface(drops, lines, ok):
+    run = AssertDropReportedOrLoggedAction().execute(
+        {"event": "$ai_trace"}, _state_ctx(reported_drops=drops, log_lines=lines)
+    )
+    if ok:
+        await run
+    else:
+        with pytest.raises(AssertionError):
+            await run

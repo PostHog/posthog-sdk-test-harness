@@ -45,6 +45,11 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts). SDKs that retry without limit omit it |
 | `disable_geoip` | The adapter maps `disable_geoip` on `/init` to the SDK's GeoIP opt-out |
 | `historical_migration` | The adapter maps `historical_migration` on `/init` to the SDK's historical migration setting |
+| `reported_drops` | `/state` returns `reported_drops`: every event the SDK reported as dropped through its error surface (a callback, error event or error list), whether capture dropped it or the SDK did |
+| `log_capture` | `/state` returns `log_lines`: every line the SDK logged since `/init` |
+| `generated_payloads` | `/capture_ai` honors `pad_properties_to_bytes` and `marker` |
+| `property_layers` | `/init` honors `super_properties` and `before_send` |
+| `fail_open` | `/init` succeeds with an empty or personal (`phx_`) API key and passes it to the SDK |
 | `encoding_gzip` | Gzip compression support |
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |
@@ -96,6 +101,8 @@ Initialize the SDK with configuration.
 - All params except `api_key` and `host` are optional
 - Use defaults from your SDK if params aren't provided
 - Don't send events with `null` values - omit them instead
+- With `property_layers`: register `super_properties` as the SDK's global (super) properties, and when `before_send` is present install a hook that sets each key of `before_send.set_properties` on the event's properties and returns the event
+- With `fail_open`: pass `api_key` to the SDK as given, including `""` and `phx_...`, and return success
 
 ### `POST /capture`
 
@@ -153,6 +160,7 @@ Capture a single event on the dedicated AI capture endpoint. Only required if yo
 - `properties`, `timestamp`, `options`, and `uuid` are optional
 - UTC is preferred for `timestamp`; convert a supplied non-UTC offset to the equivalent UTC instant before sending
 - When `uuid` is supplied, pass it to the SDK as given; the SDK sends it in canonical lowercase form instead of generating a new one
+- With `generated_payloads`, `pad_properties_to_bytes` asks the adapter to add one string property `$test_padding` so that `properties`, written as compact JSON (no spaces) in UTF-8, is exactly that many bytes. When `marker` is set, the padding string starts with it. The harness cannot send multi-megabyte bodies through the adapter, so the adapter builds them
 - Return the UUID actually sent on the wire, matching `/capture`'s response contract
 - Route this call through your SDK's dedicated AI capture method so it reaches `POST /i/v0/ai/batch/` (`capture_ai_v0`) or `POST /i/v1/ai/events` (`capture_ai_v1`), never a normal capture endpoint
 - Pass `options`, when present, to the SDK's event options unchanged
@@ -196,6 +204,8 @@ Get internal SDK state for test assertions.
   ]
 }
 ```
+
+`reported_drops` (with `reported_drops`) lists `{"uuid": ..., "event": ..., "details": ...}` per dropped event; `details` is capture's per-event tag (such as `invalid_options` or `duplicate_event_uuid`) or the SDK's own reason. `log_lines` (with `log_capture`) lists the SDK's log lines as strings.
 
 **Notes:**
 - You'll need to intercept HTTP requests to track `requests_made`

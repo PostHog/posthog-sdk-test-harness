@@ -28,6 +28,14 @@
         type: string
         optional: true
         description: Privileged definitions key for feature_flags_local_evaluation_v1 opt-in
+      super_properties:
+        type: object
+        optional: true
+        description: Global (super) properties to register (property_layers)
+      before_send:
+        type: object
+        optional: true
+        description: 'Install a before_send hook; {"set_properties": {...}} sets those keys on every event (property_layers)'
       historical_migration:
         type: boolean
         optional: true
@@ -82,6 +90,14 @@
         type: string
         optional: true
         description: Caller-supplied event UUID (requires the event_uuid_override capability); pass it to the SDK as given
+      pad_properties_to_bytes:
+        type: integer
+        optional: true
+        description: Add a $test_padding string property so properties serialize (compact JSON, UTF-8) to exactly this many bytes (generated_payloads)
+      marker:
+        type: string
+        optional: true
+        description: Start the padding string with this text (generated_payloads)
 
   capture_multiple:
     description: Capture multiple events

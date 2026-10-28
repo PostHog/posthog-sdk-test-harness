@@ -311,6 +311,59 @@
         required: true
         description: List of forbidden paths
 
+  assert_reported_drop:
+    description: Assert the adapter's reported_drops has an entry matching every given field
+    params:
+      event:
+        type: string
+        optional: true
+      uuid:
+        type: string
+        optional: true
+      details:
+        type: string
+        optional: true
+
+  assert_log_output:
+    description: Assert the adapter's log_lines contain every contains string and no not_contains string
+    params:
+      contains:
+        type: array
+        optional: true
+      not_contains:
+        type: array
+        optional: true
+
+  assert_drop_reported_or_logged:
+    description: Assert the SDK reported the event as dropped (reported_drops) or named it in a log line (log_lines)
+    params:
+      event:
+        type: string
+        required: true
+
+  assert_request_body_max_bytes:
+    description: Assert every request to a path has an uncompressed body of at most max_bytes
+    params:
+      path:
+        type: string
+        required: true
+      max_bytes:
+        type: integer
+        required: true
+
+  assert_events_property_values:
+    description: Assert one property's values across every event sent to a path, in send order
+    params:
+      path:
+        type: string
+        required: true
+      property:
+        type: string
+        required: true
+      expected:
+        type: array
+        required: true
+
   assert_request_received_before:
     description: Assert the first request on one path arrived before a given request on another path
     params:

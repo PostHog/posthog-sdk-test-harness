@@ -151,6 +151,8 @@ class InitAction(Action):
                 disable_geoip=params.get("disable_geoip"),
                 historical_migration=params.get("historical_migration"),
                 personal_api_key=params.get("personal_api_key"),
+                super_properties=params.get("super_properties"),
+                before_send=params.get("before_send"),
             )
         )
 
@@ -171,6 +173,8 @@ class CaptureAction(Action):
                 timestamp=params.get("timestamp"),
                 options=params.get("options"),
                 uuid=params.get("uuid"),
+                pad_properties_to_bytes=params.get("pad_properties_to_bytes"),
+                marker=params.get("marker"),
             )
         )
 
@@ -193,6 +197,8 @@ class CaptureAiAction(Action):
                 timestamp=params.get("timestamp"),
                 options=params.get("options"),
                 uuid=params.get("uuid"),
+                pad_properties_to_bytes=params.get("pad_properties_to_bytes"),
+                marker=params.get("marker"),
             )
         )
 
@@ -1273,6 +1279,88 @@ class AssertRequestReceivedBeforeAction(Action):
                 f"{first[0].timestamp_ms - others[other_index].timestamp_ms}ms after request "
                 f"{other_index} to '{params['other_path']}'"
             )
+
+
+class AssertReportedDropAction(Action):
+    """Assert the SDK reported a dropped event matching every given field (``event``, ``uuid``, ``details``)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_reported_drop"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        wanted = {key: params[key] for key in ("event", "uuid", "details") if key in params}
+        drops = (await ctx.sdk_adapter.get_state()).reported_drops
+        if not any(all(drop.get(key) == value for key, value in wanted.items()) for drop in drops):
+            raise AssertionError(f"No reported drop matches {wanted}; reported: {drops}")
+
+
+class AssertLogOutputAction(Action):
+    """Assert the SDK's log lines contain every ``contains`` string and no ``not_contains`` string."""
+
+    @property
+    def name(self) -> str:
+        return "assert_log_output"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        output = "\n".join((await ctx.sdk_adapter.get_state()).log_lines)
+        for text in params.get("contains", []):
+            if text not in output:
+                raise AssertionError(f"Log output does not contain {text!r}")
+        for text in params.get("not_contains", []):
+            if text in output:
+                raise AssertionError(f"Log output contains {text!r}")
+
+
+class AssertDropReportedOrLoggedAction(Action):
+    """Assert the SDK reported ``event`` as dropped, or named it in a log line (either surface is allowed)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_drop_reported_or_logged"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        state = await ctx.sdk_adapter.get_state()
+        event = params["event"]
+        if any(drop.get("event") == event for drop in state.reported_drops):
+            return
+        if any(event in line for line in state.log_lines):
+            return
+        raise AssertionError(f"{event} was neither reported as dropped nor named in a log line")
+
+
+class AssertRequestBodyMaxBytesAction(Action):
+    """Assert every request to ``path`` has an uncompressed body of at most ``max_bytes``."""
+
+    @property
+    def name(self) -> str:
+        return "assert_request_body_max_bytes"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = _requests_on_path(ctx, params["path"])
+        if not requests:
+            raise AssertionError(f"No request to '{params['path']}'")
+        for i, req in enumerate(requests):
+            size = len((req.body_decompressed or "").encode("utf-8"))
+            if size > params["max_bytes"]:
+                raise AssertionError(f"Request {i} body is {size} bytes, over {params['max_bytes']}")
+
+
+class AssertEventsPropertyValuesAction(Action):
+    """Assert the values of one property across every event sent to ``path``, in send order."""
+
+    @property
+    def name(self) -> str:
+        return "assert_events_property_values"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        values = [
+            (event.get("properties") or {}).get(params["property"])
+            for req in _requests_on_path(ctx, params["path"])
+            for event in (req.parsed_events or [])
+        ]
+        if values != params["expected"]:
+            raise AssertionError(f"Property {params['property']!r} values {values} != {params['expected']}")
 
 
 class AssertNoRequestsToPathsAction(Action):
