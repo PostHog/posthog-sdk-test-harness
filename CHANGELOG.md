@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.23.0 — 2026-10-28
+
+### Minor changes
+
+- [1a9528a](https://github.com/posthog/posthog-sdk-test-harness/commit/1a9528a20ec35d860ac4fc9aac4a6d8cf4afba96) Add the `flags_response_v4` adapter capability. An SDK that declares it must send `?v=4` on remote `/flags` requests, which asks the server for the v4 flag record. An SDK that does not declare it is still held to `?v=2`. Contract tests can now list `excludes` to skip a test when the adapter declares any of the named capabilities. — Thanks @andehen!
+
 ## 1.22.0 — 2026-10-26
 
 ### Minor changes
