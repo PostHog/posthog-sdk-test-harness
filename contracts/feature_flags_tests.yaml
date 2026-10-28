@@ -72,7 +72,10 @@
           description: >
             The /flags request must include the ?v=2 query param. Both server SDKs
             send it; locking it down prevents accidental version downgrades.
+            SDKs that declare flags_response_v4 run
+            flags_request_uses_v4_query_param instead.
           sdk_types: [server]
+          excludes: flags_response_v4
           steps:
             - action: init
             - action: get_feature_flag
@@ -87,6 +90,28 @@
               params:
                 param: v
                 expected: "2"
+
+        - name: flags_request_uses_v4_query_param
+          description: >
+            An SDK that declares flags_response_v4 must send exactly ?v=4. The
+            server returns the v4 flag record (typed value, reason, metadata)
+            only for v=4; any other value keeps the older response shape.
+          sdk_types: [server]
+          requires: flags_response_v4
+          steps:
+            - action: init
+            - action: get_feature_flag
+              params:
+                key: any-flag
+                distinct_id: user_1
+                force_remote: true
+            - action: assert_flags_request_count
+              params:
+                expected: 1
+            - action: assert_flags_request_query_param
+              params:
+                param: v
+                expected: "4"
 
         - name: flags_request_hits_flags_path_not_decide
           description: >

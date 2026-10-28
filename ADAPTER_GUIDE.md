@@ -39,13 +39,14 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `capture_v1` | Capture Analytics V1 protocol (`POST /i/v1/analytics/events`) |
 | `capture_ai_v0` | Dedicated AI capture endpoint (`POST /i/v0/ai/batch/`) |
 | `capture_ai_v1` | Capture V1 AI endpoint (`POST /i/v1/ai/events`) |
+| `flags_response_v4` | Remote `/flags` requests send `?v=4` and read the v4 flag record. Without it, the harness requires `?v=2` |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `encoding_gzip` | Gzip compression support |
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |
 | `encoding_deflate` | Deflate compression support |
 
-The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run.
+The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run. A test can also list `excludes`: the harness skips it when the adapter declares any of those capabilities. This lets a capability replace a default assertion, such as `flags_response_v4` replacing the `?v=2` check on `/flags` with a `?v=4` check.
 
 ## Choosing `sdk-type`
 

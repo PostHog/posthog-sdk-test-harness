@@ -22,6 +22,16 @@ def _requirements_met(
     return all(r in capabilities for r in requires)
 
 
+def _exclusions_hit(
+    excludes: Union[str, List[str]],
+    capabilities: Set[str],
+) -> bool:
+    """Check if any excluded capability is declared."""
+    if isinstance(excludes, str):
+        return excludes in capabilities
+    return any(e in capabilities for e in excludes)
+
+
 class ContractTestSuite(TestSuite):
     """Test suite that loads tests from CONTRACT.yaml."""
 
@@ -63,6 +73,10 @@ class ContractTestSuite(TestSuite):
                 # Check test-level requires
                 test_requires = test_def.get("requires")
                 if test_requires and not _requirements_met(test_requires, cap_set):
+                    continue
+                # Check test-level excludes
+                test_excludes = test_def.get("excludes")
+                if test_excludes and _exclusions_hit(test_excludes, cap_set):
                     continue
                 test_name = f"{category_name}.{test_def['name']}"
                 tests.append((test_name, test_def))

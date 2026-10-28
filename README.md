@@ -148,7 +148,7 @@ Your adapter declares capabilities in its `/health` response:
 }
 ```
 
-The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run.
+The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run. A test can also list `excludes`: the harness skips it when the adapter declares any of those capabilities. This lets a capability replace a default assertion, such as `flags_response_v4` replacing the `?v=2` check on `/flags` with a `?v=4` check.
 
 See [CONTRACT.yaml](CONTRACT.yaml) for the complete test specification.
 

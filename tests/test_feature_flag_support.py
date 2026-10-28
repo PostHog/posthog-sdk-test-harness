@@ -16,6 +16,8 @@ from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.server import MockServer
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import ScopedSDKAdapterClient, SDKAdapterClient
+from posthog_test_harness.tests.context import TestContext as HarnessContext
+from posthog_test_harness.tests.suites import ContractTestSuite
 from posthog_test_harness.types import FeatureFlagRequest, MockResponse, RecordedRequest
 
 
@@ -315,6 +317,58 @@ async def test_assert_flags_request_query_param(recorded, params, expected_match
     else:
         with pytest.raises(AssertionError, match=expected_match):
             await AssertFlagsRequestQueryParamAction().execute(params, ctx)
+
+
+V2_QUERY_TEST = "request_payload.flags_request_uses_v2_query_param"
+V4_QUERY_TEST = "request_payload.flags_request_uses_v4_query_param"
+
+
+@pytest.mark.parametrize(
+    "capabilities, selected",
+    [
+        (None, V2_QUERY_TEST),
+        (["capture_v0"], V2_QUERY_TEST),
+        (["capture_v0", "flags_response_v4"], V4_QUERY_TEST),
+    ],
+)
+def test_flags_response_v4_capability_selects_the_query_version_test(capabilities, selected) -> None:
+    suite = ContractTestSuite("feature_flags", ContractExecutor())
+    names = {name for name, _ in suite.collect_tests("server", capabilities)}
+    assert {V2_QUERY_TEST, V4_QUERY_TEST} & names == {selected}
+    # Only the version check is swapped; the rest of the suite still runs.
+    other = {name for name, _ in suite.collect_tests("server", None)} - {V2_QUERY_TEST}
+    assert other - {V4_QUERY_TEST} <= names
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "capabilities, sent, expected_pass",
+    [
+        ([], "2", True),
+        ([], "4", False),
+        (["flags_response_v4"], "4", True),
+        (["flags_response_v4"], "2", False),
+        (["flags_response_v4"], "3", False),
+    ],
+)
+async def test_flags_query_version_follows_the_flags_response_v4_capability(capabilities, sent, expected_pass) -> None:
+    suite = ContractTestSuite("feature_flags", ContractExecutor())
+    [(name, test)] = [
+        (name, test)
+        for name, test in suite.collect_tests("server", capabilities)
+        if name in {V2_QUERY_TEST, V4_QUERY_TEST}
+    ]
+    state = MockServerState()
+    adapter = AsyncMock(spec=SDKAdapterClient)
+
+    async def get_feature_flag(request):
+        state.record_request("POST", "/flags/", {}, {"v": sent}, b"{}")
+        return {"success": True, "value": None}
+
+    adapter.get_feature_flag.side_effect = get_feature_flag
+    ctx = HarnessContext(adapter, state, "http://localhost:8081")
+    result = await suite.run_single_test(name, test, ctx)
+    assert result.passed is expected_pass, result.message
 
 
 @pytest.mark.asyncio
