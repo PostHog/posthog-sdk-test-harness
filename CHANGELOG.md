@@ -1,5 +1,24 @@
 # posthog-sdk-test-harness
 
+## 1.25.0 — 2026-10-28
+
+### Minor changes
+
+- [7c94bda](https://github.com/posthog/posthog-sdk-test-harness/commit/7c94bda62fe97acb28d35e5cbde67bced8a93efa) Add capability-gated capture v1 tests that need new adapter features.
+  
+  - `reported_drops`: `/state` lists the drops the SDK reported. Tests: a `drop` result and a dropped duplicate copy are reported with capture's details. Local drops (such as an over-ceiling AI event) are not asserted, because each SDK keeps its own surface for them.
+  - `generated_payloads`: `/capture_ai` pads properties to an exact byte size. Tests: an AI event under the 8 MiB ceiling is sent and one at 9 MiB is not; three 3 MiB AI events go out in at least two requests under 5 MiB each, in order.
+  - `log_capture`: `/state` lists the SDK's log lines. Test: an over-ceiling AI event is reported as dropped or named in a log line, and no log line includes its content.
+  - `property_layers`: `/init` takes `super_properties` and a declarative `before_send`. Tests: caller properties beat registered ones, and `before_send` runs last.
+  - `fail_open`: `/init` accepts an empty or personal (`phx_`) API key. Tests: such a client sends nothing. — Thanks @eli-r-ph!
+- [7190eab](https://github.com/posthog/posthog-sdk-test-harness/commit/7190eab3e4d33983ba6652bda90fee88055b5936) Bind the capture AI v1 Gherkin steps that need no adapter protocol change.
+  
+  - `the first received event property "<key>" should be absent`.
+  - `capture_ai is called with distinct id "<id>" and event "<name>"`, and the same for `capture`.
+  - `the mock delays every request to "<path>" until released` and `the delayed AI request is released and succeeds`: the v2 mock holds every request to one path until the case releases it, while other paths keep flowing.
+  - `the analytics batch endpoint should have received "<name>"` and the AI form.
+  - `the mock serves these ordered AI responses:`. Both ordered response tables now accept the two-column `status | body` form, and a body that keys results by `*` gives every event in the request that result. — Thanks @eli-r-ph!
+
 ## 1.24.0 — 2026-10-28
 
 ### Minor changes
