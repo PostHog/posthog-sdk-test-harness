@@ -17,6 +17,8 @@ class InitRequest:
     disable_geoip: Optional[bool] = None
     historical_migration: Optional[bool] = None
     personal_api_key: Optional[str] = None
+    super_properties: Optional[Dict[str, Any]] = None
+    before_send: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -33,6 +35,8 @@ class CaptureRequest:
     timestamp: Optional[str] = None
     options: Optional[Dict[str, Any]] = None
     uuid: Optional[str] = None
+    pad_properties_to_bytes: Optional[int] = None
+    marker: Optional[str] = None
 
 
 @dataclass
@@ -74,6 +78,8 @@ class StateResponse:
     total_retries: int
     last_error: Optional[str]
     requests_made: List[Dict[str, Any]]
+    reported_drops: List[Dict[str, Any]] = field(default_factory=list)
+    log_lines: List[str] = field(default_factory=list)
 
 
 @dataclass
