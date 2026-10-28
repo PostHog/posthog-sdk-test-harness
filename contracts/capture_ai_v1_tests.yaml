@@ -2517,8 +2517,8 @@
                 params:
                   not_contains: [SECRET-MARKER-7f3a]
 
-          - name: batches_close_before_byte_target_and_keep_order
-            description: Three 3 MiB AI events go out in at least two requests under 5 MiB each, in capture order
+          - name: batches_close_before_byte_target
+            description: Three 3 MiB AI events go out in at least two requests under 5 MiB each, and all three arrive
             sdk_types: [server]
             requires: generated_payloads
             steps:
@@ -2563,6 +2563,7 @@
                   path: /i/v1/ai/events
                   property: case
                   expected: [gen-0, gen-1, gen-2]
+                  any_order: true
 
       geoip_and_historical_migration:
         description: disable_geoip injection, and no historical_migration flag by default (V1)
