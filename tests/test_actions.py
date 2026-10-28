@@ -9,6 +9,7 @@ from posthog_test_harness.actions import (
     AssertActionResultUuidMatchesEventAction,
     AssertBackoffImplementedAction,
     AssertBodyFieldAction,
+    AssertDropReportedOrLoggedAction,
     AssertEventFieldIsRfc3339Action,
     AssertEventOptionAction,
     AssertEventPropertyAction,
@@ -450,3 +451,22 @@ class TestPayloadAssertions:
         else:
             with pytest.raises(AssertionError):
                 await run
+
+
+@pytest.mark.parametrize(
+    "drops,lines,ok",
+    [
+        ([{"event": "$ai_trace"}], [], True),
+        ([], ["dropping $ai_trace (9437184 bytes)"], True),
+        ([{"event": "$ai_generation"}], ["capture-ai: message exceeds maximum size"], False),
+    ],
+)
+async def test_drop_reported_or_logged_accepts_either_surface(drops, lines, ok):
+    run = AssertDropReportedOrLoggedAction().execute(
+        {"event": "$ai_trace"}, _state_ctx(reported_drops=drops, log_lines=lines)
+    )
+    if ok:
+        await run
+    else:
+        with pytest.raises(AssertionError):
+            await run

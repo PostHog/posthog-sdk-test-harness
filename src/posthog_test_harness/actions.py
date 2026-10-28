@@ -1312,6 +1312,23 @@ class AssertLogOutputAction(Action):
                 raise AssertionError(f"Log output contains {text!r}")
 
 
+class AssertDropReportedOrLoggedAction(Action):
+    """Assert the SDK reported ``event`` as dropped, or named it in a log line (either surface is allowed)."""
+
+    @property
+    def name(self) -> str:
+        return "assert_drop_reported_or_logged"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        state = await ctx.sdk_adapter.get_state()
+        event = params["event"]
+        if any(drop.get("event") == event for drop in state.reported_drops):
+            return
+        if any(event in line for line in state.log_lines):
+            return
+        raise AssertionError(f"{event} was neither reported as dropped nor named in a log line")
+
+
 class AssertRequestBodyMaxBytesAction(Action):
     """Assert every request to ``path`` has an uncompressed body of at most ``max_bytes``."""
 

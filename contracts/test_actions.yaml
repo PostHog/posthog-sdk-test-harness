@@ -334,6 +334,13 @@
         type: array
         optional: true
 
+  assert_drop_reported_or_logged:
+    description: Assert the SDK reported the event as dropped (reported_drops) or named it in a log line (log_lines)
+    params:
+      event:
+        type: string
+        required: true
+
   assert_request_body_max_bytes:
     description: Assert every request to a path has an uncompressed body of at most max_bytes
     params:

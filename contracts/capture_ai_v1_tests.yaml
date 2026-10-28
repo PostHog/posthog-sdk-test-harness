@@ -2492,8 +2492,8 @@
                   property: case
                   expected: [under-ceiling]
 
-          - name: over_ceiling_log_names_event_without_content
-            description: The log line for an over-ceiling AI event names the event and never includes its content
+          - name: over_ceiling_drop_is_reported_or_logged_without_content
+            description: An over-ceiling AI event is reported through the SDK's error surface or a log line naming it, and no log line includes its content
             sdk_types: [server]
             requires: [generated_payloads, log_capture]
             steps:
@@ -2510,9 +2510,11 @@
               - action: wait
                 params:
                   duration_ms: 2000
+              - action: assert_drop_reported_or_logged
+                params:
+                  event: $ai_trace
               - action: assert_log_output
                 params:
-                  contains: [$ai_trace]
                   not_contains: [SECRET-MARKER-7f3a]
 
           - name: batches_close_before_byte_target_and_keep_order
