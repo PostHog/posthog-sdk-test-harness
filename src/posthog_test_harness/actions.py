@@ -84,6 +84,14 @@ def _capture_events(ctx: "TestContext") -> list[dict]:
     ]
 
 
+def _requests_on_path(ctx: "TestContext", path: Any) -> list:
+    """Return recorded requests, limited to ``path`` when one is given."""
+    requests = ctx.mock_server.get_requests()
+    if path is None:
+        return requests
+    return [r for r in requests if r.path.rstrip("/") == path.rstrip("/")]
+
+
 class Action(ABC):
     """Base class for test actions."""
 
@@ -162,6 +170,7 @@ class CaptureAction(Action):
                 properties=params.get("properties"),
                 timestamp=params.get("timestamp"),
                 options=params.get("options"),
+                uuid=params.get("uuid"),
             )
         )
 
@@ -347,7 +356,8 @@ class ConfigureMockResponsesAction(Action):
 
     ``v1_event_results`` accepts a list of per-event results. Each entry
     can be a string shorthand (``"ok"``, ``"retry"``, ``"drop"``,
-    ``"limited"``) or a dict with ``result`` and optional ``details``.
+    ``"warning"``) or a dict with ``result`` and optional ``details``.
+    ``path`` limits a response to requests on that path.
     """
 
     @property
@@ -361,6 +371,7 @@ class ConfigureMockResponsesAction(Action):
                 headers=r.get("headers", {}),
                 body=r.get("body"),
                 v1_event_results=r.get("v1_event_results"),
+                path=r.get("path"),
             )
             for r in params["responses"]
         ]
@@ -396,7 +407,7 @@ class AssertRequestCountAction(Action):
         return "assert_request_count"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        assert_request_count(ctx.mock_server.get_requests(), params["expected"])
+        assert_request_count(_requests_on_path(ctx, params.get("path")), params["expected"])
 
 
 class AssertRequestCountGteAction(Action):
@@ -407,7 +418,7 @@ class AssertRequestCountGteAction(Action):
         return "assert_request_count_gte"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        requests = ctx.mock_server.get_requests()
+        requests = _requests_on_path(ctx, params.get("path"))
         actual = len(requests)
         expected = params["expected"]
         if actual < expected:
@@ -789,7 +800,7 @@ class AssertFinalSuccessAction(Action):
         return "assert_final_success"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        requests = ctx.mock_server.get_requests()
+        requests = _requests_on_path(ctx, params.get("path"))
         ok = set(params.get("success_statuses", [200]))
         success_count = sum(1 for r in requests if r.response_status in ok)
         if success_count == 0:
@@ -817,7 +828,11 @@ class AssertRetryDelayAction(Action):
 
 
 class AssertBackoffImplementedAction(Action):
-    """Assert that exponential backoff is implemented."""
+    """Assert that exponential backoff is implemented.
+
+    ``min_delays_ms`` gives a lower bound for each gap between consecutive
+    requests, in order; ``min_first_delay_ms`` checks only the first gap.
+    """
 
     @property
     def name(self) -> str:
@@ -825,14 +840,14 @@ class AssertBackoffImplementedAction(Action):
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         requests = ctx.mock_server.get_requests()
-        if len(requests) < 2:
-            raise AssertionError("Need at least 2 requests")
+        min_delays = params.get("min_delays_ms") or [params["min_first_delay_ms"]]
+        if len(requests) < len(min_delays) + 1:
+            raise AssertionError(f"Need at least {len(min_delays) + 1} requests, got {len(requests)}")
 
-        delay1 = requests[1].timestamp_ms - requests[0].timestamp_ms
-        min_delay = params["min_first_delay_ms"]
-
-        if delay1 < min_delay:
-            raise AssertionError(f"First retry delay too short: {delay1}ms < {min_delay}ms")
+        for i, min_delay in enumerate(min_delays):
+            delay = requests[i + 1].timestamp_ms - requests[i].timestamp_ms
+            if delay < min_delay:
+                raise AssertionError(f"Retry delay {i + 1} too short: {delay}ms < {min_delay}ms")
 
 
 # ============================================================================
@@ -1232,6 +1247,32 @@ class AssertRequestPathAction(Action):
             actual = req.path.rstrip("/")
             if actual not in allowed:
                 raise AssertionError(f"Request {i} path '{req.path}' != expected '{params['expected']}'")
+
+
+class AssertRequestReceivedBeforeAction(Action):
+    """Assert the first request on ``path`` arrived before request ``other_index`` on ``other_path``."""
+
+    @property
+    def name(self) -> str:
+        return "assert_request_received_before"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        first = _requests_on_path(ctx, params["path"])
+        others = _requests_on_path(ctx, params["other_path"])
+        other_index = params.get("other_index", 0)
+        if not first:
+            raise AssertionError(f"No request to '{params['path']}'")
+        if len(others) <= other_index:
+            raise AssertionError(
+                f"Expected at least {other_index + 1} requests to '{params['other_path']}', got {len(others)}"
+            )
+
+        if first[0].timestamp_ms > others[other_index].timestamp_ms:
+            raise AssertionError(
+                f"First request to '{params['path']}' arrived "
+                f"{first[0].timestamp_ms - others[other_index].timestamp_ms}ms after request "
+                f"{other_index} to '{params['other_path']}'"
+            )
 
 
 class AssertNoRequestsToPathsAction(Action):
@@ -1876,7 +1917,7 @@ class AssertEventsInBatchCountAction(Action):
         return "assert_events_in_batch_count"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        requests = ctx.mock_server.get_requests()
+        requests = _requests_on_path(ctx, params.get("path"))
         if not requests:
             raise AssertionError("No requests recorded")
 

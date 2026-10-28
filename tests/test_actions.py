@@ -7,12 +7,15 @@ import pytest
 
 from posthog_test_harness.actions import (
     AssertActionResultUuidMatchesEventAction,
+    AssertBackoffImplementedAction,
     AssertBodyFieldAction,
     AssertEventFieldIsRfc3339Action,
     AssertEventOptionAction,
     AssertEventPropertyAction,
     AssertEventsInBatchCountAction,
     AssertHeaderIsRfc3339Action,
+    AssertRequestCountAction,
+    AssertRequestReceivedBeforeAction,
     AssertUuidFormatAction,
     AssertV1BodyFormatAction,
     AssertV1CreatedAtRecentAction,
@@ -308,4 +311,59 @@ class TestAssertActionResultUuidMatchesEvent:
         with pytest.raises(AssertionError):
             await AssertActionResultUuidMatchesEventAction().execute(
                 {}, _ctx(requests, last_action_result="not-a-dict")
+            )
+
+
+def _timed(path, timestamp_ms):
+    return SimpleNamespace(path=path, timestamp_ms=timestamp_ms, parsed_events=[])
+
+
+class TestAssertBackoffImplemented:
+    @pytest.mark.parametrize(
+        "times,ok",
+        [
+            ([0, 75, 230, 520], True),
+            ([0, 69, 230, 520], False),
+            ([0, 75, 210, 520], False),
+            ([0, 75, 230, 500], False),
+            ([0, 75, 230], False),
+        ],
+    )
+    async def test_min_delays_bound_each_gap(self, times, ok):
+        ctx = _ctx([_timed("/i/v1/analytics/events", t) for t in times])
+        run = AssertBackoffImplementedAction().execute({"min_delays_ms": [70, 140, 280]}, ctx)
+        if ok:
+            await run
+        else:
+            with pytest.raises(AssertionError):
+                await run
+
+
+class TestPathFilteredAssertions:
+    AI = "/i/v1/ai/events"
+    ANALYTICS = "/i/v1/analytics/events"
+
+    async def test_request_count_counts_only_the_path(self):
+        ctx = _ctx([_timed(self.AI, 0), _timed(self.ANALYTICS + "/", 5), _timed(self.AI, 1000)])
+        await AssertRequestCountAction().execute({"path": self.ANALYTICS, "expected": 1}, ctx)
+        with pytest.raises(AssertionError):
+            await AssertRequestCountAction().execute({"path": self.AI, "expected": 1}, ctx)
+
+    @pytest.mark.parametrize("analytics_ms,ok", [(5, True), (1000, True), (1001, False)])
+    async def test_received_before_compares_first_request_with_indexed_other(self, analytics_ms, ok):
+        ctx = _ctx([_timed(self.AI, 0), _timed(self.AI, 1000), _timed(self.ANALYTICS, analytics_ms)])
+        run = AssertRequestReceivedBeforeAction().execute(
+            {"path": self.ANALYTICS, "other_path": self.AI, "other_index": 1}, ctx
+        )
+        if ok:
+            await run
+        else:
+            with pytest.raises(AssertionError):
+                await run
+
+    async def test_received_before_fails_without_enough_other_requests(self):
+        ctx = _ctx([_timed(self.AI, 0), _timed(self.ANALYTICS, 5)])
+        with pytest.raises(AssertionError, match="at least 2 requests"):
+            await AssertRequestReceivedBeforeAction().execute(
+                {"path": self.ANALYTICS, "other_path": self.AI, "other_index": 1}, ctx
             )

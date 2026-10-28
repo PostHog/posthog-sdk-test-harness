@@ -9,6 +9,21 @@ from ..types import CaptureRequest, FeatureFlagRequest, HealthResponse, InitRequ
 from .interface import SDKAdapterInterface
 
 
+def _capture_payload(event: CaptureRequest) -> Dict[str, Any]:
+    """Adapter body for /capture and /capture_ai; optional fields are sent only when set."""
+    payload: Dict[str, Any] = {
+        "distinct_id": event.distinct_id,
+        "event": event.event,
+        "properties": event.properties,
+        "timestamp": event.timestamp,
+    }
+    if event.options is not None:
+        payload["options"] = event.options
+    if event.uuid is not None:
+        payload["uuid"] = event.uuid
+    return payload
+
+
 class SDKAdapterClient(SDKAdapterInterface):
     """HTTP client for communicating with SDK adapters."""
 
@@ -91,14 +106,7 @@ class SDKAdapterClient(SDKAdapterInterface):
 
     async def capture(self, event: CaptureRequest) -> Dict[str, Any]:
         """Capture an event."""
-        payload: Dict[str, Any] = {
-            "distinct_id": event.distinct_id,
-            "event": event.event,
-            "properties": event.properties,
-            "timestamp": event.timestamp,
-        }
-        if event.options is not None:
-            payload["options"] = event.options
+        payload = _capture_payload(event)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -110,16 +118,7 @@ class SDKAdapterClient(SDKAdapterInterface):
 
     async def capture_ai(self, event: CaptureRequest) -> Dict[str, Any]:
         """Capture an event on the dedicated AI capture endpoint."""
-        payload: Dict[str, Any] = {
-            "distinct_id": event.distinct_id,
-            "event": event.event,
-            "properties": event.properties,
-            "timestamp": event.timestamp,
-        }
-        if event.options is not None:
-            payload["options"] = event.options
-        if event.uuid is not None:
-            payload["uuid"] = event.uuid
+        payload = _capture_payload(event)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -241,14 +240,7 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
                 return await resp.json()
 
     async def capture(self, event: CaptureRequest) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "distinct_id": event.distinct_id,
-            "event": event.event,
-            "properties": event.properties,
-            "timestamp": event.timestamp,
-        }
-        if event.options is not None:
-            payload["options"] = event.options
+        payload = _capture_payload(event)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -259,16 +251,7 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
                 return await resp.json()
 
     async def capture_ai(self, event: CaptureRequest) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "distinct_id": event.distinct_id,
-            "event": event.event,
-            "properties": event.properties,
-            "timestamp": event.timestamp,
-        }
-        if event.options is not None:
-            payload["options"] = event.options
-        if event.uuid is not None:
-            payload["uuid"] = event.uuid
+        payload = _capture_payload(event)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(

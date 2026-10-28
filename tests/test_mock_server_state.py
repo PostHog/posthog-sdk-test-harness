@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from posthog_test_harness.mock_server.state import TEST_ID_HEADER, MockServerState
 from posthog_test_harness.types import MockResponse
 
@@ -210,3 +212,100 @@ class TestHeaderExtraction:
 
         assert len(state.get_requests()) == 1
         assert len(state.get_requests(test_id="any")) == 0
+
+
+V1_ANALYTICS = "/i/v1/analytics/events"
+V1_AI = "/i/v1/ai/events"
+UUID_A = "0198c0de-0000-7000-8000-00000000000a"
+UUID_B = "0198c0de-0000-7000-8000-00000000000b"
+
+
+def _v1_body(*events: tuple[str, str]) -> bytes:
+    """Build a capture v1 body from (uuid, event name) pairs."""
+    batch = [{"uuid": uuid, "event": name, "distinct_id": "user1"} for uuid, name in events]
+    return json.dumps({"created_at": "2026-10-27T00:00:00Z", "batch": batch}).encode()
+
+
+def _v1_results(state: MockServerState, body: bytes, path: str = V1_ANALYTICS) -> dict:
+    recorded = state.record_request("POST", path, _make_headers(), {}, body)
+    assert recorded.response_status == 200
+    return json.loads(recorded.response_body)["results"]
+
+
+class TestV1DuplicateUuids:
+    """The mock answers repeated uuids the way capture does: keep the first copy, count the rest."""
+
+    @pytest.mark.parametrize("path", [V1_ANALYTICS, V1_AI])
+    def test_default_response_counts_dropped_copies(self, path: str) -> None:
+        state = MockServerState()
+        body = _v1_body((UUID_A, "first"), (UUID_B, "other"), (UUID_A, "second"), (UUID_A.upper(), "third"))
+
+        assert _v1_results(state, body, path) == {
+            UUID_A: {"result": "ok", "duplicates_dropped": 2},
+            UUID_B: {"result": "ok"},
+        }
+
+    def test_configured_results_apply_to_the_first_copy(self) -> None:
+        state = MockServerState()
+        state.set_response_queue([MockResponse(v1_event_results=["retry", "drop", "ok"])])
+        recorded = state.record_request(
+            "POST", V1_ANALYTICS, _make_headers(), {}, _v1_body((UUID_A, "first"), (UUID_A, "second"), (UUID_B, "b"))
+        )
+
+        assert json.loads(recorded.response_body)["results"] == {
+            UUID_A: {"result": "retry", "details": "not_persisted", "duplicates_dropped": 1},
+            UUID_B: {"result": "ok"},
+        }
+        assert recorded.response_headers["Retry-After"] == "1"
+
+
+class TestV1ResultShorthands:
+    @pytest.mark.parametrize(
+        "shorthand,details",
+        [
+            ("ok", None),
+            ("retry", "not_persisted"),
+            ("drop", "invalid_event"),
+            ("warning", "person_processing_disabled"),
+            ("limited", "person_processing_disabled"),
+        ],
+    )
+    def test_shorthand_details(self, shorthand: str, details: str | None) -> None:
+        state = MockServerState()
+        state.set_response_queue([MockResponse(v1_event_results=[shorthand])])
+
+        entry = _v1_results(state, _v1_body((UUID_A, "e")))[UUID_A]
+
+        assert entry["result"] == shorthand
+        assert entry.get("details") == details
+
+
+class TestPathScopedResponses:
+    def test_scoped_response_waits_for_its_path(self) -> None:
+        state = MockServerState()
+        state.set_response_queue(
+            [MockResponse(status_code=503, path=V1_AI), MockResponse(status_code=400, path=V1_AI)]
+        )
+        body = _v1_body((UUID_A, "e"))
+
+        analytics = state.record_request("POST", V1_ANALYTICS, _make_headers(), {}, body)
+        first_ai = state.record_request("POST", V1_AI + "/", _make_headers(), {}, body)
+        second_ai = state.record_request("POST", V1_AI, _make_headers(), {}, body)
+        third_ai = state.record_request("POST", V1_AI, _make_headers(), {}, body)
+
+        assert [analytics.response_status, first_ai.response_status, second_ai.response_status] == [200, 503, 400]
+        assert third_ai.response_status == 200
+
+    def test_unscoped_responses_keep_fifo_order_across_paths(self) -> None:
+        state = MockServerState()
+        state.set_response_queue(
+            [MockResponse(status_code=500), MockResponse(status_code=503, path=V1_AI), MockResponse(status_code=504)]
+        )
+        body = _v1_body((UUID_A, "e"))
+
+        statuses = [
+            state.record_request("POST", path, _make_headers(), {}, body).response_status
+            for path in (V1_ANALYTICS, V1_ANALYTICS, V1_AI, V1_ANALYTICS)
+        ]
+
+        assert statuses == [500, 504, 503, 200]

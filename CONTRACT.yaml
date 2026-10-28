@@ -38,6 +38,8 @@ adapter_interface:
             Used to filter which test suites and tests are run.
             Common values: "capture_v0", "capture_v1", "capture_ai_v0",
             "capture_ai_v1", "event_options", "flags_response_v4",
+            "event_uuid_override", "bounded_retries", "disable_geoip",
+            "historical_migration",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate".
           default: []
 

@@ -5,6 +5,7 @@ import json
 import logging
 import threading
 import time
+import uuid as uuid_module
 from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -30,6 +31,65 @@ _V1_ERROR_TAGS: Dict[int, str] = {
     503: "service_unavailable",
     504: "gateway_timeout",
 }
+
+
+# Default ``details`` capture sends with each shorthand result.
+_V1_SHORTHAND_DETAILS: Dict[str, str] = {
+    "retry": "not_persisted",
+    "drop": "invalid_event",
+    "warning": "person_processing_disabled",
+    # Legacy shorthand kept for pinned sdk-specs features; capture never sends "limited".
+    "limited": "person_processing_disabled",
+}
+
+
+def _same_path(a: str, b: str) -> bool:
+    return a.rstrip("/") == b.rstrip("/")
+
+
+def _take_response(queue: Deque[MockResponse], default: MockResponse, path: str) -> MockResponse:
+    """Pop the first queued response for ``path``; responses without a path match any request."""
+    for i, response in enumerate(queue):
+        if response.path is None or _same_path(response.path, path):
+            del queue[i]
+            return response
+    return default
+
+
+def _uuid_key(raw: Any, index: int) -> str:
+    """Capture keys results by the parsed uuid, so two spellings of one uuid are the same event."""
+    if not isinstance(raw, str):
+        return f"unknown-{index}"
+    try:
+        return str(uuid_module.UUID(raw))
+    except ValueError:
+        return raw
+
+
+def _v1_results(events: List[Dict[str, Any]], result_values: List[Any]) -> tuple[Dict[str, Any], bool]:
+    """Build capture's UUID-keyed results map for one request.
+
+    ``result_values`` apply by event position. Like capture, a repeated uuid keeps the
+    first copy's result and adds ``duplicates_dropped`` to it; later copies get no entry.
+    """
+    results: Dict[str, Any] = {}
+    has_retry = False
+    for i, ev in enumerate(events):
+        key = _uuid_key(ev.get("uuid"), i)
+        if key in results:
+            results[key]["duplicates_dropped"] = results[key].get("duplicates_dropped", 0) + 1
+            continue
+        raw = result_values[i] if i < len(result_values) else "ok"
+        if isinstance(raw, dict):
+            entry = dict(raw)
+        else:
+            entry = {"result": raw}
+            if raw in _V1_SHORTHAND_DETAILS:
+                entry["details"] = _V1_SHORTHAND_DETAILS[raw]
+        if entry.get("result") == "retry":
+            has_retry = True
+        results[key] = entry
+    return results, has_retry
 
 
 class MockServerState:
@@ -157,37 +217,15 @@ class MockServerState:
             if response_override is not None:
                 response_config = response_override
             elif test_id is not None:
-                if self._partitioned_response_queue[test_id]:
-                    response_config = self._partitioned_response_queue[test_id].popleft()
-                else:
-                    response_config = self._partitioned_default_response[test_id]
+                response_config = _take_response(
+                    self._partitioned_response_queue[test_id], self._partitioned_default_response[test_id], path
+                )
             else:
-                if self._response_queue:
-                    response_config = self._response_queue.popleft()
-                else:
-                    response_config = self._default_response
+                response_config = _take_response(self._response_queue, self._default_response, path)
 
             # Handle V1 partial batch response template
             if response_config.v1_event_results is not None and parsed_events:
-                result_values = response_config.v1_event_results
-                results: Dict[str, Any] = {}
-                has_retry = False
-                for i, ev in enumerate(parsed_events):
-                    uuid = ev.get("uuid", f"unknown-{i}")
-                    raw = result_values[i] if i < len(result_values) else "ok"
-                    if isinstance(raw, dict):
-                        entry = dict(raw)
-                    else:
-                        entry = {"result": raw}
-                        if raw == "retry":
-                            entry.setdefault("details", "not_persisted")
-                        elif raw == "drop":
-                            entry.setdefault("details", "invalid_event")
-                        elif raw == "limited":
-                            entry.setdefault("details", "person_processing_disabled")
-                    if entry.get("result") == "retry":
-                        has_retry = True
-                    results[uuid] = entry
+                results, has_retry = _v1_results(parsed_events, response_config.v1_event_results)
                 resp_headers = dict(response_config.headers)
                 if has_retry:
                     resp_headers.setdefault("Retry-After", "1")
@@ -224,10 +262,7 @@ class MockServerState:
                         "error_uri": "https://posthog.com/docs/api",
                     })
                 elif v1_body is None and status == 200 and response_config.v1_event_results is None and parsed_events:
-                    default_results: Dict[str, Any] = {}
-                    for i, ev in enumerate(parsed_events):
-                        uuid = ev.get("uuid", f"unknown-{i}")
-                        default_results[uuid] = {"result": "ok"}
+                    default_results, _ = _v1_results(parsed_events, [])
                     v1_body = json.dumps({"results": default_results})
 
                 response_config = MockResponse(
