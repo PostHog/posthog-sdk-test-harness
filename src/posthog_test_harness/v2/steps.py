@@ -42,11 +42,12 @@ class Registry:
         return handler, match.groups()
 
 
-def table(step, types):
+def table(step, types, optional=()):
+    """Typed rows; columns named in ``optional`` may be left out and are then absent from each row."""
     rows = step.argument["dataTable"]["rows"]
     headers = [c["value"] for c in rows[0]["cells"]]
     require(
-        len(headers) == len(set(headers)) and set(headers) == set(types),
+        len(headers) == len(set(headers)) and set(types) - set(optional) <= set(headers) <= set(types),
         "invalid_step_data",
         "Unexpected or duplicate table columns",
     )

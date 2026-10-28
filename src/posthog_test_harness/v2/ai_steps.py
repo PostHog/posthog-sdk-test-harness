@@ -59,6 +59,16 @@ async def capture(ctx, step):
     await ctx.call("/capture", json_arguments(step))
 
 
+@STEPS.step(r'capture_ai is called with distinct id "([^"]*)" and event "([^"]*)"', routes=("/capture_ai",))
+async def capture_ai_named(ctx, step, distinct_id, event):
+    ctx.ai_outcome = await ctx.call("/capture_ai", {"distinct_id": distinct_id, "event": event})
+
+
+@STEPS.step(r'capture is called with distinct id "([^"]*)" and event "([^"]*)"', routes=("/capture",))
+async def capture_named(ctx, step, distinct_id, event):
+    await ctx.call("/capture", {"distinct_id": distinct_id, "event": event})
+
+
 @STEPS.step("identify is called with JSON arguments:", "docString", routes=("/identify",))
 async def identify(ctx, step):
     await ctx.call("/identify", json_arguments(step))
@@ -155,6 +165,48 @@ async def identify_personless(ctx, step):
         )
     else:
         expect(False, "identify_personless", f"Unexpected identify capture path: {path}")
+
+
+@STEPS.step(r'the first received event property "([^"]*)" should be absent')
+async def event_property_absent(ctx, step, key):
+    properties = first_events(ctx)[0].get("properties")
+    expect(
+        isinstance(properties, dict) and key not in properties,
+        "event_property",
+        f"Received property is present: {key}",
+    )
+
+
+LANE_PATHS = {"analytics": "/i/v1/analytics/events", "AI": "/i/v1/ai/events"}
+
+
+def lane_events(ctx, lane):
+    path = LANE_PATHS[lane]
+    return [
+        event
+        for request in requests(ctx)
+        if request.path.rstrip("/") == path
+        for event in (request.parsed_events or [])
+    ]
+
+
+@STEPS.step(r'the mock delays every request to "([^"]*)" until released')
+async def hold_path(ctx, step, path):
+    ctx.server.hold_path(path)
+
+
+@STEPS.step("the delayed AI request is released and succeeds")
+async def release_ai(ctx, step):
+    ctx.server.release_path(LANE_PATHS["AI"])
+
+
+@STEPS.step(r'the (analytics|AI) batch endpoint should have received "([^"]*)"')
+async def lane_received(ctx, step, lane, event):
+    expect(
+        any(e.get("event") == event for e in lane_events(ctx, lane)),
+        "lane_event",
+        f"The {lane} endpoint did not receive {event}",
+    )
 
 
 @STEPS.step(r'the first received event property "([^"]*)" should equal "([^"]*)"')

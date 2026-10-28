@@ -97,10 +97,22 @@ Argument: `docString`. Routes: `/capture`. Fixture capabilities: None declared.
 Handler: [`capture`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+capture is called with distinct id "([^"]*)" and event "([^"]*)"
+```
+Argument: `none`. Routes: `/capture`. Fixture capabilities: None declared.
+Handler: [`capture_named`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 capture_ai is called with JSON arguments:
 ```
 Argument: `docString`. Routes: `/capture_ai`. Fixture capabilities: None declared.
 Handler: [`capture_ai`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+capture_ai is called with distinct id "([^"]*)" and event "([^"]*)"
+```
+Argument: `none`. Routes: `/capture_ai`. Fixture capabilities: None declared.
+Handler: [`capture_ai_named`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
 every capture request path should be one of:
@@ -145,6 +157,12 @@ Argument: `none`. Routes: `/flush`. Fixture capabilities: None declared.
 Handler: [`flush`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+the (analytics|AI) batch endpoint should have received "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`lane_received`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 the AI capture return should equal "([^"]*)"
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
@@ -169,6 +187,12 @@ Argument: `none`. Routes: `/setup`. Fixture capabilities: None declared.
 Handler: [`setup`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+the delayed AI request is released and succeeds
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`release_ai`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 the first received event UUID should be valid
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
@@ -185,6 +209,12 @@ the first received event field "([^"]*)" should equal "([^"]*)"
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`event_field`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event property "([^"]*)" should be absent
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`event_property_absent`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
 the first received event property "([^"]*)" should equal "([^"]*)"
@@ -215,6 +245,12 @@ the first received identify event disables person-profile processing
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`identify_personless`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the mock delays every request to "([^"]*)" until released
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`hold_path`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ### analytics_outcome_steps
 
@@ -345,6 +381,12 @@ the first two request headers "(posthog-request-id|posthog-request-timestamp)" s
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`different_headers`](../src/posthog_test_harness/v2/analytics_retry_steps.py).
+
+```text
+the mock serves these ordered AI responses:
+```
+Argument: `dataTable`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`ai_responses`](../src/posthog_test_harness/v2/analytics_retry_steps.py).
 
 ```text
 the mock serves these ordered analytics responses:

@@ -66,11 +66,12 @@ def _uuid_key(raw: Any, index: int) -> str:
         return raw
 
 
-def _v1_results(events: List[Dict[str, Any]], result_values: List[Any]) -> tuple[Dict[str, Any], bool]:
+def _v1_results(events: List[Dict[str, Any]], result_values: Any) -> tuple[Dict[str, Any], bool]:
     """Build capture's UUID-keyed results map for one request.
 
-    ``result_values`` apply by event position. Like capture, a repeated uuid keeps the
-    first copy's result and adds ``duplicates_dropped`` to it; later copies get no entry.
+    ``result_values`` apply by event position, or ``{"*": result}`` applies one result to
+    every event. Like capture, a repeated uuid keeps the first copy's result and adds
+    ``duplicates_dropped`` to it; later copies get no entry.
     """
     results: Dict[str, Any] = {}
     has_retry = False
@@ -79,7 +80,10 @@ def _v1_results(events: List[Dict[str, Any]], result_values: List[Any]) -> tuple
         if key in results:
             results[key]["duplicates_dropped"] = results[key].get("duplicates_dropped", 0) + 1
             continue
-        raw = result_values[i] if i < len(result_values) else "ok"
+        if isinstance(result_values, dict):
+            raw = result_values["*"]
+        else:
+            raw = result_values[i] if i < len(result_values) else "ok"
         if isinstance(raw, dict):
             entry = dict(raw)
         else:

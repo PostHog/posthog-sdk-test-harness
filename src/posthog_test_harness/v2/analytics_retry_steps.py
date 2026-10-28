@@ -4,6 +4,8 @@ These preserve the pinned source's selected-request and missing-field semantics;
 they are not comprehensive delivery or per-event acknowledgement proofs.
 """
 
+import json
+
 from ..types import MockResponse
 from .ai_steps import requests
 from .analytics_wire_steps import STEPS as PREVIOUS_STEPS
@@ -16,17 +18,36 @@ STEPS.definitions.extend(PREVIOUS_STEPS.definitions)
 STEPS.requirements.update(PREVIOUS_STEPS.requirements)
 
 
+RESPONSE_COLUMNS = {"status": "json", "headers": "json", "body": "json", "event_results": "json"}
+
+
+def mock_response(row, path=None):
+    """A row's ``body`` may key results by ``*`` to give every event in the request the same result."""
+    body, event_results = row.get("body"), row.get("event_results")
+    results = body.get("results") if isinstance(body, dict) else None
+    if isinstance(results, dict) and list(results) == ["*"] and event_results is None:
+        body, event_results = None, {"*": results["*"]}
+    elif isinstance(body, (dict, list)):
+        body = json.dumps(body)
+    return MockResponse(
+        status_code=row["status"],
+        headers=row.get("headers") or {},
+        body=body,
+        v1_event_results=event_results,
+        path=path,
+    )
+
+
 @STEPS.step("the mock serves these ordered analytics responses:", "dataTable")
 async def responses(ctx, step):
-    rows = table(step, {"status": "json", "headers": "json", "body": "json", "event_results": "json"})
-    ctx.server.state.set_response_queue(
-        [
-            MockResponse(
-                status_code=r["status"], headers=r["headers"], body=r["body"], v1_event_results=r["event_results"]
-            )
-            for r in rows
-        ]
-    )
+    rows = table(step, RESPONSE_COLUMNS, optional=("headers", "body", "event_results"))
+    ctx.server.state.set_response_queue([mock_response(r) for r in rows])
+
+
+@STEPS.step("the mock serves these ordered AI responses:", "dataTable")
+async def ai_responses(ctx, step):
+    rows = table(step, RESPONSE_COLUMNS, optional=("headers", "body", "event_results"))
+    ctx.server.state.set_response_queue([mock_response(r, "/i/v1/ai/events") for r in rows])
 
 
 @STEPS.step(r'the SDK is initialized with token "([^"]*)" and maximum retries ([0-9]+)', routes=("/setup",))

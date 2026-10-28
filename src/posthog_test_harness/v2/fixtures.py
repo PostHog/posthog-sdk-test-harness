@@ -23,6 +23,7 @@ CAPABILITIES = {
 }
 INGESTION_PATHS = {path for path, _, _ in CaptureEndpoint().routes() if "/ai/" not in path}
 FLAGS_PATHS = {"/flags", "/flags/"}
+PATH_HOLD_TIMEOUT_S = 30
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -51,6 +52,7 @@ class CaseServer:
         self.next_flags_status = None
         self.started = time.monotonic()
         self.gates = ResponseGates(self.started)
+        self.path_holds = {}
 
         @self.mock.app.before_request
         def record_start():
@@ -85,6 +87,11 @@ class CaseServer:
         self.thread.start()
 
     def select_response(self, incoming):
+        with self.lock:
+            hold = self.path_holds.get(incoming.path.rstrip("/"))
+        # A held request waits outside the lock so requests to other paths keep flowing.
+        if hold is not None and not hold.wait(PATH_HOLD_TIMEOUT_S):
+            return MockResponse(status_code=504)
         # Read the body outside the case lock: one slow/held request must not
         # prevent another request from reaching its own barrier.
         body = incoming.get_json(silent=True) if incoming.path in FLAGS_PATHS else None
@@ -119,6 +126,19 @@ class CaseServer:
     def requests(self):
         with self.lock:
             return deepcopy(self.traffic)
+
+    def hold_path(self, path):
+        """Hold every request to ``path`` until ``release_path``; held requests are recorded on release."""
+        with self.lock:
+            key = path.rstrip("/")
+            require(key not in self.path_holds, "invalid_state", f"Requests to {path} are already held")
+            self.path_holds[key] = threading.Event()
+
+    def release_path(self, path):
+        with self.lock:
+            hold = self.path_holds.pop(path.rstrip("/"), None)
+        require(hold is not None, "invalid_state", f"Requests to {path} are not held")
+        hold.set()
 
     def fail_next_ingestion(self, status):
         with self.lock:
@@ -169,12 +189,20 @@ class CaseServer:
             self.flag_responses.clear()
             self.use_response_queue_for_flags = False
             self.next_flags_status = None
+            self.release_holds()
             self.state.reset()
+
+    def release_holds(self):
+        """Call with the lock held."""
+        for hold in self.path_holds.values():
+            hold.set()
+        self.path_holds.clear()
 
     def retire(self):
         with self.lock:
             self.retired = True
             self.gates.retire()
+            self.release_holds()
 
     def wait_idle(self, timeout_ms=5000):
         deadline_ms(timeout_ms)
