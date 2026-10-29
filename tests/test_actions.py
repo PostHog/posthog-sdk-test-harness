@@ -441,10 +441,20 @@ class TestPayloadAssertions:
         with pytest.raises(AssertionError, match="Request 1"):
             await AssertRequestBodyMaxBytesAction().execute({"path": self.AI, "max_bytes": 100}, ctx)
 
-    @pytest.mark.parametrize("expected,ok", [(["g0", "g1", "g2"], True), (["g0", "g2", "g1"], False), (["g0"], False)])
-    async def test_property_values_follow_send_order_across_requests(self, expected, ok):
+    @pytest.mark.parametrize(
+        "expected,any_order,ok",
+        [
+            (["g0", "g1", "g2"], False, True),
+            (["g0", "g2", "g1"], False, False),
+            (["g0"], False, False),
+            (["g2", "g0", "g1"], True, True),
+            (["g0", "g1"], True, False),
+            (["g0", "g1", "g1"], True, False),
+        ],
+    )
+    async def test_property_values_follow_send_order_unless_any_order(self, expected, any_order, ok):
         first, rest = [{"properties": {"case": "g0"}}], [{"properties": {"case": c}} for c in ("g1", "g2")]
-        params = {"path": self.AI, "property": "case", "expected": expected}
+        params = {"path": self.AI, "property": "case", "expected": expected, "any_order": any_order}
         run = AssertEventsPropertyValuesAction().execute(params, self._ctx(first, rest))
         if ok:
             await run

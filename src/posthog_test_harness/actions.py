@@ -1347,7 +1347,11 @@ class AssertRequestBodyMaxBytesAction(Action):
 
 
 class AssertEventsPropertyValuesAction(Action):
-    """Assert the values of one property across every event sent to ``path``, in send order."""
+    """Assert the values of one property across every event sent to ``path``, in send order.
+
+    With ``any_order: true`` the values only have to match as a multiset: an SDK may send
+    batches in parallel, so separate requests can arrive in any order.
+    """
 
     @property
     def name(self) -> str:
@@ -1359,8 +1363,13 @@ class AssertEventsPropertyValuesAction(Action):
             for req in _requests_on_path(ctx, params["path"])
             for event in (req.parsed_events or [])
         ]
-        if values != params["expected"]:
-            raise AssertionError(f"Property {params['property']!r} values {values} != {params['expected']}")
+        expected = params["expected"]
+        if params.get("any_order"):
+            matched = sorted(values, key=json.dumps) == sorted(expected, key=json.dumps)
+        else:
+            matched = values == expected
+        if not matched:
+            raise AssertionError(f"Property {params['property']!r} values {values} != {expected}")
 
 
 class AssertNoRequestsToPathsAction(Action):
