@@ -257,12 +257,12 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
     ]
     filters = SCHEMAS["schemas/definitions_entry.schema.json"]["properties"]["filters"]
     assert filters["oneOf"][1]["$ref"] == SCHEMAS["schemas/config.schema.json"]["$id"]
-    # Event property shapes are copies of the producer metadata shapes, except the narrowed exposure literals.
+    # Event property shapes are copies of the producer metadata shapes.
     metadata = producer["$defs"]["metadata"]["properties"]
     called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]["properties"]
     exposure = SCHEMAS["schemas/experiment_exposure_properties.schema.json"]["properties"]
     shared = ["variant_key", "rule_id", "forced_variant"]
-    # The called context keeps the version 1 experiment ID; a v2 exposure has none.
+    # The called context keeps the version 1 experiment ID; an exposure has none.
     for field in ["config_version", "rule_type", "experiment_id", *shared]:
         assert called[PRESENCE.event_property(field)] == metadata[field], field
     for field in shared:
@@ -440,3 +440,83 @@ def test_frozen_producer_rules_agree_with_the_matrix() -> None:
         assert row["required"] == [], row["reason"]
         assert forbidden(defs["no_rule_context"]) == row["forbidden"], row["reason"]
     assert reasons(defs["v2_rules"]["then"]["allOf"][0]["if"]) == [row["reason"] for row in MATRIX if row["failed"]]
+
+
+EXPOSURE_SCHEMA = "schemas/experiment_exposure_properties.schema.json"
+CALLED_SCHEMA = "schemas/feature_flag_called_context.schema.json"
+# The event schemas have no fixture sets, so the event cases build their projections here.
+EXPOSURE = {
+    "$feature_flag": "garden-layout",
+    "$feature_flag_response": True,
+    "$feature_flag_variant": SAMPLE_VALUES["variant_key"],
+    "$feature_flag_rule_id": SAMPLE_VALUES["rule_id"],
+    "locally_evaluated": False,
+}
+# Sent only for a config version 2 experiment split, an exposure would carry the first four as constants.
+EXPOSURE_FORBIDDEN = {
+    "$feature_flag_config_version": 2,
+    "$feature_flag_rule_type": "experiment",
+    "$feature_flag_reason_code": "experiment_split",
+    "$experiment_exposure_source": "sdk",
+    "$feature_flag_experiment_id": SAMPLE_VALUES["experiment_id"],
+}
+
+
+def row_call(row: dict[str, Any]) -> dict[str, Any]:
+    """The config version 2 $feature_flag_called projection of a matrix row, with every required field."""
+    values = {**SAMPLE_VALUES, "rule_type": row["rule_type"]}
+    return {
+        "$feature_flag": "garden-layout",
+        "$feature_flag_response": True,
+        "$feature_flag_config_version": 2,
+        "$feature_flag_reason_code": row["reason"],
+        **{PRESENCE.event_property(field): values[field] for field in row["required"]},
+    }
+
+
+def test_event_projections_accept_complete_events() -> None:
+    assert schema_errors(EXPOSURE_SCHEMA, EXPOSURE) == []
+    # A version 1 call, or one without a config version, keeps the reason description.
+    call = {"$feature_flag": "garden-layout", "$feature_flag_response": "compact", "$feature_flag_reason": "Matched"}
+    assert schema_errors(CALLED_SCHEMA, call) == []
+    assert schema_errors(CALLED_SCHEMA, {**call, "$feature_flag_config_version": 1}) == []
+
+
+def event_negatives() -> list[Any]:
+    """Each case fails for one reason only: the named keyword at the projection root."""
+    forbidden = {**EXPOSURE_FORBIDDEN, "$feature_flag_forced_variant": True}
+    params = [
+        pytest.param(
+            EXPOSURE_SCHEMA,
+            {**EXPOSURE, field: value},
+            "not" if field == "$feature_flag_forced_variant" else "additionalProperties",
+            id=f"exposure/forbidden/{field}",
+        )
+        for field, value in forbidden.items()
+    ]
+    params += [
+        pytest.param(
+            EXPOSURE_SCHEMA,
+            {k: v for k, v in EXPOSURE.items() if k != field},
+            "required",
+            id=f"exposure/missing/{field}",
+        )
+        for field in EXPOSURE
+    ]
+    # $feature_flag_reason_code replaces the reason description on every config version 2 call.
+    params += [
+        pytest.param(
+            CALLED_SCHEMA,
+            {**row_call(row), "$feature_flag_reason": "Matched"},
+            "not",
+            id=f"calls.{row_name(row)}/forbidden/$feature_flag_reason",
+        )
+        for row in MATRIX
+    ]
+    return params
+
+
+@pytest.mark.parametrize("schema, value, keyword", event_negatives())
+def test_event_projection_negatives(schema: str, value: dict[str, Any], keyword: str) -> None:
+    errors = schema_errors(schema, value)
+    assert [(e["keyword"], e["instance_path"]) for e in errors] == [(keyword, "")], errors
