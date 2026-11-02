@@ -177,6 +177,15 @@ class SDKAdapterClient(SDKAdapterInterface):
     async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
         return await self._reload_feature_flag_definitions(timeout_ms)
 
+    async def _post_json(self, path: str, payload: Dict[str, Any], test_id: Optional[str] = None) -> Dict:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self._url(path, test_id), json=payload) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+
+    async def get_feature_flag_payload(self, request: FeatureFlagRequest) -> Dict:
+        return await self._post_json("/get_feature_flag_payload", self._feature_flag_payload(request))
+
     async def _reload_feature_flag_definitions(self, timeout_ms: int, test_id: Optional[str] = None) -> Dict[str, bool]:
         if not 0 < timeout_ms <= 30000:
             raise ValueError("timeout_ms must be between 1 and 30000")
@@ -282,6 +291,11 @@ class ScopedSDKAdapterClient(SDKAdapterInterface):
 
     async def reload_feature_flag_definitions(self, timeout_ms: int = 5000) -> Dict[str, bool]:
         return await self._client._reload_feature_flag_definitions(timeout_ms, self._test_id)
+
+    async def get_feature_flag_payload(self, request: FeatureFlagRequest) -> Dict:
+        return await self._client._post_json(
+            "/get_feature_flag_payload", self._client._feature_flag_payload(request), self._test_id
+        )
 
     async def reset(self) -> Dict[str, bool]:
         async with aiohttp.ClientSession() as session:

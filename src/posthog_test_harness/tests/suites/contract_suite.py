@@ -6,6 +6,7 @@ Loads tests from CONTRACT.yaml and executes them.
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+from ... import flags_v4
 from ...contract import ContractExecutor
 from ...types import TestResult, TestSuiteResult
 from ..context import TestContext
@@ -30,6 +31,34 @@ def _exclusions_hit(
     if isinstance(excludes, str):
         return excludes in capabilities
     return any(e in capabilities for e in excludes)
+
+
+def _substitute_case(value: Any, case_id: str) -> Any:
+    """Replace ``{case}`` in every string of a step definition."""
+    if isinstance(value, str):
+        return value.replace("{case}", case_id)
+    if isinstance(value, list):
+        return [_substitute_case(item, case_id) for item in value]
+    if isinstance(value, dict):
+        return {key: _substitute_case(item, case_id) for key, item in value.items()}
+    return value
+
+
+def _expand_cases(test_name: str, test_def: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
+    """Expand a test with ``cases: <source>`` into one test per contract fixture case.
+
+    Each expanded test is named ``<test>[<case id>]`` and has ``{case}`` replaced
+    by the case ID in its steps. Sources are listed in ``flags_v4.SOURCES``.
+    """
+    source = test_def.get("cases")
+    if source is None:
+        return [(test_name, test_def)]
+    expanded = []
+    for case_id in flags_v4.case_ids(source):
+        case_def = {k: v for k, v in test_def.items() if k != "cases"}
+        case_def["steps"] = _substitute_case(test_def.get("steps", []), case_id)
+        expanded.append((f"{test_name}[{case_id}]", case_def))
+    return expanded
 
 
 class ContractTestSuite(TestSuite):
@@ -79,7 +108,7 @@ class ContractTestSuite(TestSuite):
                 if test_excludes and _exclusions_hit(test_excludes, cap_set):
                     continue
                 test_name = f"{category_name}.{test_def['name']}"
-                tests.append((test_name, test_def))
+                tests.extend(_expand_cases(test_name, test_def))
         return tests
 
     async def run(

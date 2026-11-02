@@ -289,6 +289,7 @@ class MockServerState:
                 response_status=response_config.status_code,
                 response_headers=dict(response_config.headers),
                 response_body=response_config.body,
+                response_raw=response_config.raw_body,
             )
 
             # Store in the appropriate partition

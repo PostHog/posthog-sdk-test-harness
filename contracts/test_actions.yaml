@@ -34,6 +34,24 @@
               optional: true
               description: Serve this response only to requests on this path; responses without a path serve any request
 
+  configure_flags_v4_response:
+    description: >
+      Queue the /flags response of a feature flag rules v2 contract fixture case,
+      sent byte for byte with no default fields merged in
+    params:
+      source:
+        type: string
+        default: readers
+        description: readers (fixtures/wire/readers.json) or values (successful cases of corpus/v2_value_evaluation.json)
+      case:
+        type: string
+        required: true
+        description: Fixture case ID
+      repeat:
+        type: integer
+        default: 1
+        description: Number of /flags requests this response serves
+
   configure_local_evaluation_definitions:
     description: Replace the isolated definitions GET envelope, separately from capture and remote response queues
     params:
@@ -219,6 +237,26 @@
         type: string
         required: true
         description: Expected query parameter value (string, since URL params are always strings)
+
+  assert_legacy_flag_value_for_case:
+    description: Assert the legacy getter returned the legacy rendering of the fixture case's record, with strict JSON types
+    params:
+      source:
+        type: string
+        default: readers
+      case:
+        type: string
+        required: true
+
+  assert_legacy_flag_payload_for_case:
+    description: Assert the payload accessor returned the fixture case's payload, compared as parsed JSON values
+    params:
+      source:
+        type: string
+        default: readers
+      case:
+        type: string
+        required: true
 
   assert_event_count_with_name:
     description: >

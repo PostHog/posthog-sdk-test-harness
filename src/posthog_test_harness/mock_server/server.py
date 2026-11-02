@@ -61,6 +61,13 @@ class MockServer:
                         if recorded.response_body is not None or recorded.response_status != 200:
                             if recorded.response_status == 204 and not recorded.response_body:
                                 return Response(status=204, headers=recorded.response_headers)
+                            if recorded.response_raw:
+                                return Response(
+                                    recorded.response_body,
+                                    status=recorded.response_status,
+                                    headers=recorded.response_headers,
+                                    mimetype="application/json",
+                                )
                             body = (
                                 json.loads(recorded.response_body)
                                 if recorded.response_body
