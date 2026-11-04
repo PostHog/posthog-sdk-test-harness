@@ -15,9 +15,12 @@ UNDEFINED = object()
 class RemoteFlagsEngine(AIEngine):
     """Owns fetching, HTTP parsing, cache choice, tracking and synchronous notifications."""
 
-    def __init__(self, storage, host, config, protocol, defect, token, *, client=False, cached=False):
+    def __init__(
+        self, storage, host, config, protocol, defect, token, *, client=False, cached=False, flags_version="2"
+    ):
         super().__init__(storage, host, config, protocol, defect)
         self.token, self.client, self.cached = token, client, cached
+        self.flags_version = flags_version
         self.values, self.listeners, self.exposures = {}, [], set()
         self.loaded = False
         self.identity = "controlled-client"
@@ -66,7 +69,7 @@ class RemoteFlagsEngine(AIEngine):
         if self.defect == "wrong_scope":
             body["flag_keys_to_evaluate"] = []
         path = "/decide" if self.defect == "decide" else "/flags"
-        version = "1" if self.defect == "wrong_version" else "2"
+        version = "1" if self.defect == "wrong_version" else self.flags_version
         headers = {"Authorization": "Bearer incorrect"} if self.defect == "authorization" else {}
         async with aiohttp.ClientSession(trust_env=False) as session:
             for attempt in range(2):
@@ -210,6 +213,7 @@ class RemoteFlagsHost(AIHost):
                     args["project_token"],
                     client=self.profile.get("sdk_type") == "client",
                     cached=self.cached,
+                    flags_version="4" if "flags_response_v4" in self.profile.get("sdk_capabilities", []) else "2",
                 )
                 self.engines.append(fixture.engine)
                 return await fixture.engine.setup()
