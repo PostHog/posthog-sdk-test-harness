@@ -212,6 +212,26 @@ def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
         )
 
 
+def legacy_payload(response: dict[str, Any], key: str) -> Any:
+    """The legacy payload accessor's result: a failed record reads as disabled, so it yields no payload."""
+    record = response["flags"].get(key)
+    if record is None or record.get("failed") is True:
+        return None
+    return record.get("metadata", {}).get("payload")
+
+
+@pytest.mark.parametrize("case", SETS["readers"]["cases"], ids=lambda c: c["id"])
+def test_reader_legacy_payload_expectations(case: dict[str, Any]) -> None:
+    value = materialize("readers", case)
+    reader = case["reader"]
+    record = value["flags"].get(reader["requested_key"]) or {}
+    if record.get("failed") is True and record.get("metadata", {}).get("payload") is not None:
+        # A failed record that still carries a payload must pin that the accessor yields none.
+        assert "legacy_payload" in reader
+    if "legacy_payload" in reader:
+        assert reader["legacy_payload"] == legacy_payload(value, reader["requested_key"])
+
+
 def test_fixture_and_case_ids_are_unique_and_well_formed() -> None:
     ids = [a["fixture_id"] for a in MANIFEST["artifacts"] if a["kind"] == "fixture"]
     for artifact in MANIFEST["artifacts"]:

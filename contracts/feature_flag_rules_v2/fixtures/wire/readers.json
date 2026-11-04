@@ -1018,7 +1018,8 @@
         "value": true,
         "config_version": 1,
         "experiment_exposure": false,
-        "error_code": "GENERAL"
+        "error_code": "GENERAL",
+        "legacy_payload": null
       },
       "producer_expected": "valid"
     },
