@@ -49,8 +49,8 @@
         description: Fixture case ID
       repeat:
         type: integer
-        default: 1
-        description: Number of /flags requests this response serves
+        default: 10
+        description: Number of /flags requests this response serves, so an accessor may make more than one
 
   configure_local_evaluation_definitions:
     description: Replace the isolated definitions GET envelope, separately from capture and remote response queues
@@ -239,7 +239,9 @@
         description: Expected query parameter value (string, since URL params are always strings)
 
   assert_legacy_flag_value_for_case:
-    description: Assert the legacy getter returned the legacy rendering of the fixture case's record, with strict JSON types
+    description: >
+      Assert the adapter reported success, the SDK read the fixture with /flags?v=4, and the legacy
+      getter returned the legacy rendering of the fixture case's record, with strict JSON types
     params:
       source:
         type: string
@@ -249,7 +251,9 @@
         required: true
 
   assert_legacy_flag_payload_for_case:
-    description: Assert the payload accessor returned the fixture case's payload, compared as parsed JSON values
+    description: >
+      Assert the adapter reported success, the SDK read the fixture with /flags?v=4, and the payload
+      accessor returned the fixture case's payload, compared as parsed JSON values
     params:
       source:
         type: string

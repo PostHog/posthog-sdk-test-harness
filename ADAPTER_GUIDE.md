@@ -261,7 +261,7 @@ Return the payload as a JSON value: parse a JSON-encoded payload string before r
 
 ### Remote `/flags?v=4` suite
 
-`feature_flags_v4` reads mock v4 responses built from the [feature flag rules v2 contract](contracts/feature_flag_rules_v2/README.md): every reader case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`. Each test queues one `/flags` response and makes one remote read with `force_remote: true`. Run it with `--suite feature_flags_v4`.
+`feature_flags_v4` reads mock v4 responses built from the [feature flag rules v2 contract](contracts/feature_flag_rules_v2/README.md): every reader case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`. Each test makes one remote read with `force_remote: true`. The case's response is queued for up to 10 `/flags` requests, so an accessor may make more than one. The adapter must report `success: true`, and the SDK must read the case's response with `/flags?v=4`. Run it with `--suite feature_flags_v4`.
 
 | Tests | Requires | Checks |
 |-------|----------|--------|
