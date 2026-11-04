@@ -435,12 +435,15 @@ def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
     # The hand-written called branch (local-only flag_disabled) carries a description.
     generated = [branch for branch in called["allOf"][0]["then"]["oneOf"] if "description" not in branch]
     assert len(branches) == len(MATRIX)
-    assert generated == PRESENCE.called_branches(MATRIX)
+    # The last generated branch takes every reason code that has no branch of its own, or none.
+    reasons = generated[-1]["properties"]["$feature_flag_reason_code"]["not"]["enum"]
+    assert sorted(reasons) == sorted(LITERALS["reason_codes"])
+    assert generated == PRESENCE.called_branches(MATRIX, reasons)
     for row, response, call in zip(MATRIX, branches, generated):
         assert response == PRESENCE.response_branch(row), row["reason"]
         assert call == PRESENCE.called_branch(row), row["reason"]
     # One dropped-attribution branch per reason that names a rule, after the matrix rows.
-    dropped = [branch["properties"]["$feature_flag_reason_code"]["const"] for branch in generated[len(MATRIX) :]]
+    dropped = [branch["properties"]["$feature_flag_reason_code"]["const"] for branch in generated[len(MATRIX) : -1]]
     assert dropped == list(dict.fromkeys(row["reason"] for row in MATRIX if row["rule_type"]))
     regenerated = copy.deepcopy((presence, called))
     PRESENCE.regenerate(MATRIX, *regenerated)
@@ -627,7 +630,52 @@ def test_called_context_accepts_a_local_flag_disabled_call() -> None:
     assert schema_errors(CALLED_SCHEMA, dropped_call("flag_disabled")) == []
 
 
-@pytest.mark.parametrize("value", broken_attribution_calls() + stray_attribution_calls())
+# A config version 2 call whose reason code is missing or not registered keeps the raw code, if any, and carries
+# no attribution. Registered codes still go through their own branches.
+UNREGISTERED_REASONS = ["future_reason", None]
+
+
+def unregistered_call(reason: str | None) -> dict[str, Any]:
+    call = dropped_call(reason or "")
+    if reason is None:
+        del call["$feature_flag_reason_code"]
+    return call
+
+
+@pytest.mark.parametrize("reason", UNREGISTERED_REASONS, ids=lambda r: r or "missing")
+def test_called_context_accepts_an_unregistered_reason_without_attribution(reason: str | None) -> None:
+    assert schema_errors(CALLED_SCHEMA, unregistered_call(reason)) == []
+
+
+def unregistered_attribution_calls() -> list[Any]:
+    """A missing or unregistered reason code with any attribution field, or with a complete row's attribution."""
+    params = []
+    for reason in UNREGISTERED_REASONS:
+        name = reason or "missing"
+        params += [
+            pytest.param(
+                {**unregistered_call(reason), PRESENCE.event_property(field): value},
+                id=f"calls.unregistered_{name}/{field}",
+            )
+            for field, value in SAMPLE_VALUES.items()
+        ]
+        params += [
+            pytest.param(
+                {
+                    **{k: v for k, v in row_call(row).items() if k != "$feature_flag_reason_code"},
+                    **unregistered_call(reason),
+                },
+                id=f"calls.unregistered_{name}/complete/{row_name(row)}",
+            )
+            for row in MATRIX
+            if row["rule_type"]
+        ]
+    return params
+
+
+@pytest.mark.parametrize(
+    "value", broken_attribution_calls() + stray_attribution_calls() + unregistered_attribution_calls()
+)
 def test_called_context_rejects_a_half_or_mismatched_rule_pair(value: dict[str, Any]) -> None:
     errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
     assert errors == [("oneOf", "")]
