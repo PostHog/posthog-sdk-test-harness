@@ -273,7 +273,7 @@ Return the payload as a JSON value: parse a JSON-encoded payload string before r
 - A missing flag (`FLAG_NOT_FOUND`) reads as no value: the adapter returns `null`.
 - Any other reader error reads as `false`. This covers a failed record, an unreadable record and a known field with the wrong JSON type.
 
-posthog-python and posthog-node both pass these cases.
+This matches how posthog-python's legacy getters behave today.
 
 ### `POST /reset`
 
