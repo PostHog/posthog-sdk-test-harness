@@ -16,9 +16,12 @@
       description: >
         Existing getters return the legacy rendering of the record value:
         booleans and strings as is, null as false, numbers and objects as
-        true. A failed or unreadable record returns false and a missing flag
-        returns no value. An older server's record without `value` reads as
-        `variant ?? enabled`.
+        true. An older server's record without `value` reads as
+        `variant ?? enabled`. Harness rule for legacy getters (the contract
+        does not define a legacy getter's result on a reader error): a missing
+        flag (FLAG_NOT_FOUND) returns no value, and any other reader error (a
+        failed record, an unreadable record, a known field with the wrong JSON
+        type) returns false.
       tests:
         - name: legacy_getter_reads_reader_fixture
           description: >
