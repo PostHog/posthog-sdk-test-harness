@@ -261,12 +261,19 @@ Return the payload as a JSON value: parse a JSON-encoded payload string before r
 
 ### Remote `/flags?v=4` suite
 
-`feature_flags_v4` reads mock v4 responses built from the [feature flag rules v2 contract](contracts/feature_flag_rules_v2/README.md): every reader case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`. Each test queues one `/flags` response and makes one remote read with `force_remote: true`. Run it with `--suite feature_flags_v4`.
+`feature_flags_v4` reads mock v4 responses built from the [feature flag rules v2 contract](contracts/feature_flag_rules_v2/README.md): every reader case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`. Each test makes one remote read with `force_remote: true`. The case's response is queued for up to 10 `/flags` requests, so an accessor may make more than one. The adapter must report `success: true`, and the SDK must read the case's response with `/flags?v=4`. Run it with `--suite feature_flags_v4`.
 
 | Tests | Requires | Checks |
 |-------|----------|--------|
 | Legacy getters | `flags_response_v4` | `get_feature_flag` returns the legacy rendering of the record value: booleans and strings as is, `null` as `false`, numbers and objects as `true`; `false` for a failed or unreadable record; no value for a missing flag; `variant ?? enabled` for an older server's record. Types are strict: `true` is not `1` |
 | Legacy payloads | `flags_response_v4`, `feature_flag_payloads` | The payload accessor returns a config version 2 number or object value as the payload and no payload for other values; a config version 1 or older server's record keeps its decoded `metadata.payload`; a missing flag, or a failed or unreadable record without a payload, has no payload. A failed record that still carries a `metadata.payload` is not checked |
+
+**Harness rule for legacy getters.** The contract defines the legacy rendering of a successful value, and says a typed accessor returns the caller default on a reader error. It does not say what a legacy getter such as `get_feature_flag` returns on a reader error. This suite uses one rule:
+
+- A missing flag (`FLAG_NOT_FOUND`) reads as no value: the adapter returns `null`.
+- Any other reader error reads as `false`. This covers a failed record, an unreadable record and a known field with the wrong JSON type.
+
+This matches how posthog-python's legacy getters behave today.
 
 ### `POST /reset`
 

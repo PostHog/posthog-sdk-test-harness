@@ -18,7 +18,7 @@ from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.server import MockServer
 from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.tests.suites import ContractTestSuite
-from posthog_test_harness.types import FeatureFlagRequest
+from posthog_test_harness.types import FeatureFlagRequest, MockResponse
 
 SUITE = "feature_flags_v4"
 ALL_CAPABILITIES = ["capture_v0", "flags_response_v4", "feature_flag_payloads"]
@@ -222,44 +222,98 @@ async def test_payload_read_takes_the_key_from_the_case() -> None:
 # --- Assertions --------------------------------------------------------------
 
 
-def _result_ctx(result):
-    return SimpleNamespace(last_action_result=result)
+def _served_state(case: str, query: str = "v=4", source: str = "readers") -> MockServerState:
+    """A mock server that served the case's fixture to one /flags request."""
+    state = MockServerState()
+    state.set_response_queue(
+        [MockResponse(body=json.dumps(flags_v4.response(source, case)), path="/flags", raw_body=True)]
+    )
+    MockServer(state).app.test_client().post(f"/flags/?{query}", json={"distinct_id": "someone"})
+    return state
+
+
+def _result_ctx(result, params=None, state=None):
+    params = params or {}
+    if state is None:
+        state = _served_state(params.get("case", "readers.missing_flag"), source=params.get("source", "readers"))
+    return SimpleNamespace(last_action_result={"success": True, **result}, mock_server=state)
 
 
 @pytest.mark.asyncio
 async def test_legacy_value_assertion_is_type_strict() -> None:
     params = {"source": "readers", "case": "readers.old_server_boolean"}
-    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": True}))
+    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": True}, params))
     with pytest.raises(AssertionError, match="legacy value"):
-        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": 1}))
+        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": 1}, params))
 
 
 @pytest.mark.asyncio
 async def test_legacy_value_assertion_requires_no_value_for_a_missing_flag() -> None:
     params = {"source": "readers", "case": "readers.missing_flag"}
-    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}))
+    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}, params))
     with pytest.raises(AssertionError, match="legacy value"):
-        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": False}))
+        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": False}, params))
 
 
 @pytest.mark.asyncio
 async def test_payload_assertion_compares_json_values() -> None:
     params = {"source": "values", "case": "v2_value.number.exponent"}
-    await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": json.loads("1.5e-7")}))
+    await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": json.loads("1.5e-7")}, params))
     with pytest.raises(AssertionError, match="payload"):
-        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": "1.5e-07"}))
+        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": "1.5e-07"}, params))
 
 
 @pytest.mark.asyncio
 async def test_payload_assertion_refuses_an_undecided_reader_case() -> None:
     params = {"source": "readers", "case": "readers.v1_failed"}
     with pytest.raises(ValueError, match="does not decide"):
-        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": None}))
+        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": None}, params))
 
 
 @pytest.mark.asyncio
 async def test_payload_assertion_reads_a_config_version_1_payload() -> None:
     params = {"source": "readers", "case": "readers.v1_at_v4"}
-    await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": {"columns": 2}}))
+    await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": {"columns": 2}}, params))
     with pytest.raises(AssertionError, match="payload"):
-        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": '{"columns":2}'}))
+        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": '{"columns":2}'}, params))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
+async def test_case_assertions_require_a_successful_adapter_result(action) -> None:
+    params = {"source": "readers", "case": "readers.missing_flag"}
+    ctx = SimpleNamespace(
+        last_action_result={"success": False, "error": "request failed"},
+        mock_server=_served_state(params["case"]),
+    )
+    with pytest.raises(AssertionError, match="did not report success"):
+        await action().execute(params, ctx)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
+async def test_case_assertions_require_the_sdk_to_read_the_fixture(action) -> None:
+    params = {"source": "readers", "case": "readers.missing_flag"}
+    with pytest.raises(AssertionError, match="no /flags request"):
+        await action().execute(params, _result_ctx({"value": None}, params, MockServerState()))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
+async def test_case_assertions_require_a_v4_request(action) -> None:
+    params = {"source": "readers", "case": "readers.missing_flag"}
+    state = _served_state(params["case"], query="v=2")
+    with pytest.raises(AssertionError, match="expected v=4"):
+        await action().execute(params, _result_ctx({"value": None}, params, state))
+
+
+@pytest.mark.asyncio
+async def test_configured_v4_response_serves_an_accessor_that_reads_twice() -> None:
+    state = MockServerState()
+    await ConfigureFlagsV4ResponseAction().execute(
+        {"source": "values", "case": "v2_value.number.zero"}, SimpleNamespace(mock_server=state)
+    )
+    client = MockServer(state).app.test_client()
+    expected = json.dumps(flags_v4.response("values", "v2_value.number.zero"))
+    for _ in range(2):
+        assert client.post("/flags/?v=4", json={}).get_data(as_text=True) == expected
