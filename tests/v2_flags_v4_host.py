@@ -35,12 +35,30 @@ EXPECTATIONS = _expectations_by_response()
 
 
 class FlagsV4Engine(RemoteFlagsEngine):
-    async def read(self, args):
+    async def fetch_v4(self, args, version="4"):
         body = {"token": self.token, "distinct_id": args["distinct_id"], "flag_keys_to_evaluate": [args["key"]]}
         async with aiohttp.ClientSession(trust_env=False) as session:
-            async with session.post(f"{self.host}/flags?v=4", json=body) as response:
+            async with session.post(f"{self.host}/flags?v={version}", json=body) as response:
                 data = await response.json(content_type=None)
         self.parsed_responses.append(data)
+        return data
+
+    async def read(self, args):
+        if self.defect == "no_request":
+            # Answers without reading /flags: right for a missing flag, but it never read the fixture.
+            return {"key": args["key"], "legacy_value": None, "legacy_payload": None}
+        if self.defect == "unserved_request":
+            # Requests /decide, which never receives the fixture, and reports no value.
+            async with aiohttp.ClientSession(trust_env=False) as session:
+                async with session.post(f"{self.host}/decide?v=4", json={"distinct_id": args["distinct_id"]}):
+                    pass
+            return {"key": args["key"], "legacy_value": None, "legacy_payload": None}
+        if self.defect == "thrown":
+            raise RuntimeError("Controlled read error")
+        data = await self.fetch_v4(args, "2" if self.defect == "v2_request" else "4")
+        if self.defect == "repeated_request":
+            # A payload getter that evaluates the flag first: each request gets the fixture.
+            assert await self.fetch_v4(args) == data
         # An unknown body (for example one with merged default fields) is an SDK throw.
         expected = EXPECTATIONS[_canonical(data)]
         assert expected["key"] == args["key"]

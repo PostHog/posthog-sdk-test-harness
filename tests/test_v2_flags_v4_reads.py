@@ -175,3 +175,45 @@ async def test_equivalent_answers_pass(generated, path, fixture_case, defect):
         report, _ = await run(contracts, generated, [path], url, host.profile["id"], case_ids=[selected])
     row = next(r for r in report["results"] if r["case_id"] == selected)["result"]
     assert row["status"] == "passed", row
+
+
+@pytest.mark.parametrize(
+    "path,fixture_case,defect,code",
+    [
+        # Each expects no value, so only the fixture-read check can catch them.
+        (GETTER, "reader fixture readers.missing_flag", "no_request", "flag_fixture_read"),
+        (PAYLOAD, "reader fixture readers.missing_flag", "no_request", "flag_fixture_read"),
+        (PAYLOAD, "typed value v2_value.string.target", "no_request", "flag_fixture_read"),
+        (GETTER, "reader fixture readers.missing_flag", "unserved_request", "flag_fixture_read"),
+        (PAYLOAD, "reader fixture readers.error", "unserved_request", "flag_fixture_read"),
+        # The fixture read with the wrong /flags version.
+        (GETTER, "reader fixture readers.complete_split", "v2_request", "flag_fixture_read"),
+        (PAYLOAD, "typed value v2_value.number.target", "v2_request", "flag_fixture_read"),
+        # A read error is a thrown SDK call, never a missing value.
+        (GETTER, "reader fixture readers.missing_flag", "thrown", "flag_getter_thrown"),
+        (PAYLOAD, "reader fixture readers.missing_flag", "thrown", "flag_payload_getter_thrown"),
+    ],
+)
+async def test_a_read_that_skips_the_fixture_fails(generated, path, fixture_case, defect, code):
+    contracts = Contracts()
+    noun = "getter" if path == GETTER else "payload getter"
+    selected = case_id(path, f"Legacy {noun} reads {fixture_case}")
+    async with serve(contracts, host_type=FlagsV4Host, defect=defect) as (host, url):
+        report, diagnostics = await run(contracts, generated, [path], url, host.profile["id"], case_ids=[selected])
+    row = next(r for r in report["results"] if r["case_id"] == selected)["result"]
+    assert row["status"] == "failed_assertion", row
+    assert row["failure"]["code"] == code
+    if code == "flag_fixture_read":
+        details = diagnostics["cases"][0]["failure"]["details"]
+        assert details["fixture_reads"] == (1 if defect == "v2_request" else 0)
+        assert details["fixture_read_versions"] == (["2"] if defect == "v2_request" else [])
+    assert strict_exit_code(contracts, report) == 1
+
+
+async def test_every_request_gets_the_body_when_a_getter_reads_twice(generated):
+    contracts = Contracts()
+    selected = case_id(PAYLOAD, "Legacy payload getter reads reader fixture readers.v1_at_v4")
+    async with serve(contracts, host_type=FlagsV4Host, defect="repeated_request") as (host, url):
+        report, _ = await run(contracts, generated, [PAYLOAD], url, host.profile["id"], case_ids=[selected])
+    assert next(r for r in report["results"] if r["case_id"] == selected)["result"]["status"] == "passed"
+    assert len(host.engines[0].parsed_responses) == 2
