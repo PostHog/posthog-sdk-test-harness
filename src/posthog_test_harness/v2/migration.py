@@ -5,6 +5,7 @@ from pathlib import Path
 from .contracts import require
 
 SUITE = "migration/yaml-parity-v1"
+EXCLUSION_RULE = "sdk-capability-excluded-v1"
 
 
 def migration_paths(root):

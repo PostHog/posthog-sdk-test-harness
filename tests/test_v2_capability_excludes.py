@@ -92,25 +92,36 @@ def test_exclusion_takes_precedence_over_missing_capabilities(corpus):
     assert selection(replacement, declared, routes)["excluding_sdk_capabilities"] == []
 
 
-async def test_explicitly_selected_excluded_case_is_a_visible_gap(corpus):
+V4 = ("flags_v2", "flags_getter_remote_uncached", "flags_response_v4")
+
+
+@pytest.mark.parametrize(
+    "capabilities,explicit,expected,exit_code",
+    [
+        # A replaced case alone does not make a successful run.
+        (V4, [0], ["not_applicable", "not_selected"], 1),
+        (V4, [0, 1], ["not_applicable", "passed"], 0),
+        # The exclusion is reported before the capabilities the case is missing.
+        (("flags_response_v4",), [0], ["not_applicable", "not_selected"], 1),
+    ],
+)
+async def test_explicitly_selected_excluded_case_is_not_applicable(corpus, capabilities, explicit, expected, exit_code):
     contracts = Contracts()
-    default = load_cases(corpus, [FEATURE])[0][0]
-    capabilities = ("flags_v2", "flags_getter_remote_uncached", "flags_response_v4")
+    cases = load_cases(corpus, [FEATURE])[0]
+    case_ids = [cases[index].id for index in explicit]
     async with serve(contracts, host_type=RemoteFlagsHost, sdk_capabilities=capabilities) as (host, url):
-        report, _ = await run(contracts, corpus, [FEATURE], url, host.profile["id"], case_ids=[default.id])
-    result = report["results"][0]["result"]
-    assert result["status"] == "unsupported_binding"
-    assert result["failure"]["code"] == "sdk_capability_excluded"
-    assert not result["executed"] and not host.fixtures
-    assert strict_exit_code(contracts, report) == 1
-
-
-async def test_explicit_exclusion_is_reported_before_missing_capabilities(corpus):
-    contracts = Contracts()
-    default = load_cases(corpus, [FEATURE])[0][0]
-    async with serve(contracts, host_type=RemoteFlagsHost, sdk_capabilities=("flags_response_v4",)) as (host, url):
-        report, _ = await run(contracts, corpus, [FEATURE], url, host.profile["id"], case_ids=[default.id])
-    assert report["results"][0]["result"]["failure"]["code"] == "sdk_capability_excluded"
+        report, diagnostics = await run(contracts, corpus, [FEATURE], url, host.profile["id"], case_ids=case_ids)
+    assert statuses(report) == expected, report
+    assert report["results"][0]["result"] == {
+        "status": "not_applicable",
+        "executed": False,
+        "reason": "SDK declares a capability that replaces this case: flags_response_v4",
+        "applicability_rule": "sdk-capability-excluded-v1",
+    }
+    assert report["inventory"][0]["applicability"]["rule"] == "sdk-capability-excluded-v1"
+    assert diagnostics["cases"] == [] or [c["case_id"] for c in diagnostics["cases"]] == [cases[1].id]
+    assert len(host.fixtures) == expected.count("passed")
+    assert strict_exit_code(contracts, report) == exit_code
 
 
 async def test_canonical_excluded_case_is_not_selected(tmp_path):
