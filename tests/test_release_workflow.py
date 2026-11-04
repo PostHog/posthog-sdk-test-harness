@@ -132,6 +132,13 @@ def test_release_locks_version_before_commit_and_builds_clean_pinned_inputs():
     checkout = step("Checkout pinned SDK specs")["run"]
     assert 'fetch --depth=1 origin "$SDK_SPECS_COMMIT"' in checkout
     assert 'rev-parse HEAD)" = "$SDK_SPECS_COMMIT"' in checkout
+    check = step("Check generated flags v4 features")
+    assert check["if"] == "steps.commit-release.outputs.commit-hash != ''"
+    assert (
+        STEPS.index(step("Checkout pinned SDK specs")) < STEPS.index(check) < STEPS.index(step("Build v2 distribution"))
+    )
+    assert "bin/update-flags-v4-features.py" in check["run"]
+    assert '--specs "$RUNNER_TEMP/sdk-specs" --check' in check["run"]
     build = step("Build v2 distribution")["run"]
     assert "--locked" in build
     assert '--specs "$RUNNER_TEMP/sdk-specs" --out "$RUNNER_TEMP/v2-distribution"' in build

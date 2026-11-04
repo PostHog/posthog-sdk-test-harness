@@ -32,7 +32,7 @@ def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot, specs
         assert packaged == source
         assert packaged["cases"]
         if paths is not None:
-            assert len(packaged["cases"]) == 158
+            assert len(packaged["cases"]) == 307
     assert all(name.endswith(".feature") for name in manifest["files"])
 
 
@@ -81,12 +81,12 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     result = runner.invoke(main, args)
     assert result.exit_code == 0, result.output
     data = json.loads(report.read_text())
-    assert len(data["cases"]) == 158
+    assert len(data["cases"]) == 307
     assert data["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
     acceptance = runner.invoke(main, ["discover", "--acceptance-suite", "--require-ready", "--report", str(report)])
     assert acceptance.exit_code == 0, acceptance.output
     opted_in = json.loads(report.read_text())
-    assert len(opted_in["cases"]) == 189
+    assert len(opted_in["cases"]) == 338
     assert all(case["status"] == "harness_ready" for case in opted_in["cases"])
     assert all("migration" in case or "@sdk:server" in case["tags"] for case in opted_in["cases"])
     info = runner.invoke(main, ["bundle-info"])

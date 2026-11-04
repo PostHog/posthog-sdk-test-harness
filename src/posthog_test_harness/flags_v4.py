@@ -84,6 +84,16 @@ def case_ids(source: str) -> List[str]:
     raise ValueError(f"Unknown flags v4 fixture source {source!r}; expected one of {SOURCES}")
 
 
+def contract_version() -> str:
+    """The version of the contract package the cases come from."""
+    return str(_load("manifest.json")["contract"]["version"])
+
+
+def reader(case_id: str) -> Dict[str, Any]:
+    """The reader expectation of a reader case: requested key, error code, config version."""
+    return dict(_case("readers", case_id)["reader"])
+
+
 def _case(source: str, case_id: str) -> Dict[str, Any]:
     cases = _readers()["cases"] if source == "readers" else _value_corpus()["cases"]
     for case in cases:

@@ -36,7 +36,7 @@ Omit `--specs` to use the verified [packaged features](harness-v2-distribution.m
 
 The official Cucumber parser expands backgrounds, rules and outlines across the suite. Ordinary scenarios use feature path and scenario name as their report identity; Scenario Outlines may use `@case:<case_id>` with a unique `case_id` Examples column to label each row. Unmigrated outlines without labels use their source-row locations. The source-content revision remains in the report separately. `@requires:<capability>` declares SDK features. `@excludes:<capability>` names a capability that replaces the case: the harness does not select the case when the profile declares any capability it excludes, and an explicitly selected excluded case reports `sdk_capability_excluded`. For example, `flags_response_v4` replaces the `?v=2` query check on `/flags` with a `?v=4` check. `@sdk:server` and `@sdk:client` restrict applicability in the migration suite and opt scenarios into tag-based acceptance selection. Both tags together opt the case in for either SDK type. Required routes come from step bindings; a missing required route does not silently exclude a selected case.
 
-The migrated scope contains 158 cases. Canonical features are discoverable but many require operations or fixtures not yet implemented. Discovery readiness means steps are bound, not SDK conformance. Missing public operations are `unsupported_binding`; unavailable fixture controls are `blocked_fixture`; undefined steps are harness errors. Public getters such as `pending_events()` are legitimate future bindings when shared event/queued/in-flight/retry semantics are defined. Queue snapshots, evaluator hooks and fabricated counters are not substitutes. Retention and delivery may instead be proved by public flush/retry behavior and observed traffic where that preserves the scenario's assertion.
+The migrated scope contains 307 cases. Canonical features are discoverable but many require operations or fixtures not yet implemented. Discovery readiness means steps are bound, not SDK conformance. Missing public operations are `unsupported_binding`; unavailable fixture controls are `blocked_fixture`; undefined steps are harness errors. Public getters such as `pending_events()` are legitimate future bindings when shared event/queued/in-flight/retry semantics are defined. Queue snapshots, evaluator hooks and fabricated counters are not substitutes. Retention and delivery may instead be proved by public flush/retry behavior and observed traffic where that preserves the scenario's assertion.
 
 ## Draft HTTP adapter contract
 
@@ -59,7 +59,7 @@ Completion is exactly one of:
 
 `value` accepts JSON data including false, zero and null. Omitted arguments remain omitted. Native SDK throws are not transport errors; public-operation throws fail acceptance cases and remain visible in the report. Adapters must pass representable invalid inputs to the SDK, faithfully translate native argument names, and avoid injected defaults, hidden flushes or corrective retries. Malformed requests, duplicate IDs and nonexistent fixtures produce non-200 JSON errors. The client retains bounded error detail. Request transport permits one second beyond the native deadline for a failure response; negotiation defaults to five seconds. No SDK result catalog is enforced globally.
 
-The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
+The migrated bindings use `/setup`, `/capture`, `/capture_ai`, `/flush`, `/get_feature_flag`, `/get_feature_flag_payload` and `/reload_feature_flags`. Their argument objects appear directly in feature doc strings or named step bindings. Additional shared public operations can be added with concrete scenarios; object references, callback continuations and private fixture-control endpoints are not part of this draft.
 
 ## Shared public setup and delivery
 
@@ -79,7 +79,7 @@ with a UUID-shaped root distinct id. The receiver assertion requires
 `properties.$process_person_profile: false` on legacy batch delivery or
 `options.process_person_profile: false` (without the legacy property) on Capture v1.
 Unmigrated client and validation cases remain
-unselected. The same acceptance run includes the 158 migrated cases with their
+unselected. The same acceptance run includes the 307 migrated cases with their
 existing capability-based selection. Their source paths and migration metadata
 retain YAML provenance.
 The steps `identify is called with JSON arguments:` and
@@ -123,6 +123,18 @@ the scenario. Delivery checks use `properties.$exception_list[0].type`, `.value`
 supplied scalar/nested JSON properties. A second case omits caller properties.
 These cases exercise manual reporting, not automatic fatal-error or next-launch
 crash recovery.
+
+## Remote `/flags?v=4` reads
+
+The migrated features `remote-flags-v4-legacy-getter.feature` and `remote-flags-v4-legacy-payload.feature` are the Gherkin form of the YAML `feature_flags_v4` suite. They require `flags_response_v4`, and the payload feature also requires `feature_flag_payloads`. Each scenario serves one v4 response from the feature flag rules v2 contract and makes one remote read:
+
+- `the mock serves this /flags response body:` queues the JSON doc string for the next `/flags` request and sends it byte for byte. The endpoint's default fields are not merged in, so a v4 envelope has no `featureFlags` member.
+- `get feature flag payload is called with JSON arguments:` invokes `/get_feature_flag_payload` with the same arguments as `/get_feature_flag`. The adapter calls the SDK's existing payload getter, which returns the payload as a decoded JSON value. A thrown getter fails the case.
+- `the public flag getter should return exactly JSON <value>` compares with strict JSON types: `true` is not `1`, and `"false"` is not `false`. The older `the public flag getter should return JSON <value>` keeps the YAML suite's Python equality.
+- `the public flag payload getter should return JSON <value>` and `the public flag payload getter should return this JSON:` compare parsed JSON values: object member order and number spelling may differ, JSON types may not.
+- `the public flag getter should return no value` and `the public flag payload getter should return no payload` accept the native undefined outcome or JSON `null`.
+
+`bin/update-flags-v4-features.py --specs <sdk-specs checkout>` writes both features from `fixtures/wire/readers.json` and the successful cases of `corpus/v2_value_evaluation.json`, with the mock bodies and expectations of `posthog_test_harness.flags_v4`. Each scenario shows its body and expected result inline. `--check` fails when a feature differs from the contract. The release workflow runs the check on the pinned specs before it builds the v2 distribution, and `tests/test_v2_flags_v4_reads.py` runs it when `SDK_V2_SPECS` is set. The `readers.v1_failed` payload case is left out, as in the YAML suite.
 
 ## Request-local snapshot reads
 
