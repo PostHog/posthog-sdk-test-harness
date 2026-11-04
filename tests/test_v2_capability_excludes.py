@@ -2,7 +2,7 @@
 
 import pytest
 
-from posthog_test_harness.v2.contracts import Contracts
+from posthog_test_harness.v2.contracts import BoundaryError, Contracts
 from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.migration import selection
 from posthog_test_harness.v2.report import strict_exit_code
@@ -11,6 +11,7 @@ from tests.v2_flush_host import serve
 from tests.v2_remote_flags_host import RemoteFlagsHost
 
 FEATURE = "migration/yaml-parity-v1/query-version.feature"
+CANONICAL = "acceptance/public/query-version.feature"
 REQUEST = '''    When the SDK is initialized with token "phc_test_key" and no additional configuration
     And get feature flag is called with JSON arguments:
       """application/json
@@ -23,19 +24,20 @@ REQUEST = '''    When the SDK is initialized with token "phc_test_key" and no ad
 '''
 
 
-@pytest.fixture
-def corpus(tmp_path):
-    target = tmp_path / FEATURE
-    target.parent.mkdir(parents=True)
+def write_feature(
+    root, path, feature_tags="@requires:flags_v2 @sdk:server", default_tags="@excludes:flags_response_v4"
+):
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        "@requires:flags_v2 @sdk:server\n"
+        f"{feature_tags}\n"
         "Feature: Query version\n"
         "  Background:\n"
         "    Given an isolated SDK with empty persistent storage\n"
         "    And the mock PostHog server is reset\n"
         "    And the server uses its native flag startup and getter behavior"
         " with no installed local definitions or results\n"
-        "  @excludes:flags_response_v4\n"
+        f"  {default_tags}\n"
         "  Scenario: Default version\n"
         + REQUEST
         + '    And the first flags request query parameter "v" should equal "2"\n'
@@ -44,6 +46,11 @@ def corpus(tmp_path):
         + REQUEST
         + '    And the first flags request query parameter "v" should equal "4"\n'
     )
+
+
+@pytest.fixture
+def corpus(tmp_path):
+    write_feature(tmp_path, FEATURE)
     return tmp_path
 
 
@@ -81,6 +88,7 @@ def test_exclusion_takes_precedence_over_missing_capabilities(corpus):
     assert decision["missing_sdk_capabilities"] == ["flags_v2"]
     assert decision["excluding_sdk_capabilities"] == ["flags_response_v4"]
     assert decision["reason"].startswith("SDK declares a capability that replaces this case")
+    assert decision["reason"] == selection(default, declared, [])["reason"]
     assert selection(replacement, declared, routes)["excluding_sdk_capabilities"] == []
 
 
@@ -95,3 +103,36 @@ async def test_explicitly_selected_excluded_case_is_a_visible_gap(corpus):
     assert result["failure"]["code"] == "sdk_capability_excluded"
     assert not result["executed"] and not host.fixtures
     assert strict_exit_code(contracts, report) == 1
+
+
+async def test_explicit_exclusion_is_reported_before_missing_capabilities(corpus):
+    contracts = Contracts()
+    default = load_cases(corpus, [FEATURE])[0][0]
+    async with serve(contracts, host_type=RemoteFlagsHost, sdk_capabilities=("flags_response_v4",)) as (host, url):
+        report, _ = await run(contracts, corpus, [FEATURE], url, host.profile["id"], case_ids=[default.id])
+    assert report["results"][0]["result"]["failure"]["code"] == "sdk_capability_excluded"
+
+
+async def test_canonical_excluded_case_is_not_selected(tmp_path):
+    write_feature(tmp_path, CANONICAL, feature_tags="@sdk:server")
+    contracts = Contracts()
+    capabilities = ("flags_v2", "flags_getter_remote_uncached", "flags_response_v4")
+    async with serve(contracts, host_type=RemoteFlagsHost, sdk_capabilities=capabilities) as (host, url):
+        report, _ = await run(contracts, tmp_path, [CANONICAL], url, host.profile["id"], tagged_acceptance=True)
+    assert statuses(report) == ["not_selected", "passed"], report
+    assert report["results"][0]["result"]["reason"].startswith("SDK declares a capability that replaces this case")
+    assert strict_exit_code(contracts, report) == 0
+
+
+@pytest.mark.parametrize(
+    "feature_tags,default_tags",
+    [
+        ("@requires:flags_v2 @excludes:flags_response_v4", "@requires:flags_response_v4"),
+        ("@requires:flags_v2", "@excludes:"),
+    ],
+)
+def test_unsatisfiable_or_empty_exclusions_are_invalid_source(tmp_path, feature_tags, default_tags):
+    write_feature(tmp_path, FEATURE, feature_tags=feature_tags, default_tags=default_tags)
+    with pytest.raises(BoundaryError) as error:
+        load_cases(tmp_path, [FEATURE])
+    assert error.value.code == "invalid_source"

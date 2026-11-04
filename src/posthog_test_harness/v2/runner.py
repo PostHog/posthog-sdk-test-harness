@@ -11,7 +11,7 @@ from .contracts import VERSION, BoundaryError, require
 from .fixtures import CaseServer
 from .gherkin import load_cases
 from .local_parity_steps import no_remote
-from .migration import SUITE, declared_exclusions, selection
+from .migration import SUITE, declared_exclusions, exclusion_reason, selection
 from .snapshot_steps import STEPS
 from .steps import Context
 
@@ -58,6 +58,10 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
     cancel_count = asyncio.current_task().cancelling()
     caller_cancellation = None
     try:
+        # A replaced case is reported as replaced, before any other missing prerequisite.
+        excluding = declared_exclusions(case, profile)
+        if excluding:
+            raise BoundaryError("sdk_capability_excluded", exclusion_reason(excluding), "unsupported_binding")
         if native_flag_sdk_types(case) and "sdk_type" not in profile:
             raise BoundaryError(
                 "sdk_type_undeclared",
@@ -95,14 +99,6 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
             raise BoundaryError(
                 "sdk_capability_unavailable",
                 "Required SDK capability unavailable: " + ", ".join(sorted(missing)),
-                "unsupported_binding",
-            )
-        excluding = declared_exclusions(case, profile)
-        if excluding:
-            current = None
-            raise BoundaryError(
-                "sdk_capability_excluded",
-                "SDK declares a capability that replaces this case: " + ", ".join(excluding),
                 "unsupported_binding",
             )
         for index, (step, (handler, args)) in enumerate(zip(case.steps, bindings)):
@@ -315,6 +311,8 @@ async def run(
                     diagnostics.setdefault("selection", []).append(
                         {"case_id": case.id, **decision, "selected": selected, "reason": reason}
                     )
+                elif selected and case.id not in case_ids and (excluding := declared_exclusions(case, profile)):
+                    selected, reason = False, exclusion_reason(excluding)
                 applicability = {"kind": "applicable"}
                 if required_types and declared_type is not None and declared_type not in required_types:
                     applicability = {
