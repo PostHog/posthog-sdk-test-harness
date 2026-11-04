@@ -56,7 +56,7 @@
       "const": true
     }
   },
-  "description": "Closed projection of the flag-access context properties. Other existing capture fields are outside this projection. Complete v2 producer context follows the terminal outcome; tolerant-reader diagnostics may omit an incomplete attribution tuple. A config version 2 call carries $feature_flag_reason_code and never $feature_flag_reason, the reason description that only version 1 calls carry.",
+  "description": "Closed projection of the flag-access context properties. Other existing capture fields are outside this projection. Complete v2 producer context follows the terminal outcome. A tolerant reader drops the whole attribution of a record that breaks its reason's rows (a rule ID without its rule type or the reverse, a rule type the reason does not allow, or a malformed split): for every reason that names a rule, a call may keep the config version and reason code and omit all rule, variant and experiment attribution, while a partly populated or mismatched tuple is rejected. A config version 2 call carries $feature_flag_reason_code and never $feature_flag_reason, the reason description that only version 1 calls carry.",
   "allOf": [
     {
       "if": {
@@ -405,10 +405,9 @@
             }
           },
           {
-            "description": "A local-only outcome with no matrix row: the server never returns flag_disabled, and the call carries no rule or experiment attribution.",
             "properties": {
               "$feature_flag_reason_code": {
-                "const": "flag_disabled"
+                "const": "targeting_match"
               }
             },
             "not": {
@@ -437,10 +436,134 @@
             }
           },
           {
-            "description": "A tolerant reader may emit a diagnostic call for a malformed split after omitting all rule/experiment attribution. The config marker and reason remain available for diagnostics.",
             "properties": {
               "$feature_flag_reason_code": {
                 "const": "experiment_split"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_rule_type"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_rule_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "rollout_miss"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_rule_type"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_rule_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "experiment_paused"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_rule_type"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_rule_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "holdout"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "$feature_flag_rule_type"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_rule_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_experiment_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "$feature_flag_variant"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "description": "A local-only outcome with no matrix row: the server never returns flag_disabled, and the call carries no rule or experiment attribution.",
+            "properties": {
+              "$feature_flag_reason_code": {
+                "const": "flag_disabled"
               }
             },
             "not": {

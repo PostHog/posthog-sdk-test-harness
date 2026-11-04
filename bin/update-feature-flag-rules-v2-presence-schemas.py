@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Regenerate the terminal-reason branches of the presence and called-context schemas from the presence matrix."""
+"""Regenerate the terminal-reason branches of the presence and called-context schemas from the presence matrix.
+
+The called context also gets one dropped-attribution branch per reason that names a rule.
+"""
 
 import json
 from pathlib import Path
@@ -54,13 +57,35 @@ def called_branch(row: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def dropped_attribution_branches(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A call for a record that breaks its reason's rows keeps the reason and omits all attribution.
+
+    One branch per reason that names a rule. A half rule pair, a rule type the reason does not allow, or a
+    malformed split is dropped whole, so the call carries none of the fields that any row requires or forbids.
+    """
+    fields = dict.fromkeys(field for row in rows for field in [*row["required"], *row["forbidden"]])
+    reasons = dict.fromkeys(row["reason"] for row in rows if row["rule_type"])
+    return [
+        {
+            "properties": {"$feature_flag_reason_code": {"const": reason}},
+            "not": {"anyOf": [{"required": [event_property(field)]} for field in fields]},
+        }
+        for reason in reasons
+    ]
+
+
+def called_branches(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every generated called-context branch: one per matrix row, then the dropped-attribution diagnostics."""
+    return [called_branch(row) for row in rows] + dropped_attribution_branches(rows)
+
+
 def regenerate(rows: list[dict[str, Any]], presence: dict[str, Any], called: dict[str, Any]) -> None:
     """Rewrite the generated branches in place; hand-written branches carry a description and stay behind them."""
     presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"] = [
         response_branch(row) for row in rows
     ]
     branches = called["allOf"][0]["then"]["oneOf"]
-    called["allOf"][0]["then"]["oneOf"] = [called_branch(row) for row in rows] + [
+    called["allOf"][0]["then"]["oneOf"] = called_branches(rows) + [
         branch for branch in branches if "description" in branch
     ]
 

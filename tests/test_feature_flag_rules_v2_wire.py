@@ -402,12 +402,16 @@ def test_presence_schema_branches_are_generated_from_the_matrix() -> None:
     presence = SCHEMAS["schemas/flags_response_v4_presence.schema.json"]
     called = SCHEMAS["schemas/feature_flag_called_context.schema.json"]
     branches = presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"]
-    # Hand-written called branches (local-only flag_disabled and the diagnostic split) carry a description.
+    # The hand-written called branch (local-only flag_disabled) carries a description.
     generated = [branch for branch in called["allOf"][0]["then"]["oneOf"] if "description" not in branch]
-    assert len(branches) == len(generated) == len(MATRIX)
+    assert len(branches) == len(MATRIX)
+    assert generated == PRESENCE.called_branches(MATRIX)
     for row, response, call in zip(MATRIX, branches, generated):
         assert response == PRESENCE.response_branch(row), row["reason"]
         assert call == PRESENCE.called_branch(row), row["reason"]
+    # One dropped-attribution branch per reason that names a rule, after the matrix rows.
+    dropped = [branch["properties"]["$feature_flag_reason_code"]["const"] for branch in generated[len(MATRIX) :]]
+    assert dropped == list(dict.fromkeys(row["reason"] for row in MATRIX if row["rule_type"]))
     regenerated = copy.deepcopy((presence, called))
     PRESENCE.regenerate(MATRIX, *regenerated)
     assert regenerated == (presence, called), "run bin/update-feature-flag-rules-v2-presence-schemas.py"
@@ -520,3 +524,60 @@ def event_negatives() -> list[Any]:
 def test_event_projection_negatives(schema: str, value: dict[str, Any], keyword: str) -> None:
     errors = schema_errors(schema, value)
     assert [(e["keyword"], e["instance_path"]) for e in errors] == [(keyword, "")], errors
+
+
+# A tolerant reader drops the whole rule pair of a record that breaks its reason's rows, so these reasons
+# also accept a config version 2 call with no attribution. A half pair or a disallowed rule type is rejected.
+RULE_REASONS = list(dict.fromkeys(row["reason"] for row in MATRIX if row["rule_type"]))
+RULE_TYPES = [rule_type["value"] for rule_type in LITERALS["rule_types"]]
+
+
+def dropped_call(reason: str) -> dict[str, Any]:
+    return {
+        "$feature_flag": "garden-layout",
+        "$feature_flag_response": True,
+        "$feature_flag_config_version": 2,
+        "$feature_flag_reason_code": reason,
+    }
+
+
+@pytest.mark.parametrize("reason", RULE_REASONS)
+def test_called_context_accepts_a_call_without_attribution(reason: str) -> None:
+    assert schema_errors(CALLED_SCHEMA, dropped_call(reason)) == []
+
+
+@pytest.mark.parametrize("row", MATRIX, ids=row_name)
+def test_called_context_accepts_every_complete_row(row: dict[str, Any]) -> None:
+    assert schema_errors(CALLED_SCHEMA, row_call(row)) == []
+
+
+def broken_attribution_calls() -> list[Any]:
+    """Per reason that names a rule: each required field missing, then each rule type the reason does not allow."""
+    params = []
+    for row in MATRIX:
+        if row["rule_type"]:
+            params += [
+                pytest.param(
+                    {k: v for k, v in row_call(row).items() if k != PRESENCE.event_property(field)},
+                    id=f"calls.{row_name(row)}/missing/{field}",
+                )
+                for field in row["required"]
+            ]
+    for reason in RULE_REASONS:
+        rows = [row for row in MATRIX if row["reason"] == reason]
+        allowed = {row["rule_type"] for row in rows}
+        params += [
+            pytest.param(
+                {**row_call(rows[0]), "$feature_flag_rule_type": rule_type},
+                id=f"calls.{reason}/disallowed/{rule_type}",
+            )
+            for rule_type in RULE_TYPES
+            if rule_type not in allowed
+        ]
+    return params
+
+
+@pytest.mark.parametrize("value", broken_attribution_calls())
+def test_called_context_rejects_a_half_or_mismatched_rule_pair(value: dict[str, Any]) -> None:
+    errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
+    assert errors == [("oneOf", "")]
