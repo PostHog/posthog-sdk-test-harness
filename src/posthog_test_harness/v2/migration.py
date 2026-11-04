@@ -5,6 +5,7 @@ from pathlib import Path
 from .contracts import require
 
 SUITE = "migration/yaml-parity-v1"
+EXCLUSION_RULE = "sdk-capability-excluded-v1"
 
 
 def migration_paths(root):
@@ -13,10 +14,17 @@ def migration_paths(root):
     return paths
 
 
+def tagged(tags, prefix):
+    return {tag.removeprefix(prefix) for tag in tags if tag.startswith(prefix)}
+
+
 def declared_exclusions(case, profile):
     """`@excludes:<capability>` tags name capabilities that replace a case's assertions."""
-    excluded = {tag.removeprefix("@excludes:") for tag in case.tags if tag.startswith("@excludes:")}
-    return sorted(excluded & set(profile.get("sdk_capabilities", [])))
+    return sorted(tagged(case.tags, "@excludes:") & set(profile.get("sdk_capabilities", [])))
+
+
+def exclusion_reason(excluding):
+    return "SDK declares a capability that replaces this case: " + ", ".join(excluding)
 
 
 def selection(case, profile, supported_routes, explicit=False):
@@ -30,10 +38,10 @@ def selection(case, profile, supported_routes, explicit=False):
     missing_capabilities = sorted(set(capabilities) - set(profile.get("sdk_capabilities", [])))
     excluding = declared_exclusions(case, profile)
     selected = explicit or not (missing_capabilities or excluding)
-    if missing_routes:
+    if excluding:
+        reason = exclusion_reason(excluding)
+    elif missing_routes:
         reason = "Public candidate operation unavailable: " + ", ".join(missing_routes)
-    elif excluding:
-        reason = "SDK declares a capability that replaces this case: " + ", ".join(excluding)
     elif missing_capabilities:
         state = "not declared" if "sdk_capabilities" not in profile else "unavailable"
         reason = f"SDK feature/API capability {state}: " + ", ".join(missing_capabilities)
