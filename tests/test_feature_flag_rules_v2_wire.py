@@ -1,6 +1,7 @@
 """Contract meta-tests only: these do not execute an SDK, evaluator or harness action."""
 
 import copy
+import json
 import re
 from collections import Counter
 from pathlib import Path
@@ -213,11 +214,20 @@ def test_tolerant_reader_fixture_expectations(case: dict[str, Any]) -> None:
 
 
 def legacy_payload(response: dict[str, Any], key: str) -> Any:
-    """The legacy payload accessor's result: a failed record reads as disabled, so it yields no payload."""
+    """The legacy payload accessor's result: the decoded payload, or None when there is none.
+
+    A failed record reads as disabled, so it yields no payload. A payload that is not valid JSON yields none.
+    """
     record = response["flags"].get(key)
     if record is None or record.get("failed") is True:
         return None
-    return record.get("metadata", {}).get("payload")
+    payload = record.get("metadata", {}).get("payload")
+    if payload is None:
+        return None
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return None
 
 
 @pytest.mark.parametrize("case", SETS["readers"]["cases"], ids=lambda c: c["id"])
@@ -597,7 +607,27 @@ def broken_attribution_calls() -> list[Any]:
     return params
 
 
-@pytest.mark.parametrize("value", broken_attribution_calls())
+def stray_attribution_calls() -> list[Any]:
+    """Per reason that drops its attribution, and flag_disabled: a call without attribution plus one field."""
+    params = []
+    for reason in [*RULE_REASONS, "flag_disabled"]:
+        rule_types = [row["rule_type"] for row in MATRIX if row["reason"] == reason] or ["targeted_release"]
+        values = {**SAMPLE_VALUES, "rule_type": rule_types[0]}
+        params += [
+            pytest.param(
+                {**dropped_call(reason), PRESENCE.event_property(field): value},
+                id=f"calls.{reason}/dropped/{field}",
+            )
+            for field, value in values.items()
+        ]
+    return params
+
+
+def test_called_context_accepts_a_local_flag_disabled_call() -> None:
+    assert schema_errors(CALLED_SCHEMA, dropped_call("flag_disabled")) == []
+
+
+@pytest.mark.parametrize("value", broken_attribution_calls() + stray_attribution_calls())
 def test_called_context_rejects_a_half_or_mismatched_rule_pair(value: dict[str, Any]) -> None:
     errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
     assert errors == [("oneOf", "")]

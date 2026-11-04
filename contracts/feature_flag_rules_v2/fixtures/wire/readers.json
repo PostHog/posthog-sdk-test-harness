@@ -992,7 +992,10 @@
         "value": "compact",
         "config_version": 1,
         "experiment_exposure": false,
-        "error_code": null
+        "error_code": null,
+        "legacy_payload": {
+          "columns": 2
+        }
       },
       "producer_expected": "valid"
     },
