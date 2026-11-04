@@ -11,7 +11,7 @@ from .contracts import VERSION, BoundaryError, require
 from .fixtures import CaseServer
 from .gherkin import load_cases
 from .local_parity_steps import no_remote
-from .migration import SUITE, selection
+from .migration import SUITE, declared_exclusions, selection
 from .snapshot_steps import STEPS
 from .steps import Context
 
@@ -95,6 +95,14 @@ async def run_case(client, case, profile, server, timeout_ms, diagnostics, repor
             raise BoundaryError(
                 "sdk_capability_unavailable",
                 "Required SDK capability unavailable: " + ", ".join(sorted(missing)),
+                "unsupported_binding",
+            )
+        excluding = declared_exclusions(case, profile)
+        if excluding:
+            current = None
+            raise BoundaryError(
+                "sdk_capability_excluded",
+                "SDK declares a capability that replaces this case: " + ", ".join(excluding),
                 "unsupported_binding",
             )
         for index, (step, (handler, args)) in enumerate(zip(case.steps, bindings)):

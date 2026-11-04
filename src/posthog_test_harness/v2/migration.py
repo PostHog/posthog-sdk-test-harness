@@ -13,6 +13,12 @@ def migration_paths(root):
     return paths
 
 
+def declared_exclusions(case, profile):
+    """`@excludes:<capability>` tags name capabilities that replace a case's assertions."""
+    excluded = {tag.removeprefix("@excludes:") for tag in case.tags if tag.startswith("@excludes:")}
+    return sorted(excluded & set(profile.get("sdk_capabilities", [])))
+
+
 def selection(case, profile, supported_routes, explicit=False):
     """Capabilities select candidates; missing bindings stay visible as execution gaps."""
     requirements = case.migration
@@ -22,9 +28,12 @@ def selection(case, profile, supported_routes, explicit=False):
     capabilities = requirements["sdk_capabilities"]
     missing_routes = sorted(set(routes) - set(supported_routes))
     missing_capabilities = sorted(set(capabilities) - set(profile.get("sdk_capabilities", [])))
-    selected = explicit or not missing_capabilities
+    excluding = declared_exclusions(case, profile)
+    selected = explicit or not (missing_capabilities or excluding)
     if missing_routes:
         reason = "Public candidate operation unavailable: " + ", ".join(missing_routes)
+    elif excluding:
+        reason = "SDK declares a capability that replaces this case: " + ", ".join(excluding)
     elif missing_capabilities:
         state = "not declared" if "sdk_capabilities" not in profile else "unavailable"
         reason = f"SDK feature/API capability {state}: " + ", ".join(missing_capabilities)
@@ -35,5 +44,6 @@ def selection(case, profile, supported_routes, explicit=False):
         "reason": reason,
         "missing_routes": missing_routes,
         "missing_sdk_capabilities": missing_capabilities,
+        "excluding_sdk_capabilities": excluding,
         "explicit": explicit,
     }
