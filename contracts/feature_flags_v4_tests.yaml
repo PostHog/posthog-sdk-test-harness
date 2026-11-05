@@ -7,7 +7,7 @@
   #   values:  the successful cases of corpus/v2_value_evaluation.json, one
   #            string, number or object record each, with its legacy cell.
   #   reader_payloads: the readers cases whose legacy payload the contract
-  #            decides.
+  #            decides. Since contract 9.0.0 that is every readers case.
 
   requires: flags_response_v4
 

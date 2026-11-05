@@ -61,10 +61,9 @@ def test_scenarios_are_the_yaml_suite_cases():
     payload += [f"Legacy payload getter reads typed value {case}" for case in flags_v4.case_ids("values")]
     assert scenario_names(GETTER) == getter
     assert scenario_names(PAYLOAD) == payload
-    assert (len(getter), len(payload)) == (75, 74)
-    # The contract leaves the payload of a failed record that carries one open.
-    assert "Legacy getter reads reader fixture readers.v1_failed" in getter
-    assert not any(name.endswith("readers.v1_failed") for name in payload)
+    assert (len(getter), len(payload)) == (75, 75)
+    # The contract's legacy_payload expectation decides the payload of a failed record that carries one.
+    assert "Legacy payload getter reads reader fixture readers.v1_failed" in payload
 
 
 def test_each_scenario_serves_the_fixture_response_and_expects_its_reader_result():
@@ -120,10 +119,10 @@ async def test_every_case_passes_against_the_contract_expectations(generated):
     async with serve(contracts, host_type=FlagsV4Host) as (host, url):
         report, _ = await run(contracts, generated, [GETTER, PAYLOAD], url, host.profile["id"])
     statuses = [row["result"]["status"] for row in report["results"]]
-    assert statuses == ["passed"] * 149, report
+    assert statuses == ["passed"] * 150, report
     assert strict_exit_code(contracts, report) == 0
     # Each body reached the SDK as written: no default featureFlags member was merged in.
-    assert len(host.engines) == 149
+    assert len(host.engines) == 150
     assert all(len(engine.parsed_responses) == 1 for engine in host.engines)
     assert not any("featureFlags" in engine.parsed_responses[0] for engine in host.engines)
 
