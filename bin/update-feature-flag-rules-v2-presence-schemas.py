@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate the terminal-reason branches of the presence and called-context schemas from the presence matrix."""
+"""Regenerate the terminal-reason branches of the presence and called-context schemas from the presence matrix.
+
+The called context also gets one dropped-attribution branch per reason that names a rule, and one branch for a
+reason code that is missing or has no branch of its own.
+"""
 
 import json
 from pathlib import Path
@@ -47,11 +51,57 @@ def called_branch(row: dict[str, Any]) -> dict[str, Any]:
     properties = {"$feature_flag_reason_code": {"const": row["reason"]}}
     if row["rule_type"]:
         properties["$feature_flag_rule_type"] = {"const": row["rule_type"]}
-    result: dict[str, Any] = {"properties": properties}
-    if row["required"]:
-        result["required"] = [event_property(field) for field in row["required"]]
+    # The reason code is required, so a call without one only matches the unregistered-reason branch.
+    result: dict[str, Any] = {
+        "properties": properties,
+        "required": ["$feature_flag_reason_code", *[event_property(field) for field in row["required"]]],
+    }
     result["not"] = {"anyOf": [{"required": [event_property(field)]} for field in row["forbidden"]]}
     return result
+
+
+def no_attribution(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Forbid every field that any row requires or forbids: the rule, variant and experiment attribution."""
+    fields = dict.fromkeys(field for row in rows for field in [*row["required"], *row["forbidden"]])
+    return {"anyOf": [{"required": [event_property(field)]} for field in fields]}
+
+
+def dropped_attribution_branches(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A call for a record that breaks its reason's rows keeps the reason and omits all attribution.
+
+    One branch per reason that names a rule. A half rule pair, a rule type the reason does not allow, or a
+    malformed split is dropped whole, so the call carries none of the fields that any row requires or forbids.
+    """
+    reasons = dict.fromkeys(row["reason"] for row in rows if row["rule_type"])
+    return [
+        {
+            "properties": {"$feature_flag_reason_code": {"const": reason}},
+            "required": ["$feature_flag_reason_code"],
+            "not": no_attribution(rows),
+        }
+        for reason in reasons
+    ]
+
+
+def unregistered_reason_branch(rows: list[dict[str, Any]], reasons: list[str]) -> dict[str, Any]:
+    """A call whose reason code is missing, or is not one of the reasons with a branch, carries no attribution.
+
+    The other branches require a reason code from ``reasons``, so this branch never overlaps them.
+    """
+    return {
+        "properties": {"$feature_flag_reason_code": {"not": {"enum": reasons}}},
+        "not": no_attribution(rows),
+    }
+
+
+def called_branches(rows: list[dict[str, Any]], reasons: list[str]) -> list[dict[str, Any]]:
+    """Every generated called-context branch: one per matrix row, the dropped-attribution diagnostics, then the
+    branch for a missing or unregistered reason code. ``reasons`` lists every reason with a branch of its own."""
+    return (
+        [called_branch(row) for row in rows]
+        + dropped_attribution_branches(rows)
+        + [unregistered_reason_branch(rows, reasons)]
+    )
 
 
 def regenerate(rows: list[dict[str, Any]], presence: dict[str, Any], called: dict[str, Any]) -> None:
@@ -59,10 +109,14 @@ def regenerate(rows: list[dict[str, Any]], presence: dict[str, Any], called: dic
     presence["allOf"][1]["properties"]["flags"]["additionalProperties"]["then"]["oneOf"] = [
         response_branch(row) for row in rows
     ]
-    branches = called["allOf"][0]["then"]["oneOf"]
-    called["allOf"][0]["then"]["oneOf"] = [called_branch(row) for row in rows] + [
-        branch for branch in branches if "description" in branch
-    ]
+    hand_written = [branch for branch in called["allOf"][0]["then"]["oneOf"] if "description" in branch]
+    reasons = list(
+        dict.fromkeys(
+            [row["reason"] for row in rows]
+            + [branch["properties"]["$feature_flag_reason_code"]["const"] for branch in hand_written]
+        )
+    )
+    called["allOf"][0]["then"]["oneOf"] = called_branches(rows, reasons) + hand_written
 
 
 def _load(path: Path) -> Any:
