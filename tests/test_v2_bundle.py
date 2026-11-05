@@ -10,7 +10,7 @@ from posthog_test_harness.v2 import bundle as resources
 from posthog_test_harness.v2.bundle import MANIFEST, validate_bundle
 from posthog_test_harness.v2.cli import main
 from posthog_test_harness.v2.contracts import BoundaryError
-from posthog_test_harness.v2.discovery import discover
+from posthog_test_harness.v2.discovery import acceptance_paths, discover
 from posthog_test_harness.v2.migration import migration_paths
 from scripts.build_v2_distribution import create_bundle
 
@@ -83,12 +83,6 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     data = json.loads(report.read_text())
     assert len(data["cases"]) == 158
     assert data["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
-    acceptance = runner.invoke(main, ["discover", "--acceptance-suite", "--require-ready", "--report", str(report)])
-    assert acceptance.exit_code == 0, acceptance.output
-    opted_in = json.loads(report.read_text())
-    assert len(opted_in["cases"]) == 189
-    assert all(case["status"] == "harness_ready" for case in opted_in["cases"])
-    assert all("migration" in case or "@sdk:server" in case["tags"] for case in opted_in["cases"])
     info = runner.invoke(main, ["bundle-info"])
     assert info.exit_code == 0, info.output
     assert json.loads(info.output) == validate_bundle(snapshot)
@@ -100,6 +94,36 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     result = runner.invoke(main, args)
     assert result.exit_code != 0 and "No packaged specs bundle" in result.output
     assert runner.invoke(main, [*args, "--specs", str(specs)]).exit_code == 0
+
+
+def test_packaged_acceptance_inventory_matches_source(snapshot, specs, tmp_path, monkeypatch):
+    monkeypatch.setattr(resources, "files", lambda _: snapshot.parent)
+    report = tmp_path / "acceptance.json"
+    result = CliRunner().invoke(main, ["discover", "--acceptance-suite", "--require-ready", "--report", str(report)])
+    assert result.exit_code == 0, result.output
+    packaged = json.loads(report.read_text())
+    expected = [
+        case
+        for case in discover(specs, acceptance_paths(specs))["cases"]
+        if "migration" in case or {"@sdk:client", "@sdk:server"}.intersection(case["tags"])
+    ]
+    assert packaged["cases"] == expected
+    assert all(case["status"] == "harness_ready" for case in packaged["cases"])
+    assert packaged["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
+
+
+def test_packaged_exception_cases_match_source(snapshot, specs, tmp_path, monkeypatch):
+    monkeypatch.setattr(resources, "files", lambda _: snapshot.parent)
+    feature = "acceptance/public/capture-exception.feature"
+    report = tmp_path / "exceptions.json"
+    result = CliRunner().invoke(main, ["discover", "--feature", feature, "--report", str(report)])
+    assert result.exit_code == 0, result.output
+    packaged = json.loads(report.read_text())
+    assert packaged["cases"] == discover(specs, [feature])["cases"]
+    server_cases = [case for case in packaged["cases"] if "@sdk:server" in case["tags"]]
+    assert len(server_cases) == 12
+    assert all(case["status"] == "harness_ready" for case in server_cases)
+    assert packaged["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
 
 
 def test_acceptance_discovery_checks_only_opted_in_cases(tmp_path):

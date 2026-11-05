@@ -223,6 +223,24 @@ Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`event_property`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
+the first received event's exception list should contain these types in order:
+```
+Argument: `dataTable`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_types`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event's exception list should have valid tree identifiers
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_tree_identifiers`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event's primary exception frames should contain these functions in order:
+```
+Argument: `dataTable`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_frames`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
 the first received event's primary exception should be handled
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
@@ -233,6 +251,30 @@ the first received event's primary exception should have stack frames
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`exception_stack`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event\'s exception at index ([0-9]+) mechanism should include JSON (.+)
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_mechanism`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event\'s exception at index ([0-9]+) mechanism should omit "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`absent_exception_mechanism_field`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event\'s exception at index ([0-9]+) should have message "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`indexed_exception_message`](../src/posthog_test_harness/v2/ai_steps.py).
+
+```text
+the first received event\'s primary exception message should contain "([^"]+)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exception_message_contains`](../src/posthog_test_harness/v2/ai_steps.py).
 
 ```text
 the first received event\'s primary exception should have type "([^"]*)" and message "([^"]*)"
