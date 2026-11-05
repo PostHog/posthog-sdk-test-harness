@@ -274,6 +274,7 @@ class MockServerState:
                     headers=v1_headers,
                     body=v1_body,
                     v1_event_results=response_config.v1_event_results,
+                    raw_body=response_config.raw_body,
                 )
 
             # Create recorded request
