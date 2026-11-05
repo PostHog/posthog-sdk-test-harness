@@ -1,5 +1,29 @@
 # posthog-sdk-test-harness
 
+## 1.28.0 — 2026-11-05
+
+### Minor changes
+
+- [a1a5658](https://github.com/posthog/posthog-sdk-test-harness/commit/a1a5658a795efdb5d98079d3839451a7ab87b5e0) Add the `feature_flags_v4` suite, which runs the feature flag rules v2 reader fixtures and value corpus through an SDK by serving mock `/flags?v=4` responses built from the contract package.
+  
+  - Requires `flags_response_v4`. Every case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`: `get_feature_flag` returns the legacy rendering of the record value, `false` for a failed or unreadable record, no value for a missing flag, and `variant ?? enabled` for an older server's record. Each test also requires a successful adapter result and a `/flags?v=4` request that read the case's response.
+  - With `feature_flag_payloads`, the payload accessor returns a config version 2 number or object value as the payload, keeps a config version 1 record's `metadata.payload`, and returns no payload otherwise. A failed record that still carries a payload is not checked, because the contract leaves it open. Payloads compare as parsed JSON values, so key order and number spelling may differ.
+  - New optional adapter route `POST /get_feature_flag_payload`; see ADAPTER_GUIDE.md.
+  - Contract tests can set `cases: readers`, `cases: values` or `cases: reader_payloads` to run once per fixture case with `{case}` substituted.
+  - Mock responses can set `raw_body` to send a body as is, without the endpoint's default fields, so a v4 envelope carries no `featureFlags`.
+  
+  Adapters without `flags_response_v4` run no new tests, and no existing test changes. — Thanks @andehen!
+- [e481a63](https://github.com/posthog/posthog-sdk-test-harness/commit/e481a63e399cd11937eb227f0fb8a2b6490c89ca) The v2 Gherkin runner reads `@excludes:<capability>` tags. It does not select a case when the adapter profile declares any capability that the case excludes. An excluded case that is selected explicitly is `not_applicable` with rule `sdk-capability-excluded-v1`. This lets `flags_response_v4` replace the `?v=2` query check on `/flags` with a `?v=4` check in the Gherkin suite, as `excludes` already does in the YAML suite. — Thanks @andehen!
+- [425e9cd](https://github.com/posthog/posthog-sdk-test-harness/commit/425e9cd695896e24afd96adddd786c641ec4c55d) Accept a config version 2 `$feature_flag_called` that drops a broken rule pair, following PostHog/sdk-specs#162 (contract package 9.0.0).
+  
+  - `$feature_flag_rule_id` and `$feature_flag_rule_type` are sent together or not at all, and only with a rule type the reason code allows. An SDK that reads a record with a missing rule ID, a missing rule type or a disallowed rule type sends neither field, and keeps the config version and reason code.
+  - `schemas/feature_flag_called_context.schema.json` now accepts a config version 2 call with no rule, variant or experiment attribution for `targeting_match`, `rollout_miss`, `experiment_paused` and `holdout`, as it already did for a malformed `experiment_split`. A half pair and a disallowed rule type, such as `targeting_match` with `experiment`, are still rejected, and complete pairs are unchanged.
+  - A config version 2 call whose `$feature_flag_reason_code` is missing or is not a registered reason code is now accepted with no rule, variant or experiment attribution. It keeps config version 2 and the raw code, if any. Registered codes still go through their own branches, so their behaviour is unchanged.
+  - `bin/update-feature-flag-rules-v2-presence-schemas.py` generates these branches: one per reason that names a rule in `rules/response_presence.json`, and one for a missing or unregistered reason code. Every other branch now requires its reason code, so the branches do not overlap. The malformed-split branch is now generated the same way, with the same shape.
+  - The meta-tests check a call without attribution for each of those reasons, for the local `flag_disabled`, and for a missing or unregistered reason code, the complete call for every matrix row, each half pair and disallowed rule type, and each attribution field added to a call without attribution.
+  - A failed record reads as disabled, so the legacy payload accessor yields no payload for it, even when the record carries `metadata.payload`. Reader cases gain an optional `legacy_payload` expectation, the decoded JSON value the accessor returns or `null` for none. `readers.v1_at_v4` declares its decoded payload, and `readers.v1_failed`, a failed config version 1 record that still carries a payload, pins it as `null`. A meta-test checks every declared `legacy_payload` and requires one on any failed reader case that carries a payload.
+  - The set of accepted calls grows, so this is a major contract version. Consumers that vendor the called-context schema need to copy this release. — Thanks @andehen!
+
 ## 1.27.0 — 2026-10-30
 
 ### Minor changes
