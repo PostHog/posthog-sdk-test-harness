@@ -5,12 +5,26 @@ from pathlib import Path
 from .contracts import require
 
 SUITE = "migration/yaml-parity-v1"
+EXCLUSION_RULE = "sdk-capability-excluded-v1"
 
 
 def migration_paths(root):
     paths = sorted(p.relative_to(root).as_posix() for p in (Path(root) / SUITE).glob("*.feature"))
     require(bool(paths), "zero_cases", "No migrated features")
     return paths
+
+
+def tagged(tags, prefix):
+    return {tag.removeprefix(prefix) for tag in tags if tag.startswith(prefix)}
+
+
+def declared_exclusions(case, profile):
+    """`@excludes:<capability>` tags name capabilities that replace a case's assertions."""
+    return sorted(tagged(case.tags, "@excludes:") & set(profile.get("sdk_capabilities", [])))
+
+
+def exclusion_reason(excluding):
+    return "SDK declares a capability that replaces this case: " + ", ".join(excluding)
 
 
 def selection(case, profile, supported_routes, explicit=False):
@@ -22,8 +36,11 @@ def selection(case, profile, supported_routes, explicit=False):
     capabilities = requirements["sdk_capabilities"]
     missing_routes = sorted(set(routes) - set(supported_routes))
     missing_capabilities = sorted(set(capabilities) - set(profile.get("sdk_capabilities", [])))
-    selected = explicit or not missing_capabilities
-    if missing_routes:
+    excluding = declared_exclusions(case, profile)
+    selected = explicit or not (missing_capabilities or excluding)
+    if excluding:
+        reason = exclusion_reason(excluding)
+    elif missing_routes:
         reason = "Public candidate operation unavailable: " + ", ".join(missing_routes)
     elif missing_capabilities:
         state = "not declared" if "sdk_capabilities" not in profile else "unavailable"
@@ -35,5 +52,6 @@ def selection(case, profile, supported_routes, explicit=False):
         "reason": reason,
         "missing_routes": missing_routes,
         "missing_sdk_capabilities": missing_capabilities,
+        "excluding_sdk_capabilities": excluding,
         "explicit": explicit,
     }

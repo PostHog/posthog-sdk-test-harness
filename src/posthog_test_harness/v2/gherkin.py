@@ -8,7 +8,7 @@ from gherkin.parser import Parser
 from gherkin.pickles.compiler import Compiler
 
 from .contracts import BoundaryError, require
-from .migration import SUITE
+from .migration import SUITE, tagged
 
 
 @dataclass
@@ -86,6 +86,14 @@ def compile_feature(text, path, revision):
         )
         if identities:
             case_id = identities[0]
+        excludes = tagged(tags, "@excludes:")
+        require(all(excludes), "invalid_source", f"Empty @excludes capability: {case_id}")
+        conflicts = excludes & tagged(tags, "@requires:")
+        require(
+            not conflicts,
+            "invalid_source",
+            f"Case both requires and excludes {', '.join(sorted(conflicts))}: {case_id}",
+        )
         metadata = None
         if path.startswith(SUITE + "/"):
             metadata = {"sdk_capabilities": [t.removeprefix("@requires:") for t in tags if t.startswith("@requires:")]}
