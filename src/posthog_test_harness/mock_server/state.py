@@ -274,6 +274,7 @@ class MockServerState:
                     headers=v1_headers,
                     body=v1_body,
                     v1_event_results=response_config.v1_event_results,
+                    raw_body=response_config.raw_body,
                 )
 
             # Create recorded request
@@ -289,6 +290,7 @@ class MockServerState:
                 response_status=response_config.status_code,
                 response_headers=dict(response_config.headers),
                 response_body=response_config.body,
+                response_raw=response_config.raw_body,
             )
 
             # Store in the appropriate partition

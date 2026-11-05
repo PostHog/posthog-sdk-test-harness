@@ -40,6 +40,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `capture_ai_v0` | Dedicated AI capture endpoint (`POST /i/v0/ai/batch/`) |
 | `capture_ai_v1` | Capture V1 AI endpoint (`POST /i/v1/ai/events`) |
 | `flags_response_v4` | Remote `/flags` requests send `?v=4` and read the v4 flag record. Without it, the harness requires `?v=2` |
+| `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts). SDKs that retry without limit omit it |
@@ -243,6 +244,36 @@ Evaluate a feature flag.
 - `distinct_id` is always a top-level adapter parameter
 - If your SDK supports local evaluation or cached flag definitions, honor `force_remote=true` by bypassing local evaluation and issuing a fresh remote `/flags` request
 - Remote `/flags` requests should retry transient HTTP failures such as 502 Bad Gateway and 504 Gateway Timeout; the feature flag contract asserts that a `502 -> 200` or `504 -> 200` response sequence produces two `/flags` requests and returns the successful retry value
+
+### `POST /get_feature_flag_payload` (optional)
+
+Only for adapters that declare `feature_flag_payloads`. Read a flag's payload with the SDK's payload accessor, evaluating remotely. The request has the same fields as `/get_feature_flag`.
+
+**Response:**
+```json
+{
+  "success": true,
+  "value": {"columns": 2}
+}
+```
+
+Return the payload as a JSON value: parse a JSON-encoded payload string before returning it, and return `null` when there is no payload. The harness compares payloads as parsed JSON values, so number formatting may differ.
+
+### Remote `/flags?v=4` suite
+
+`feature_flags_v4` reads mock v4 responses built from the [feature flag rules v2 contract](contracts/feature_flag_rules_v2/README.md): every reader case in `fixtures/wire/readers.json` and every successful case of `corpus/v2_value_evaluation.json` runs as its own test, named `<test>[<case id>]`. Each test makes one remote read with `force_remote: true`. The case's response is queued for up to 10 `/flags` requests, so an accessor may make more than one. The adapter must report `success: true`, and the SDK must read the case's response with `/flags?v=4`. Run it with `--suite feature_flags_v4`.
+
+| Tests | Requires | Checks |
+|-------|----------|--------|
+| Legacy getters | `flags_response_v4` | `get_feature_flag` returns the legacy rendering of the record value: booleans and strings as is, `null` as `false`, numbers and objects as `true`; `false` for a failed or unreadable record; no value for a missing flag; `variant ?? enabled` for an older server's record. Types are strict: `true` is not `1` |
+| Legacy payloads | `flags_response_v4`, `feature_flag_payloads` | The payload accessor returns a config version 2 number or object value as the payload and no payload for other values; a config version 1 or older server's record keeps its decoded `metadata.payload`; a missing flag, or a failed or unreadable record without a payload, has no payload. A failed record that still carries a `metadata.payload` is not checked |
+
+**Harness rule for legacy getters.** The contract defines the legacy rendering of a successful value, and says a typed accessor returns the caller default on a reader error. It does not say what a legacy getter such as `get_feature_flag` returns on a reader error. This suite uses one rule:
+
+- A missing flag (`FLAG_NOT_FOUND`) reads as no value: the adapter returns `null`.
+- Any other reader error reads as `false`. This covers a failed record, an unreadable record and a known field with the wrong JSON type.
+
+This matches how posthog-python's legacy getters behave today.
 
 ### `POST /reset`
 

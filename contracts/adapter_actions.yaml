@@ -160,6 +160,36 @@
         optional: true
         description: No remote fallback; require locally_evaluated=true. Conflicts with force_remote=true.
 
+  get_feature_flag_for_case:
+    description: Call /get_feature_flag with force_remote=true for a fixture case's requested key
+    params:
+      source:
+        type: string
+        default: readers
+        description: Fixture source of case (readers or values)
+      case:
+        type: string
+        required: true
+        description: Fixture case ID; supplies the key
+      distinct_id:
+        type: string
+        default: flags-v4-person
+
+  get_feature_flag_payload:
+    description: Call /get_feature_flag_payload with force_remote=true for a fixture case's requested key; requires feature_flag_payloads
+    params:
+      source:
+        type: string
+        default: readers
+        description: Fixture source of case (readers or values)
+      case:
+        type: string
+        required: true
+        description: Fixture case ID; supplies the key
+      distinct_id:
+        type: string
+        default: flags-v4-person
+
   reload_feature_flag_definitions:
     description: Opt-in fresh definitions GET and bounded readiness barrier; requires feature_flags_local_evaluation_v1
     params:

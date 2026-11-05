@@ -1,0 +1,126 @@
+  # Remote /flags?v=4 Read Tests
+  # The SDK reads mock v4 responses built from the feature flag rules v2
+  # contract package (contracts/feature_flag_rules_v2). A test with
+  # `cases: <source>` runs once per fixture case and substitutes {case}:
+  #   readers: fixtures/wire/readers.json, the reader rules for v4 records,
+  #            older-server records, malformed records and missing flags.
+  #   values:  the successful cases of corpus/v2_value_evaluation.json, one
+  #            string, number or object record each, with its legacy cell.
+  #   reader_payloads: the readers cases whose legacy payload the contract
+  #            decides.
+
+  requires: flags_response_v4
+
+  categories:
+    legacy_getters:
+      description: >
+        Existing getters return the legacy rendering of the record value:
+        booleans and strings as is, null as false, numbers and objects as
+        true. An older server's record without `value` reads as
+        `variant ?? enabled`. Harness rule for legacy getters (the contract
+        does not define a legacy getter's result on a reader error): a missing
+        flag (FLAG_NOT_FOUND) returns no value, and any other reader error (a
+        failed record, an unreadable record, a known field with the wrong JSON
+        type) returns false.
+      tests:
+        - name: legacy_getter_reads_reader_fixture
+          description: >
+            get_feature_flag returns the legacy rendering of the reader
+            fixture's record. Sibling records and unknown fields do not change
+            it.
+          sdk_types: [server]
+          cases: readers
+          steps:
+            - action: configure_flags_v4_response
+              params:
+                source: readers
+                case: "{case}"
+            - action: init
+            - action: get_feature_flag_for_case
+              params:
+                source: readers
+                case: "{case}"
+            - action: assert_legacy_flag_value_for_case
+              params:
+                source: readers
+                case: "{case}"
+
+        - name: legacy_getter_reads_typed_value
+          description: >
+            get_feature_flag returns the legacy cell of a string, number or
+            object flag from the value corpus.
+          sdk_types: [server]
+          cases: values
+          steps:
+            - action: configure_flags_v4_response
+              params:
+                source: values
+                case: "{case}"
+            - action: init
+            - action: get_feature_flag_for_case
+              params:
+                source: values
+                case: "{case}"
+            - action: assert_legacy_flag_value_for_case
+              params:
+                source: values
+                case: "{case}"
+
+    legacy_payloads:
+      description: >
+        The legacy payload accessor returns a config version 2 number or
+        object value as the payload, and no payload for a boolean, string or
+        null value. The server sends a null `metadata.payload` for config
+        version 2, so the SDK derives the payload from `value`. A config
+        version 1 record and an older server's record keep their
+        `metadata.payload`. Payloads compare as parsed JSON values, not
+        text, so key order and number spelling may differ.
+      tests:
+        - name: legacy_payload_reads_reader_fixture
+          description: >
+            The payload accessor returns the reader fixture record's payload:
+            the decoded `metadata.payload` of a config version 1 record, and
+            no payload for a boolean or string config version 2 value, a
+            failed or unreadable record without a payload, or a missing flag.
+            A failed record that still carries a `metadata.payload` is left
+            out, because the contract does not say whether the accessor
+            returns it.
+          sdk_types: [server]
+          requires: feature_flag_payloads
+          cases: reader_payloads
+          steps:
+            - action: configure_flags_v4_response
+              params:
+                source: readers
+                case: "{case}"
+            - action: init
+            - action: get_feature_flag_payload
+              params:
+                source: readers
+                case: "{case}"
+            - action: assert_legacy_flag_payload_for_case
+              params:
+                source: readers
+                case: "{case}"
+
+        - name: legacy_payload_is_the_typed_value
+          description: >
+            The payload accessor returns the legacy payload cell of a string,
+            number or object flag from the value corpus.
+          sdk_types: [server]
+          requires: feature_flag_payloads
+          cases: values
+          steps:
+            - action: configure_flags_v4_response
+              params:
+                source: values
+                case: "{case}"
+            - action: init
+            - action: get_feature_flag_payload
+              params:
+                source: values
+                case: "{case}"
+            - action: assert_legacy_flag_payload_for_case
+              params:
+                source: values
+                case: "{case}"

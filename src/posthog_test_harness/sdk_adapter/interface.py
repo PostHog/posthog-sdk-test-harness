@@ -101,6 +101,14 @@ class SDKAdapterInterface(ABC):
         """
         raise NotImplementedError("reload_feature_flag_definitions requires feature_flags_local_evaluation_v1")
 
+    async def get_feature_flag_payload(self, request: FeatureFlagRequest) -> Dict:
+        """Read a flag's payload through the SDK's legacy payload accessor.
+
+        Optional, only for feature_flag_payloads. Return {"success": True, "value": payload},
+        with the payload as a parsed JSON value (null when there is none).
+        """
+        raise NotImplementedError("get_feature_flag_payload requires feature_flag_payloads")
+
     @abstractmethod
     async def reset(self) -> Dict[str, bool]:
         """

@@ -32,6 +32,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict
 
+from . import flags_v4
 from .assertions import assert_request_count
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
 
@@ -2355,6 +2356,127 @@ class AssertV1ResponseStatusAction(Action):
             raise AssertionError(
                 f"Expected response status {expected}, got {actual}"
             )
+
+
+# ============================================================================
+# Remote /flags?v=4 Actions
+# ============================================================================
+
+FLAGS_V4_DISTINCT_ID = "flags-v4-person"
+# A legacy accessor may make more than one /flags request (for example, one for the
+# value and one for the payload); each gets the fixture.
+FLAGS_V4_RESPONSE_REPEAT = 10
+
+
+def _case_flag_request(params: Dict[str, Any]) -> FeatureFlagRequest:
+    """A remote read of a fixture case's requested key."""
+    return FeatureFlagRequest(
+        key=_case_expectation(params)["key"],
+        distinct_id=params.get("distinct_id", FLAGS_V4_DISTINCT_ID),
+        force_remote=True,
+    )
+
+
+def _case_expectation(params: Dict[str, Any]) -> Dict[str, Any]:
+    return flags_v4.expectation(params.get("source", "readers"), params["case"])
+
+
+def _assert_json_equal(case: str, label: str, actual: Any, expected: Any) -> None:
+    if not flags_v4.json_equal(actual, expected):
+        raise AssertionError(f"[{case}] {label}: expected {json.dumps(expected)}, got {json.dumps(actual)}")
+
+
+def _case_result(params: Dict[str, Any], ctx: "TestContext") -> Dict[str, Any]:
+    """The adapter's successful result for a case read, after checking the SDK read the fixture over v4.
+
+    A null expectation must not pass because the read failed or never reached the mock server.
+    """
+    case = params["case"]
+    result = ctx.last_action_result
+    if not isinstance(result, dict) or result.get("success") is not True:
+        raise AssertionError(f"[{case}] the adapter did not report success: {result!r}")
+    served = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags" and r.response_raw]
+    if not served:
+        raise AssertionError(f"[{case}] the SDK made no /flags request, so it never read the fixture")
+    versions = sorted({str(r.query_params.get("v")) for r in served})
+    if versions != ["4"]:
+        raise AssertionError(f"[{case}] the fixture was read with /flags v={versions}, expected v=4 only")
+    return result
+
+
+class ConfigureFlagsV4ResponseAction(Action):
+    """Queue the /flags response of a contract fixture case.
+
+    ``source`` is ``readers`` (default) or ``values``; ``case`` is the case ID. The
+    body is sent as is, with no default fields merged in. ``repeat`` queues it for
+    that many /flags requests (default ``FLAGS_V4_RESPONSE_REPEAT``).
+    """
+
+    @property
+    def name(self) -> str:
+        return "configure_flags_v4_response"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        body = json.dumps(flags_v4.response(params.get("source", "readers"), params["case"]))
+        response = MockResponse(status_code=200, body=body, path="/flags", raw_body=True)
+        ctx.mock_server.set_response_queue([response] * params.get("repeat", FLAGS_V4_RESPONSE_REPEAT))
+
+
+class GetFeatureFlagForCaseAction(Action):
+    """Read a fixture case's requested flag remotely with the legacy get_feature_flag accessor."""
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "get_feature_flag_for_case"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        return await ctx.sdk_adapter.get_feature_flag(_case_flag_request(params))
+
+
+class GetFeatureFlagPayloadAction(Action):
+    """Read a fixture case's requested flag payload remotely with the legacy payload accessor.
+
+    Requires feature_flag_payloads.
+    """
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "get_feature_flag_payload"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        return await ctx.sdk_adapter.get_feature_flag_payload(_case_flag_request(params))
+
+
+class AssertLegacyFlagValueForCaseAction(Action):
+    """Assert the legacy getter returned the legacy rendering of the case's record value, with strict JSON types."""
+
+    @property
+    def name(self) -> str:
+        return "assert_legacy_flag_value_for_case"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        result = _case_result(params, ctx)
+        expected = _case_expectation(params)["legacy_value"]
+        _assert_json_equal(params["case"], "legacy value", result.get("value"), expected)
+
+
+class AssertLegacyFlagPayloadForCaseAction(Action):
+    """Assert the legacy payload accessor returned the case's payload as the same parsed JSON value."""
+
+    @property
+    def name(self) -> str:
+        return "assert_legacy_flag_payload_for_case"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        if params.get("source", "readers") == "readers" and not flags_v4.reader_payload_decided(params["case"]):
+            raise ValueError(f"The contract does not decide the payload of reader case {params['case']}")
+        result = _case_result(params, ctx)
+        expected = _case_expectation(params)["legacy_payload"]
+        _assert_json_equal(params["case"], "payload", result.get("value"), expected)
 
 
 # ============================================================================

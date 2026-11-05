@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from posthog_test_harness.mock_server.server import MockServer
 from posthog_test_harness.mock_server.state import TEST_ID_HEADER, MockServerState
 from posthog_test_harness.types import MockResponse
 
@@ -317,3 +318,12 @@ class TestPathScopedResponses:
         ]
 
         assert statuses == [500, 504, 503, 200]
+
+
+@pytest.mark.parametrize("path", ["/flags/?v=4", "/i/v1/analytics/events", "/i/v1/ai/events"])
+@pytest.mark.parametrize("body", ["{broken", '{ "flags" : {} }'])
+def test_raw_response_is_verbatim(path, body):
+    state = MockServerState()
+    state.set_response_queue([MockResponse(status_code=200, body=body, raw_body=True)])
+    response = MockServer(state).app.test_client().post(path, json={})
+    assert (response.status_code, response.get_data(as_text=True)) == (200, body)

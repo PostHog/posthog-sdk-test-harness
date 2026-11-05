@@ -93,6 +93,9 @@ class MockResponse:
     "limited" is a legacy shorthand; capture never sends it.
 
     When path is set, the response serves only requests to that path.
+
+    When raw_body is true, the body is sent byte for byte, without merging in
+    the endpoint's default success fields.
     """
 
     status_code: int = 200
@@ -100,6 +103,7 @@ class MockResponse:
     body: Optional[str] = None
     v1_event_results: Optional[List[Any]] = None
     path: Optional[str] = None
+    raw_body: bool = False
 
 
 @dataclass
@@ -117,6 +121,7 @@ class RecordedRequest:
     response_status: int
     response_headers: Dict[str, str]
     response_body: Optional[str]
+    response_raw: bool = False
 
 
 @dataclass
