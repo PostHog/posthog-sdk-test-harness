@@ -81,10 +81,9 @@
             The payload accessor returns the reader fixture record's payload:
             the decoded `metadata.payload` of a config version 1 record, and
             no payload for a boolean or string config version 2 value, a
-            failed or unreadable record without a payload, or a missing flag.
-            A failed record that still carries a `metadata.payload` is left
-            out, because the contract does not say whether the accessor
-            returns it.
+            failed or unreadable record, or a missing flag. A failed record
+            yields no payload even when it carries a `metadata.payload`;
+            `readers.v1_failed` declares `legacy_payload: null`.
           sdk_types: [server]
           requires: feature_flag_payloads
           cases: reader_payloads

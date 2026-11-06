@@ -266,7 +266,7 @@ Return the payload as a JSON value: parse a JSON-encoded payload string before r
 | Tests | Requires | Checks |
 |-------|----------|--------|
 | Legacy getters | `flags_response_v4` | `get_feature_flag` returns the legacy rendering of the record value: booleans and strings as is, `null` as `false`, numbers and objects as `true`; `false` for a failed or unreadable record; no value for a missing flag; `variant ?? enabled` for an older server's record. Types are strict: `true` is not `1` |
-| Legacy payloads | `flags_response_v4`, `feature_flag_payloads` | The payload accessor returns a config version 2 number or object value as the payload and no payload for other values; a config version 1 or older server's record keeps its decoded `metadata.payload`; a missing flag, or a failed or unreadable record without a payload, has no payload. A failed record that still carries a `metadata.payload` is not checked |
+| Legacy payloads | `flags_response_v4`, `feature_flag_payloads` | The payload accessor returns a config version 2 number or object value as the payload and no payload for other values; a config version 1 or older server's record keeps its decoded `metadata.payload`; a missing flag, or a failed or unreadable record, has no payload. A failed record yields no payload even when it carries a `metadata.payload` (`readers.v1_failed` declares `legacy_payload: null`) |
 
 **Harness rule for legacy getters.** The contract defines the legacy rendering of a successful value, and says a typed accessor returns the caller default on a reader error. It does not say what a legacy getter such as `get_feature_flag` returns on a reader error. This suite uses one rule:
 
