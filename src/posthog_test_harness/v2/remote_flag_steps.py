@@ -6,10 +6,13 @@ Callback observations come from the installed native callback, never a getter.
 
 import json
 
+from ..actions import FLAGS_V4_RESPONSE_REPEAT
 from ..types import MockResponse
 from .ai_steps import json_arguments, requests
 from .capture_amendment_steps import STEPS as PREVIOUS_STEPS
-from .contracts import BoundaryError, decode_json, json_equal
+from .contracts import BoundaryError, decode_json, json_equal, require
+from .data import doc_string
+from .fixtures import FLAGS_PATHS
 from .flag_steps import flag_table
 from .steps import Registry, expect
 
@@ -111,6 +114,132 @@ async def result(ctx, step, encoded):
             "expected": expected,
             "actual": outcome,
         },
+    )
+
+
+def json_document(step):
+    doc = step.argument["docString"]
+    return doc_string(doc["content"], doc.get("mediaType"))
+
+
+@STEPS.step("the mock serves this /flags response body:", "docString")
+async def flags_body(ctx, step):
+    """Serve one /flags response byte for byte, without the endpoint's default fields.
+
+    A /flags?v=4 envelope must not gain a default ``featureFlags`` member.
+    """
+    require(isinstance(json_document(step), dict), "invalid_step_data", "Expected a JSON object response body")
+    ctx.flags_v4_body = step.argument["docString"]["content"]
+    response = MockResponse(body=ctx.flags_v4_body, path="/flags", raw_body=True)
+    ctx.server.use_response_queue_for_flags = True
+    # A legacy getter may make more than one /flags request; each one gets the body.
+    ctx.server.state.set_response_queue([response] * FLAGS_V4_RESPONSE_REPEAT)
+
+
+def expect_fixture_read(ctx, code, details):
+    """The SDK read the served body: at least one /flags request received it, all of them with v=4.
+
+    Without this, a "no value" expectation would also pass for a read that never reached the mock.
+    """
+    body = getattr(ctx, "flags_v4_body", None)
+    require(body is not None, "invalid_state", "Expected a preceding served /flags response body")
+    served = [
+        r
+        for r in ctx.server.state.get_requests()
+        if r.path in FLAGS_PATHS and r.response_raw and r.response_body == body
+    ]
+    versions = sorted({str(r.query_params.get("v")) for r in served})
+    details = {**details, "fixture_reads": len(served), "fixture_read_versions": versions}
+    expect(bool(served), code, "The SDK made no /flags request that received the served body", details=details)
+    expect(versions == ["4"], code, "The served body was read without /flags?v=4", details=details)
+
+
+def no_value(outcome):
+    """A legacy getter reports no value as native undefined or as JSON null."""
+    return outcome["kind"] == "undefined" or (outcome["kind"] == "value" and outcome["value"] is None)
+
+
+def getter_details(ctx, expected):
+    return {
+        "operation": "/get_feature_flag",
+        "arguments": ctx.remote_flag_arguments,
+        "expected": expected,
+        "actual": ctx.remote_flag_outcome,
+    }
+
+
+@STEPS.step(r"the public flag getter should return exactly JSON (.+)")
+async def exact_result(ctx, step, encoded):
+    """Strict JSON types: true is not 1, and "false" is not false."""
+    expected = decode_json(encoded)
+    outcome = ctx.remote_flag_outcome
+    expect_fixture_read(ctx, "flag_fixture_read", getter_details(ctx, expected))
+    expect(
+        outcome["kind"] == "value" and json_equal(outcome["value"], expected),
+        "flag_value",
+        "Getter value differs",
+        details=getter_details(ctx, expected),
+    )
+
+
+@STEPS.step("the public flag getter should return no value")
+async def no_result(ctx, step):
+    expect_fixture_read(ctx, "flag_fixture_read", getter_details(ctx, None))
+    expect(
+        no_value(ctx.remote_flag_outcome), "flag_value", "Getter returned a value", details=getter_details(ctx, None)
+    )
+
+
+@STEPS.step(
+    "get feature flag payload is called with JSON arguments:", "docString", routes=("/get_feature_flag_payload",)
+)
+async def payload_getter(ctx, step):
+    ctx.remote_payload_arguments = json_arguments(step)
+    ctx.remote_payload_outcome = await ctx.call(
+        "/get_feature_flag_payload", ctx.remote_payload_arguments, check_result=False
+    )
+    expect(ctx.remote_payload_outcome["kind"] != "thrown", "flag_payload_getter_thrown", "Native payload getter threw")
+
+
+def payload_details(ctx, expected):
+    return {
+        "operation": "/get_feature_flag_payload",
+        "arguments": ctx.remote_payload_arguments,
+        "expected": expected,
+        "actual": ctx.remote_payload_outcome,
+    }
+
+
+def expect_payload(ctx, expected):
+    """Payloads compare as parsed JSON values: key order and number spelling do not matter, types do."""
+    outcome = ctx.remote_payload_outcome
+    expect_fixture_read(ctx, "flag_fixture_read", payload_details(ctx, expected))
+    expect(
+        outcome["kind"] == "value" and json_equal(outcome["value"], expected),
+        "flag_payload",
+        "Payload differs",
+        details=payload_details(ctx, expected),
+    )
+
+
+@STEPS.step(r"the public flag payload getter should return JSON (.+)")
+async def payload_result(ctx, step, encoded):
+    expect_payload(ctx, decode_json(encoded))
+
+
+@STEPS.step("the public flag payload getter should return this JSON:", "docString")
+async def payload_document(ctx, step):
+    expect_payload(ctx, json_document(step))
+
+
+@STEPS.step("the public flag payload getter should return no payload")
+async def no_payload_result(ctx, step):
+    expect_fixture_read(ctx, "flag_fixture_read", payload_details(ctx, None))
+    expect(
+        no_value(ctx.remote_payload_outcome),
+        "flag_payload",
+        "Payload getter returned a payload",
+        details=payload_details(ctx, None),
     )
 
 

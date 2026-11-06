@@ -1293,6 +1293,12 @@ Argument: `docString`. Routes: `/get_feature_flag`. Fixture capabilities: None d
 Handler: [`getter`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
+get feature flag payload is called with JSON arguments:
+```
+Argument: `docString`. Routes: `/get_feature_flag_payload`. Fixture capabilities: None declared.
+Handler: [`payload_getter`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
 the feature flag listener is unsubscribed
 ```
 Argument: `none`. Routes: `/subscription/unsubscribe`. Fixture capabilities: None declared.
@@ -1329,10 +1335,46 @@ Argument: `docString`. Routes: None declared. Fixture capabilities: None declare
 Handler: [`responses`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
+the mock serves this /flags response body:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`flags_body`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
 the public flag getter should return JSON (.+)
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag getter should return exactly JSON (.+)
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`exact_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag getter should return no value
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`no_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag payload getter should return JSON (.+)
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`payload_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag payload getter should return no payload
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`no_payload_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag payload getter should return this JSON:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`payload_document`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
 the server uses its native flag startup and getter behavior with no installed local definitions or results
