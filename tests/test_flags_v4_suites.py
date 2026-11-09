@@ -1,5 +1,6 @@
 """The remote /flags?v=4 read suite, and the fixture helpers behind it."""
 
+import copy
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -82,9 +83,9 @@ def test_expanded_tests_substitute_the_case_id() -> None:
     assert test["steps"][0]["params"] == {"source": "readers", "case": "readers.holdout"}
 
 
-def test_reader_payloads_leave_out_only_a_failed_record_that_carries_a_payload() -> None:
-    assert set(READER_IDS) - set(PAYLOAD_READER_IDS) == {"readers.v1_failed"}
-    assert PAYLOAD_READER_IDS == [case_id for case_id in READER_IDS if case_id in PAYLOAD_READER_IDS]
+def test_reader_payloads_are_every_reader_case() -> None:
+    # readers.v1_failed, a failed record that carries a payload, is decided by its legacy_payload expectation.
+    assert PAYLOAD_READER_IDS == READER_IDS
 
 
 def test_an_unknown_case_source_fails_collection() -> None:
@@ -264,10 +265,31 @@ async def test_payload_assertion_compares_json_values() -> None:
 
 
 @pytest.mark.asyncio
-async def test_payload_assertion_refuses_an_undecided_reader_case() -> None:
+async def test_payload_assertion_refuses_an_undecided_reader_case(monkeypatch) -> None:
+    readers = _without_legacy_payload("readers.v1_failed")
+    monkeypatch.setattr(flags_v4, "_readers", lambda: readers)
     params = {"source": "readers", "case": "readers.v1_failed"}
+    assert "readers.v1_failed" not in flags_v4.case_ids("reader_payloads")
     with pytest.raises(ValueError, match="does not decide"):
         await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": None}, params))
+
+
+@pytest.mark.asyncio
+async def test_payload_assertion_uses_the_declared_legacy_payload(monkeypatch) -> None:
+    params = {"source": "readers", "case": "readers.v1_failed"}
+    await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": None}, params))
+    with pytest.raises(AssertionError, match="payload"):
+        await AssertLegacyFlagPayloadForCaseAction().execute(params, _result_ctx({"value": {"columns": 2}}, params))
+    readers = copy.deepcopy(flags_v4._readers())
+    next(case for case in readers["cases"] if case["id"] == "readers.v1_failed")["reader"]["legacy_payload"] = [1]
+    monkeypatch.setattr(flags_v4, "_readers", lambda: readers)
+    assert flags_v4.expectation("readers", "readers.v1_failed")["legacy_payload"] == [1]
+
+
+def _without_legacy_payload(case_id: str) -> dict:
+    readers = copy.deepcopy(flags_v4._readers())
+    del next(case for case in readers["cases"] if case["id"] == case_id)["reader"]["legacy_payload"]
+    return readers
 
 
 @pytest.mark.asyncio

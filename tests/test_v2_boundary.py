@@ -222,7 +222,7 @@ async def test_existing_callback_cases_remain_client_only_for_server_profile(spe
         report, _ = await run(
             Contracts(), specs, ["acceptance/public/on-feature-flags.feature"], url, host.profile["id"]
         )
-    assert len(report["results"]) == 3
+    assert len(report["results"]) == 4
     assert all(row["result"]["status"] == "not_applicable" for row in report["results"])
     assert not report["fixtures"]
     assert not report["calls"]
