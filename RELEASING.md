@@ -43,6 +43,9 @@ You can manually start the workflow from the Actions tab via `workflow_dispatch`
 `dd11a6b8f8c7be3013cd26d97782452ce0f8a76d` from `PostHog/sdk-specs` (PR174),
 including the merged group-identify, capture-exception, evaluate-flags and generated `/flags?v=4` read coverage.
 Update this immutable commit pin through review, not a moving branch reference.
+Pull request CI runs the generated `/flags?v=4` features check against the same pin,
+so a contract change that needs regenerated features fails before merge
+(see [Remote `/flags?v=4` reads](./docs/harness-v2.md#remote-flagsv4-reads)).
 The workflow checks out specs and writes distribution/smoke outputs under
 `RUNNER_TEMP`, outside the harness checkout. `scripts/build_v2_distribution.py`
 requires clean harness/specs commits and uses `uv export --locked`; the release
