@@ -218,7 +218,7 @@ async def event_property(ctx, step, key, value):
     )
 
 
-def primary_exception(ctx):
+def exception_list(ctx):
     properties = first_events(ctx)[0].get("properties")
     expect(isinstance(properties, dict), "exception_list", "Received event properties are not an object")
     exceptions = properties.get("$exception_list")
@@ -227,7 +227,11 @@ def primary_exception(ctx):
         "exception_list",
         "Received event has no primary exception",
     )
-    return exceptions[0]
+    return exceptions
+
+
+def primary_exception(ctx):
+    return exception_list(ctx)[0]
 
 
 @STEPS.step(r'the first received event\'s primary exception should have type "([^"]*)" and message "([^"]*)"')
@@ -235,6 +239,12 @@ async def exception_summary(ctx, step, type_name, message):
     exception = primary_exception(ctx)
     expect(json_equal(exception.get("type"), type_name), "exception_type", "Primary exception type differs")
     expect(json_equal(exception.get("value"), message), "exception_message", "Primary exception message differs")
+
+
+@STEPS.step(r'the first received event\'s primary exception message should contain "([^"]+)"')
+async def exception_message_contains(ctx, step, message):
+    value = primary_exception(ctx).get("value")
+    expect(isinstance(value, str) and message in value, "exception_message", "Normalized exception message differs")
 
 
 @STEPS.step("the first received event's primary exception should be handled")
@@ -263,6 +273,97 @@ async def exception_stack(ctx, step):
         "exception_stacktrace",
         "Primary exception has no stack frames",
     )
+
+
+@STEPS.step("the first received event's exception list should contain these types in order:", "dataTable")
+async def exception_types(ctx, step):
+    exceptions = exception_list(ctx)
+    expected = [row["type"] for row in table(step, {"type": "string"})]
+    expect(
+        all(isinstance(entry, dict) for entry in exceptions)
+        and json_equal([entry.get("type") for entry in exceptions], expected),
+        "exception_order",
+        "Exception list types or order differ",
+    )
+    expect(
+        all(isinstance(entry.get("value"), str) for entry in exceptions), "exception_value", "Missing exception value"
+    )
+
+
+@STEPS.step("the first received event's exception list should have valid tree identifiers")
+async def exception_tree_identifiers(ctx, step):
+    seen = set()
+    for index, entry in enumerate(exception_list(ctx)):
+        expect(isinstance(entry, dict), "exception_mechanism", "Exception is not an object")
+        mechanism = entry.get("mechanism")
+        expect(isinstance(mechanism, dict), "exception_mechanism", "Exception has no mechanism")
+        identifier = mechanism.get("exception_id")
+        expect(
+            type(identifier) in (int, float) and identifier >= 0 and identifier % 1 == 0 and identifier not in seen,
+            "exception_mechanism",
+            "Exception identifiers must be unique non-negative integers",
+        )
+        if index == 0:
+            expect(
+                identifier == 0 and "parent_id" not in mechanism,
+                "exception_mechanism",
+                "Outermost exception must have identifier zero and no parent",
+            )
+        else:
+            parent = mechanism.get("parent_id")
+            expect(
+                type(parent) in (int, float) and parent in seen,
+                "exception_mechanism",
+                "Exception parent must identify an earlier entry",
+            )
+        seen.add(identifier)
+
+
+def indexed_exception(ctx, index):
+    exceptions = exception_list(ctx)
+    index = int(index)
+    expect(index < len(exceptions) and isinstance(exceptions[index], dict), "exception_list", "Missing exception")
+    return exceptions[index]
+
+
+@STEPS.step(r'the first received event\'s exception at index ([0-9]+) should have message "([^"]*)"')
+async def indexed_exception_message(ctx, step, index, message):
+    expect(
+        json_equal(indexed_exception(ctx, index).get("value"), message),
+        "exception_message",
+        "Exception message differs",
+    )
+
+
+@STEPS.step(r'the first received event\'s exception at index ([0-9]+) mechanism should omit "([^"]*)"')
+async def absent_exception_mechanism_field(ctx, step, index, field):
+    mechanism = indexed_exception(ctx, index).get("mechanism")
+    expect(
+        isinstance(mechanism, dict) and field not in mechanism,
+        "exception_mechanism",
+        f"Exception mechanism should omit {field}",
+    )
+
+
+@STEPS.step(r"the first received event\'s exception at index ([0-9]+) mechanism should include JSON (.+)")
+async def exception_mechanism(ctx, step, index, value):
+    expected = doc_string(value, "application/json")
+    require(isinstance(expected, dict), "invalid_step_data", "Expected a mechanism object")
+    mechanism = indexed_exception(ctx, index).get("mechanism")
+    expect(
+        isinstance(mechanism, dict)
+        and all(key in mechanism and json_equal(mechanism[key], item) for key, item in expected.items()),
+        "exception_mechanism",
+        "Exception mechanism differs",
+    )
+
+
+@STEPS.step("the first received event's primary exception frames should contain these functions in order:", "dataTable")
+async def exception_frames(ctx, step):
+    await exception_stack(ctx, step)
+    frames = primary_exception(ctx)["stacktrace"]["frames"]
+    expected = [row["function"] for row in table(step, {"function": "string"})]
+    expect(json_equal([frame.get("function") for frame in frames], expected), "exception_frames", "Stack frames differ")
 
 
 def ai_result(ctx):

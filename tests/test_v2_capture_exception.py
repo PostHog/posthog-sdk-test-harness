@@ -40,6 +40,7 @@ async def test_companion_exception_delivers_exact_events(specs, protocol):
     assert json_equal(
         args[0]["properties"],
         {
+            "handled": True,
             "area": "checkout",
             "retryable": False,
             "attempt": 0,
@@ -77,6 +78,8 @@ async def test_companion_exception_delivers_exact_events(specs, protocol):
             "exception_stacktrace",
         ),
         ('exception:stacktrace:{"frames":[{"lineno":42}]}', "exception_stacktrace"),
+        ("missing_property:handled", "event_property"),
+        ("property_value:0:handled:1", "event_property"),
         ("missing_property:area", "event_property"),
         ("property_value:0:retryable:0", "event_property"),
         ("property_value:0:attempt:false", "event_property"),
@@ -118,6 +121,237 @@ async def test_exception_accepts_frame_locations(specs, protocol, frames):
         report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case.id])
     assert strict_exit_code(contracts, report) == 0, report
     assert len(host.closed) == 1
+
+
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+async def test_normalized_exception_accepts_unknown_stack(specs, protocol):
+    case_id = "acceptance:server:capture-exception:normalized:string"
+    exceptions = [
+        {
+            "type": "Error",
+            "value": "thrown string",
+            "mechanism": {"type": "generic", "handled": True, "synthetic": True, "exception_id": 0},
+        }
+    ]
+    contracts = Contracts()
+    async with serve(
+        contracts,
+        host_type=CaptureExceptionHost,
+        protocol=protocol,
+        defect="property_value:0:$exception_list:" + json.dumps(exceptions),
+    ) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_id])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert next(row["result"]["status"] for row in report["results"] if row["case_id"] == case_id) == "passed"
+    assert len(host.closed) == 1
+
+
+def tree_fixture(aggregate, identifiers):
+    if aggregate:
+        name = "Server exception capture attaches aggregate members to their parent"
+        entries = [("AggregateError", "group"), ("TypeError", "first member"), ("RangeError", "second member")]
+        source = "member"
+    else:
+        name = "Server exception capture orders a wrapper before its root cause"
+        entries = [("TypeError", "wrapper"), ("Error", "root cause")]
+        source = "cause"
+    exceptions = []
+    for index, ((type_name, message), identifier) in enumerate(zip(entries, identifiers, strict=True)):
+        mechanism = {"exception_id": identifier, "synthetic": False}
+        mechanism.update(
+            {"type": "generic", "handled": True}
+            if index == 0
+            else {"type": "chained", "source": source, "parent_id": identifiers[0]}
+        )
+        exceptions.append(
+            {
+                "type": type_name,
+                "value": message,
+                "mechanism": mechanism,
+                "stacktrace": {"frames": [{"function": "report_exception"}]},
+            }
+        )
+    return FEATURE + "::" + name, exceptions
+
+
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+@pytest.mark.parametrize(
+    "aggregate,identifiers",
+    [(False, [0, 1]), (False, [0, 42]), (True, [0, 1, 2]), (True, [0, 7, 9]), (True, [0.0, 7.0, 9.0])],
+)
+async def test_exception_accepts_valid_tree_identifiers(specs, protocol, aggregate, identifiers):
+    case_id, exceptions = tree_fixture(aggregate, identifiers)
+    contracts = Contracts()
+    async with serve(
+        contracts,
+        host_type=CaptureExceptionHost,
+        protocol=protocol,
+        defect="property_value:0:$exception_list:" + json.dumps(exceptions),
+    ) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_id])
+    assert strict_exit_code(contracts, report) == 0, report
+    assert next(row["result"]["status"] for row in report["results"] if row["case_id"] == case_id) == "passed"
+    assert len(host.closed) == 1
+
+
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+@pytest.mark.parametrize(
+    "index,field,value",
+    [
+        (0, "exception_id", 7),
+        (1, "exception_id", 0),
+        (2, "exception_id", 1),
+        (1, "exception_id", -1),
+        (1, "exception_id", 1.5),
+        (1, "exception_id", True),
+        (1, "exception_id", "1"),
+        (1, "exception_id", None),
+        (1, "exception_id", ...),
+        (1, "parent_id", 99),
+        (1, "parent_id", 1),
+        (1, "parent_id", 2),
+        (1, "parent_id", False),
+        (1, "parent_id", ...),
+        (0, "parent_id", 0),
+    ],
+)
+async def test_exception_rejects_invalid_tree_identifiers(specs, protocol, index, field, value):
+    case_id, exceptions = tree_fixture(True, [0, 1, 2])
+    if value is ...:
+        del exceptions[index]["mechanism"][field]
+    else:
+        exceptions[index]["mechanism"][field] = value
+    contracts = Contracts()
+    async with serve(
+        contracts,
+        host_type=CaptureExceptionHost,
+        protocol=protocol,
+        defect="property_value:0:$exception_list:" + json.dumps(exceptions),
+    ) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case_id])
+    result = next(row["result"] for row in report["results"] if row["case_id"] == case_id)
+    assert result["status"] == "failed_assertion", report
+    assert result["failure"]["code"] == "exception_mechanism"
+    assert strict_exit_code(contracts, report) == 1
+    assert len(host.closed) == 1
+
+
+@pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])
+async def test_all_server_exception_cases_deliver(specs, protocol):
+    cases, _ = load_cases(specs, [FEATURE])
+    selected = [case for case in cases if "@sdk:server" in case.tags]
+    assert len(selected) == 12
+    contracts = Contracts()
+    async with serve(
+        contracts, host_type=CaptureExceptionHost, protocol=protocol, missing_capability="storage.empty.v1"
+    ) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], tagged_acceptance=True)
+    assert strict_exit_code(contracts, report) == 0, report
+    assert len([row for row in report["results"] if row["result"]["status"] == "passed"]) == 12
+    assert len(host.closed) == 12
+
+
+@pytest.mark.parametrize(
+    "name,defect,code",
+    [
+        (
+            "Server exception capture preserves existing crash-first stack frames in entry-first order",
+            'exception:stacktrace:{"frames":[{"function":"boom"},{"function":"handler"},{"function":"main"}]}',
+            "exception_frames",
+        ),
+        (
+            "Server exception capture orders a wrapper before its root cause",
+            'property_value:0:$exception_list:[{"type":"TypeError","value":"wrapper"},'
+            '{"type":"RangeError","value":"root cause"}]',
+            "exception_order",
+        ),
+        (
+            "Server exception capture orders a wrapper before its root cause",
+            'property_value:0:$exception_list:[{"type":"TypeError","value":"wrapper",'
+            '"mechanism":{"exception_id":0,"handled":true}},{"type":"Error","value":"root cause",'
+            '"mechanism":{"type":"chained","source":"cause","exception_id":1,"parent_id":1}}]',
+            "exception_mechanism",
+        ),
+        (
+            "Server exception capture drops null-valued custom object properties on the wire",
+            "property_value:0:test:null",
+            "event_property",
+        ),
+        (
+            "Server manual capture does not trust reserved caller exception metadata",
+            'property_value:0:$exception_level:"fatal"',
+            "event_property",
+        ),
+        (
+            "Server manual capture does not trust reserved caller exception metadata",
+            "property_value:0:$exception_source:null",
+            "event_property",
+        ),
+        (
+            "Server exception capture preserves the provenance of an existing error-like object stack",
+            'exception:mechanism:{"synthetic":false}',
+            "exception_mechanism",
+        ),
+        (
+            "Server exception capture preserves existing crash-first stack frames in entry-first order",
+            'exception:mechanism:{"handled":true,"synthetic":true}',
+            "exception_mechanism",
+        ),
+        (
+            "Server exception capture preserves the provenance of an existing error-like object stack",
+            'exception:mechanism:{"synthetic":1}',
+            "exception_mechanism",
+        ),
+        (
+            "Server exception capture preserves existing crash-first stack frames in entry-first order",
+            'exception:mechanism:{"handled":true,"synthetic":0}',
+            "exception_mechanism",
+        ),
+    ],
+)
+async def test_expanded_exception_assertions_reject_defects(specs, name, defect, code):
+    cases, _ = load_cases(specs, [FEATURE])
+    case = next(case for case in cases if case.name == name)
+    contracts = Contracts()
+    async with serve(contracts, host_type=CaptureExceptionHost, defect=defect) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case.id])
+    result = next(row["result"] for row in report["results"] if row["case_id"] == case.id)
+    assert result["status"] == "failed_assertion", report
+    assert result["failure"]["code"] == code
+    assert strict_exit_code(contracts, report) == 1
+
+
+@pytest.mark.parametrize(
+    "value,handled,code",
+    [
+        (None, False, "exception_value"),
+        ("wrong message", False, "exception_message"),
+        ("root cause", True, "exception_mechanism"),
+    ],
+)
+async def test_nested_exception_values_and_unknown_handled_state(specs, value, handled, code):
+    cases, _ = load_cases(specs, [FEATURE])
+    case = next(
+        case for case in cases if case.name == "Server exception capture orders a wrapper before its root cause"
+    )
+    exceptions = [
+        {"type": "TypeError", "value": "wrapper", "mechanism": {"exception_id": 0, "handled": True}},
+        {
+            "type": "Error",
+            "value": value,
+            "mechanism": {"type": "chained", "source": "cause", "exception_id": 1, "parent_id": 0},
+        },
+    ]
+    if handled:
+        exceptions[1]["mechanism"]["handled"] = True
+    defect = "property_value:0:$exception_list:" + json.dumps(exceptions)
+    contracts = Contracts()
+    async with serve(contracts, host_type=CaptureExceptionHost, defect=defect) as (host, url):
+        report, _ = await run(contracts, specs, [FEATURE], url, host.profile["id"], case_ids=[case.id])
+    result = next(row["result"] for row in report["results"] if row["case_id"] == case.id)
+    assert result["status"] == "failed_assertion", report
+    assert result["failure"]["code"] == code
+    assert strict_exit_code(contracts, report) == 1
 
 
 async def test_missing_exception_route_is_a_visible_gap(specs):
@@ -179,9 +413,9 @@ async def test_canonical_acceptance_selects_only_opted_in_cases(specs):
     assert strict_exit_code(contracts, report) == 0, report
     cases, _ = load_cases(specs, paths)
     selected_ids = {case.id for case in cases if "@sdk:server" in case.tags}
-    assert len(selected_ids) == 31
+    assert len(selected_ids) == 41
     assert all(
         row["result"]["status"] == ("passed" if row["case_id"] in selected_ids else "not_selected")
         for row in report["results"]
     ), report
-    assert len(host.closed) == 31
+    assert len(host.closed) == 41

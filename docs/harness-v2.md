@@ -115,14 +115,24 @@ unchanged to the negotiated `/capture_exception` route, for example:
 ```
 
 The error descriptor selects a native test exception with its own runtime stack.
-The adapter constructs that fixture and invokes the public exception method; the
-SDK owns normalization and event construction. The route does not implicitly flush.
+Adapters may also support a supplied stack string, recursive native `cause` and
+aggregate `errors` descriptors, and `{ "value": ... }` for raw JSON thrown values.
+These are input fixtures, not event envelopes. The adapter constructs the fixture
+and invokes the public exception method; the SDK owns normalization and event
+construction. The route does not implicitly flush.
 Unsupported native fixtures are harness failures, while unexpected SDK throws fail
-the scenario. Delivery checks use `properties.$exception_list[0].type`, `.value`,
+the scenario. Native delivery checks use `properties.$exception_list[0].type`, `.value`,
 `.mechanism.handled`, and nonempty `.stacktrace.frames`, plus caller identity and
-supplied scalar/nested JSON properties. A second case omits caller properties.
-These cases exercise manual reporting, not automatic fatal-error or next-launch
-crash recovery.
+supplied scalar/nested JSON properties. Cases also inspect
+normalized nonstandard inputs, preserved frame order, cause/member linkage, null
+serialization, reserved-property precedence and synthetic provenance. Mechanism
+assertions compare JSON types and frame/list assertions preserve order and count.
+Tree identifier assertions require a zero root, unique non-negative integer IDs,
+and nested parent references to earlier entries.
+Known SDK deviations remain failed assertions in the report; controlled hosts do
+not establish SDK conformance. These shared cases exercise manual reporting. The
+Node adapter's packaged lifecycle tests separately observe real fatal subprocesses;
+the RPC protocol has no expected-crash/relaunch fixture control.
 
 ## Remote `/flags?v=4` reads
 

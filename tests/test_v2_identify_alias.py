@@ -300,8 +300,17 @@ async def test_server_delivery_needs_no_storage_control(regression_source):
 async def test_companion_identify_alias_features_through_public_http(specs):
     cases, _ = load_cases(specs, FEATURES)
     selected = [case for case in cases if "@sdk:server" in case.tags]
-    assert len(cases) == 11  # Unmigrated client and negative cases remain visible.
-    assert len(selected) == 5 and all(case.migration is None for case in selected)
+    assert {case.id for case in selected} == {
+        "acceptance:server:identify:scalar-values",
+        "acceptance:server:identify:nested-values",
+        (
+            "acceptance/public/identify.feature::"
+            "Server identify without explicit or contextual identity generates a personless UUID"
+        ),
+        "acceptance:server:alias:signup",
+        "acceptance:server:alias:second-person",
+    }
+    assert all(case.migration is None for case in selected)
     contracts = Contracts()
     async with serve(contracts, host_type=IdentifyAliasHost) as (host, url):
         report, _ = await run(contracts, specs, FEATURES, url, host.profile["id"], tagged_acceptance=True)
