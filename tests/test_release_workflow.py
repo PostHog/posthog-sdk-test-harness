@@ -132,10 +132,14 @@ def test_release_locks_version_before_commit_and_builds_clean_pinned_inputs():
     checkout = step("Checkout pinned SDK specs")["run"]
     assert 'fetch --depth=1 origin "$SDK_SPECS_COMMIT"' in checkout
     assert 'rev-parse HEAD)" = "$SDK_SPECS_COMMIT"' in checkout
+    # The features check runs before Sampo consumes the changesets, so a failure leaves no version commit.
     check = step("Check generated flags v4 features")
-    assert check["if"] == "steps.commit-release.outputs.commit-hash != ''"
+    assert "if" not in check and "if" not in step("Checkout pinned SDK specs")
+    assert STEPS.index(step("Set up uv and Python")) < STEPS.index(step("Checkout pinned SDK specs"))
     assert (
-        STEPS.index(step("Checkout pinned SDK specs")) < STEPS.index(check) < STEPS.index(step("Build v2 distribution"))
+        STEPS.index(step("Checkout pinned SDK specs"))
+        < STEPS.index(check)
+        < STEPS.index(step("Prepare release with Sampo"))
     )
     assert "bin/update-flags-v4-features.py" in check["run"]
     assert '--specs "$RUNNER_TEMP/sdk-specs" --check' in check["run"]
