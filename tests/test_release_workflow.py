@@ -132,10 +132,14 @@ def test_release_locks_version_before_commit_and_builds_clean_pinned_inputs():
     checkout = step("Checkout pinned SDK specs")["run"]
     assert 'fetch --depth=1 origin "$SDK_SPECS_COMMIT"' in checkout
     assert 'rev-parse HEAD)" = "$SDK_SPECS_COMMIT"' in checkout
+    # The features check runs before Sampo consumes the changesets, so a failure leaves no version commit.
     check = step("Check generated flags v4 features")
-    assert check["if"] == "steps.commit-release.outputs.commit-hash != ''"
+    assert "if" not in check and "if" not in step("Checkout pinned SDK specs")
+    assert STEPS.index(step("Set up uv and Python")) < STEPS.index(step("Checkout pinned SDK specs"))
     assert (
-        STEPS.index(step("Checkout pinned SDK specs")) < STEPS.index(check) < STEPS.index(step("Build v2 distribution"))
+        STEPS.index(step("Checkout pinned SDK specs"))
+        < STEPS.index(check)
+        < STEPS.index(step("Prepare release with Sampo"))
     )
     assert "bin/update-flags-v4-features.py" in check["run"]
     assert '--specs "$RUNNER_TEMP/sdk-specs" --check' in check["run"]
@@ -147,6 +151,15 @@ def test_release_locks_version_before_commit_and_builds_clean_pinned_inputs():
     assert "--require-hashes" in smoke
     assert '"$RUNNER_TEMP"/v2-distribution/*.whl' in smoke
     assert "scripts/smoke_v2_distribution.py" in smoke
+
+
+def test_pull_requests_run_the_release_features_check_on_the_release_pin():
+    jobs = yaml.safe_load((ROOT / ".github/workflows/test-action.yml").read_text())["jobs"]
+    steps = {item["name"]: item["run"] for item in jobs["test-flags-v4-features"]["steps"] if "name" in item}
+    # The pull request job reads the pin from the release workflow, so there is one pin to move.
+    read_pin = "SDK_SPECS_COMMIT=$(yq '.env.SDK_SPECS_COMMIT' .github/workflows/release.yml)\n"
+    assert steps["Checkout pinned SDK specs"] == read_pin + step("Checkout pinned SDK specs")["run"]
+    assert steps["Check generated flags v4 features"] == step("Check generated flags v4 features")["run"]
 
 
 @pytest.mark.parametrize("v2_digest,outcome", [("sha256:222", "success"), ("", "failure")])

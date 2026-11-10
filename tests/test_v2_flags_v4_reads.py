@@ -83,7 +83,7 @@ def test_each_scenario_serves_the_fixture_response_and_expects_its_reader_result
 
 def test_checked_in_features_match_the_contract(specs):
     for path, content in GENERATOR.rendered().items():
-        assert (specs / path).read_text(encoding="utf-8") == content, f"Regenerate {path}"
+        assert GENERATOR.current(specs / path, content), f"Regenerate {path}"
 
 
 def test_check_mode_reports_a_stale_feature(generated, tmp_path, monkeypatch, capsys):
@@ -92,6 +92,12 @@ def test_check_mode_reports_a_stale_feature(generated, tmp_path, monkeypatch, ca
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["update", "--specs", str(tmp_path), "--check"])
+    assert GENERATOR.main() == 0
+    # A feature generated from an earlier contract version differs only in its header.
+    getter = GENERATOR.rendered()[GETTER]
+    earlier = getter.replace(f"contract {flags_v4.contract_version()}:", "contract 0.0.0:", 1)
+    assert earlier != getter
+    (tmp_path / GETTER).write_text(earlier, encoding="utf-8")
     assert GENERATOR.main() == 0
     (tmp_path / GETTER).write_text("edited\n", encoding="utf-8")
     assert GENERATOR.main() == 1

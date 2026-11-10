@@ -4,7 +4,7 @@
 
 ### Minor changes
 
-- [fb5fbfa](https://github.com/posthog/posthog-sdk-test-harness/commit/fb5fbfa170863415d2ad6ebac40920843cdc52c0) Rename `$feature_flag_variant` to `$feature_flag_variant_key` in the feature flag rules v2 event schemas, following PostHog/sdk-specs#203 (contract package 10.0.0).
+- [d85e5a1](https://github.com/posthog/posthog-sdk-test-harness/commit/d85e5a119ae33aedc92c8cb4e1dd8eeb7db821ae) Rename `$feature_flag_variant` to `$feature_flag_variant_key` in the feature flag rules v2 event schemas, following PostHog/sdk-specs#203 (contract package 10.0.0).
   
   - `schemas/experiment_exposure_properties.schema.json` requires exactly `$feature_flag`, `$feature_flag_response`, `$feature_flag_variant_key`, `$feature_flag_rule_id` and `locally_evaluated`. `schemas/feature_flag_called_context.schema.json` uses `$feature_flag_variant_key` in every config version 2 branch. Both closed schemas reject the old name.
   - For config version 2 the variant key and the value are separate: a split can assign the variant `control` with the value `false`. `$feature_flag_variant` read like the value, which `$feature_flag_response` carries. The new name matches the source field `metadata.variant_key` and `$feature_flag_rule_id`. The value, the presence rules and `$feature_flag_response` do not change.

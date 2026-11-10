@@ -24,7 +24,7 @@ The workflow then:
 
 1. Notifies `#approvals-client-libraries` in Slack and pings the client-libraries approvers
 2. Waits for explicit approval in the GitHub `Release` environment
-3. Once approved: runs `sampo release` to bump `pyproject.toml` and write `CHANGELOG.md`, syncs `src/posthog_test_harness/__init__.py` and `uv.lock`, and commits the result
+3. Once approved: checks that the generated `/flags?v=4` features in the pinned specs match the contract (before anything is committed), then runs `sampo release` to bump `pyproject.toml` and write `CHANGELOG.md`, syncs `src/posthog_test_harness/__init__.py` and `uv.lock`, and commits the result
 4. Builds a clean v2 wheel/sdist with pinned specs and smoke-tests the installed wheel plus local amd64 and arm64 v2 images. All checks must pass before creating the version tag or GitHub Release.
 5. Tags the release commit `X.Y.Z` (bare, matching the other Sampo SDKs), creates a GitHub Release, then publishes both images for `linux/amd64` and `linux/arm64`:
    - `ghcr.io/posthog/sdk-test-harness` — existing v1 entrypoint and consumers
@@ -43,6 +43,9 @@ You can manually start the workflow from the Actions tab via `workflow_dispatch`
 `dd11a6b8f8c7be3013cd26d97782452ce0f8a76d` from `PostHog/sdk-specs` (PR174),
 including the merged group-identify, capture-exception, evaluate-flags and generated `/flags?v=4` read coverage.
 Update this immutable commit pin through review, not a moving branch reference.
+Pull request CI runs the generated `/flags?v=4` features check against the same pin,
+so a contract change that needs regenerated features fails before merge
+(see [Remote `/flags?v=4` reads](./docs/harness-v2.md#remote-flagsv4-reads)).
 The workflow checks out specs and writes distribution/smoke outputs under
 `RUNNER_TEMP`, outside the harness checkout. `scripts/build_v2_distribution.py`
 requires clean harness/specs commits and uses `uv export --locked`; the release
@@ -119,6 +122,14 @@ changesets and can skip the release entirely. This workflow does not implement a
 publish-only recovery mode. Coordinate an explicitly approved recovery using the
 original release commit, specs pin, and verified distribution artifacts; verify
 both image/tag sets afterward. Do not add a new changeset merely to retry a push.
+
+### Release failed after the version commit, before any tag
+
+If validation fails after `chore: Release vX.Y.Z` lands but before the tag, nothing
+was published. Re-running cannot finish it: Sampo finds no changesets. To release
+the same version, fix the cause in a PR that also reverts the release commit. The
+revert restores the consumed changesets and the previous version. When that PR
+merges, the workflow runs as usual and Sampo releases `X.Y.Z` again.
 
 ### Failed or cancelled release
 
