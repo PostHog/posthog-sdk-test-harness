@@ -18,7 +18,7 @@ FEATURE = "acceptance/public/evaluate-flags.feature"
 
 def snapshot_cases(specs):
     cases, _ = load_cases(specs, [FEATURE])
-    return [case for case in cases if case.name.startswith("Server snapshot")]
+    return [case for case in cases if case.name.startswith("Server snapshot") and "@sdk:server" in case.tags]
 
 
 @pytest.mark.parametrize("protocol", ["legacy", "analytics_v1"])

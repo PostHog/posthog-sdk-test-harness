@@ -15,8 +15,8 @@ from tests.v2_flush_host import serve
 
 def test_discovery_from_features_without_catalog_or_ledger(specs):
     cases = discover(specs, migration_paths(specs))["cases"]
-    assert len(cases) == 158
-    assert len({c["case_id"] for c in cases}) == 158
+    assert len(cases) == 308
+    assert len({c["case_id"] for c in cases}) == 308
     assert all(c["status"] == "harness_ready" for c in cases)
     assert all(c["required_fixture_capabilities"] == ["storage.empty.v1"] for c in cases)
     canonical = [p for p in feature_paths(specs) if p.startswith("acceptance/")]

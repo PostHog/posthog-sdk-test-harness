@@ -9,9 +9,9 @@ responses and expected results come from one place:
   case becomes a one-record v4 response carrying the corpus value; its legacy
   cell is the expected legacy getter result and payload.
 - ``reader_payloads``: the ``readers`` cases whose legacy payload the contract
-  decides. A failed or unreadable record that still carries a
-  ``metadata.payload`` is left out: the contract does not say whether the legacy
-  payload accessor returns it.
+  decides. A case's ``legacy_payload`` expectation decides it. Without one, a
+  failed or unreadable record that still carries a ``metadata.payload`` is left
+  out. Since contract 9.0.0 every such case declares ``legacy_payload``.
 """
 
 import copy
@@ -82,6 +82,16 @@ def case_ids(source: str) -> List[str]:
     if source == "reader_payloads":
         return [case["id"] for case in _readers()["cases"] if reader_payload_decided(case["id"])]
     raise ValueError(f"Unknown flags v4 fixture source {source!r}; expected one of {SOURCES}")
+
+
+def contract_version() -> str:
+    """The version of the contract package the cases come from."""
+    return str(_load("manifest.json")["contract"]["version"])
+
+
+def reader(case_id: str) -> Dict[str, Any]:
+    """The reader expectation of a reader case: requested key, error code, config version."""
+    return dict(_case("readers", case_id)["reader"])
 
 
 def _case(source: str, case_id: str) -> Dict[str, Any]:
@@ -175,11 +185,12 @@ def _decoded_payload(metadata: Dict[str, Any]) -> Any:
 def reader_payload_decided(case_id: str) -> bool:
     """Whether the contract decides the legacy payload of a reader case's requested key.
 
-    It does unless the reader reports an error other than FLAG_NOT_FOUND for a
-    record that carries a ``metadata.payload``.
+    It does when the case declares ``legacy_payload``. Otherwise it does unless
+    the reader reports an error other than FLAG_NOT_FOUND for a record that
+    carries a ``metadata.payload``.
     """
     reader = _case("readers", case_id)["reader"]
-    if reader["error_code"] in (None, "FLAG_NOT_FOUND"):
+    if "legacy_payload" in reader or reader["error_code"] in (None, "FLAG_NOT_FOUND"):
         return True
     record = response("readers", case_id)["flags"][reader["requested_key"]]
     return (record.get("metadata") or {}).get("payload") is None
@@ -190,14 +201,22 @@ def expectation(source: str, case_id: str) -> Dict[str, Any]:
 
     Keys: ``key``, ``legacy_value`` (legacy getter result; None when the flag
     is absent) and ``legacy_payload`` (legacy payload accessor result as a
-    parsed JSON value; None when there is no payload).
+    parsed JSON value; None when there is no payload). A reader case's
+    ``legacy_payload`` expectation is the payload when the case declares one.
     """
     case = _case(source, case_id)
     if source == "values":
         legacy = case["legacy"]
         return {"key": case["flag"]["key"], "legacy_value": legacy["value"], "legacy_payload": legacy["payload"]}
 
-    reader = case["reader"]
+    expected = _derived_reader_expectation(source, case_id, case["reader"])
+    if "legacy_payload" in case["reader"]:
+        expected["legacy_payload"] = copy.deepcopy(case["reader"]["legacy_payload"])
+    return expected
+
+
+def _derived_reader_expectation(source: str, case_id: str, reader: Dict[str, Any]) -> Dict[str, Any]:
+    """A reader case's expectation from its reader result and served record."""
     key = reader["requested_key"]
     record = response(source, case_id).get("flags", {}).get(key)
     error_code = reader["error_code"]

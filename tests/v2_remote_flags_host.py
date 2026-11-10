@@ -155,6 +155,8 @@ class RemoteFlagsEngine(AIEngine):
 
 
 class RemoteFlagsHost(AIHost):
+    engine_type = RemoteFlagsEngine
+
     def __init__(self, contracts, *, cached=False, sdk_type="server", **options):
         options.setdefault(
             "sdk_capabilities", ("flags_v2", "flags_getter_remote_uncached") if not cached else ("flags_v2",)
@@ -204,7 +206,7 @@ class RemoteFlagsHost(AIHost):
         try:
             route, args = call["route"], call["args"]
             if route == "/setup":
-                fixture.engine = RemoteFlagsEngine(
+                fixture.engine = self.engine_type(
                     fixture.storage,
                     args["config"]["host"],
                     args["config"],

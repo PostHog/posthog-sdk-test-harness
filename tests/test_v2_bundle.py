@@ -32,7 +32,7 @@ def test_bundle_preserves_both_case_inventories_and_source_bytes(snapshot, specs
         assert packaged == source
         assert packaged["cases"]
         if paths is not None:
-            assert len(packaged["cases"]) == 158
+            assert len(packaged["cases"]) == 308
     assert all(name.endswith(".feature") for name in manifest["files"])
 
 
@@ -81,7 +81,7 @@ def test_cli_uses_packaged_inputs_and_keeps_explicit_override(snapshot, tmp_path
     result = runner.invoke(main, args)
     assert result.exit_code == 0, result.output
     data = json.loads(report.read_text())
-    assert len(data["cases"]) == 158
+    assert len(data["cases"]) == 308
     assert data["distribution"]["bundle_sha256"] == validate_bundle(snapshot)["bundle_sha256"]
     info = runner.invoke(main, ["bundle-info"])
     assert info.exit_code == 0, info.output

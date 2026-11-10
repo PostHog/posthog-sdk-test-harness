@@ -1,5 +1,19 @@
 # posthog-sdk-test-harness
 
+## 1.29.0 — 2026-11-09
+
+### Minor changes
+
+- [168f46a](https://github.com/posthog/posthog-sdk-test-harness/commit/168f46a8318d94945260fd7a65845406673f01ca) The v2 Gherkin runner can run the `/flags?v=4` read cases of the YAML `feature_flags_v4` suite. The specs features `remote-flags-v4-legacy-getter.feature` (requires `flags_response_v4`) and `remote-flags-v4-legacy-payload.feature` (also requires `feature_flag_payloads`) show each mock response and expected result inline.
+  
+  - New steps: `the mock serves this /flags response body:` (sent byte for byte, with no default fields merged in), `get feature flag payload is called with JSON arguments:` (route `/get_feature_flag_payload`), strict `the public flag getter should return exactly JSON <value>`, payload comparisons as parsed JSON values, and "no value"/"no payload" checks that accept native undefined or JSON `null`. Every result check also requires that at least one `/flags` request received the served body, all of them with `v=4`, so a read that never reached the mock cannot pass. The body serves up to 10 requests.
+  - `bin/update-flags-v4-features.py --specs <checkout>` generates the two features from the feature flag rules v2 contract with `posthog_test_harness.flags_v4`; `--check` fails on drift. The release workflow runs the check on the pinned specs.
+  - Adds 150 read scenarios; the migrated scope now contains 308 cases and the acceptance scope 339. SDKs without `flags_response_v4` select none of the new cases. — Thanks @andehen!
+
+### Patch changes
+
+- [168f46a](https://github.com/posthog/posthog-sdk-test-harness/commit/168f46a8318d94945260fd7a65845406673f01ca) The `feature_flags_v4` suite and the Gherkin `/flags?v=4` payload feature read a reader case's `legacy_payload` expectation from contract 9.0.0. `readers.v1_failed`, a failed record that still carries a `metadata.payload`, now runs in `legacy_payload_reads_reader_fixture` and in `remote-flags-v4-legacy-payload.feature`, and expects no payload. The payload feature has 75 scenarios. — Thanks @andehen!
+
 ## 1.28.0 — 2026-11-05
 
 ### Minor changes

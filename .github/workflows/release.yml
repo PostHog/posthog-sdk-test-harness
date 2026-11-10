@@ -20,7 +20,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: posthog/sdk-test-harness
   V2_IMAGE_NAME: posthog/sdk-test-harness-v2
-  SDK_SPECS_COMMIT: def596d735bba8ce05995d61c9ca766bc1c990ff
+  SDK_SPECS_COMMIT: dd11a6b8f8c7be3013cd26d97782452ce0f8a76d
 
 jobs:
   check-changesets:
@@ -122,7 +122,7 @@ jobs:
         run: cargo install sampo@0.17.4
 
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.4"
           python-version: "3.12.12"
@@ -178,6 +178,13 @@ jobs:
           git -C "$RUNNER_TEMP/sdk-specs" fetch --depth=1 origin "$SDK_SPECS_COMMIT"
           git -C "$RUNNER_TEMP/sdk-specs" checkout --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/sdk-specs" rev-parse HEAD)" = "$SDK_SPECS_COMMIT"
+
+      # The generated /flags?v=4 read features must match this release's contract.
+      - name: Check generated flags v4 features
+        if: steps.commit-release.outputs.commit-hash != ''
+        run: |
+          uv run --locked --no-dev python bin/update-flags-v4-features.py \
+            --specs "$RUNNER_TEMP/sdk-specs" --check
 
       - name: Build v2 distribution
         if: steps.commit-release.outputs.commit-hash != ''
@@ -282,7 +289,7 @@ jobs:
 
       - name: Log in to Container Registry
         if: steps.commit-release.outputs.commit-hash != ''
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
