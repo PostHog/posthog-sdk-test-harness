@@ -13,12 +13,11 @@ CONTRACT_ROOT = Path(__file__).resolve().parents[1] / "contracts" / "feature_fla
 MATRIX_PATH = CONTRACT_ROOT / "rules" / "response_presence.json"
 PRESENCE_PATH = CONTRACT_ROOT / "schemas" / "flags_response_v4_presence.schema.json"
 CALLED_PATH = CONTRACT_ROOT / "schemas" / "feature_flag_called_context.schema.json"
-# An event property name is the metadata field prefixed with $feature_flag_; variant_key becomes variant.
-EVENT_FIELDS = {"variant_key": "variant"}
 
 
 def event_property(field: str) -> str:
-    return "$feature_flag_" + EVENT_FIELDS.get(field, field)
+    """An event property name is the metadata field prefixed with $feature_flag_."""
+    return "$feature_flag_" + field
 
 
 def response_branch(row: dict[str, Any]) -> dict[str, Any]:

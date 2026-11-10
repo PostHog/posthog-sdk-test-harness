@@ -485,7 +485,7 @@ CALLED_SCHEMA = "schemas/feature_flag_called_context.schema.json"
 EXPOSURE = {
     "$feature_flag": "garden-layout",
     "$feature_flag_response": True,
-    "$feature_flag_variant": SAMPLE_VALUES["variant_key"],
+    "$feature_flag_variant_key": SAMPLE_VALUES["variant_key"],
     "$feature_flag_rule_id": SAMPLE_VALUES["rule_id"],
     "locally_evaluated": False,
 }
@@ -549,6 +549,20 @@ def event_negatives() -> list[Any]:
             id=f"calls.{row_name(row)}/forbidden/$feature_flag_reason",
         )
         for row in MATRIX
+    ]
+    # Contract 10.0.0 renamed $feature_flag_variant to $feature_flag_variant_key; both closed projections reject it.
+    split = next(row for row in MATRIX if row["reason"] == "experiment_split")
+    params += [
+        pytest.param(
+            schema,
+            {**value, "$feature_flag_variant": SAMPLE_VALUES["variant_key"]},
+            "additionalProperties",
+            id=f"{name}/renamed/$feature_flag_variant",
+        )
+        for schema, value, name in [
+            (EXPOSURE_SCHEMA, EXPOSURE, "exposure"),
+            (CALLED_SCHEMA, row_call(split), f"calls.{row_name(split)}"),
+        ]
     ]
     return params
 
