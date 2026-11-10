@@ -63,7 +63,8 @@ module.exports = async function releaseFailureNotification({ github, context, ch
         return null;
     }
 
-    const releaseCreated = releaseJob?.steps?.some(step => step.name === 'Create GitHub Release' && step.conclusion === 'success') ?? false;
+    const imagePushSteps = ['Build and push Docker image', 'Build and push v2 Docker image'];
+    const released = imagePushSteps.every(name => releaseJob?.steps?.some(step => step.name === name && step.conclusion === 'success'));
     const releasedNotification = jobs.find(job => job.name === 'Notify Slack - Released');
     const problems = failedJobs.map(job => `• <${job.html_url}|${job.name}>: ${job.conclusion}`);
 
@@ -73,7 +74,7 @@ module.exports = async function releaseFailureNotification({ github, context, ch
         }
     }
 
-    if (releaseCreated && releaseJob.conclusion === 'success'
+    if (released && releaseJob.conclusion === 'success'
         && (!releasedNotification || releasedNotification.conclusion === 'skipped')) {
         problems.push('• The released Slack notification did not run.');
     }
@@ -85,8 +86,8 @@ module.exports = async function releaseFailureNotification({ github, context, ch
     return {
         ...destination,
         text: [
-            releaseCreated
-                ? `⚠️ GitHub release created; follow-up problems for \`${context.repo.owner}/${context.repo.repo}\` (attempt ${run.run_attempt}).`
+            released
+                ? `⚠️ Release published; follow-up problems for \`${context.repo.owner}/${context.repo.repo}\` (attempt ${run.run_attempt}).`
                 : `❌ Release process failed or was cancelled for \`${context.repo.owner}/${context.repo.repo}\` (attempt ${run.run_attempt}).`,
             ...problems,
             `<${run.html_url}|View release logs> (run: ${run.conclusion})`,
