@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.31.0 — 2026-11-10
+
+### Minor changes
+
+- [461d176](https://github.com/posthog/posthog-sdk-test-harness/commit/461d176c6d303a9924d0d3bef958910205ab054c) Expand v2 exception acceptance assertions for normalized inputs, preserved stacks and nested exception metadata. — Thanks @dustinbyrne!
+
 ## 1.30.0 — 2026-11-10
 
 ### Minor changes
