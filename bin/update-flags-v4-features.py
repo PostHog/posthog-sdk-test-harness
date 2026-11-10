@@ -169,6 +169,23 @@ def rendered() -> Dict[str, str]:
     return {f"{DIRECTORY}/{name}": render(name) for name in FEATURES}
 
 
+def without_header(content: str) -> str:
+    """The feature without its leading comment lines.
+
+    The header names the contract version, which every contract change bumps. A
+    feature is current when everything after the header matches.
+    """
+    lines = content.splitlines(keepends=True)
+    while lines and lines[0].startswith("#"):
+        lines.pop(0)
+    return "".join(lines)
+
+
+def current(target: Path, content: str) -> bool:
+    """Whether the feature at target matches content after the header."""
+    return target.is_file() and without_header(target.read_text(encoding="utf-8")) == without_header(content)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--specs", required=True, type=Path, help="sdk-specs checkout")
@@ -178,7 +195,7 @@ def main() -> int:
     for path, content in rendered().items():
         target = args.specs / path
         if args.check:
-            if not target.is_file() or target.read_text(encoding="utf-8") != content:
+            if not current(target, content):
                 stale.append(path)
         else:
             target.write_text(content, encoding="utf-8")

@@ -127,6 +127,24 @@ jobs:
           version: "0.13.4"
           python-version: "3.12.12"
 
+      # Keep both the specs checkout and distribution outputs outside the
+      # harness tree: the packager requires clean committed source provenance.
+      - name: Checkout pinned SDK specs
+        run: |
+          git init "$RUNNER_TEMP/sdk-specs"
+          git -C "$RUNNER_TEMP/sdk-specs" remote add origin https://github.com/PostHog/sdk-specs.git
+          git -C "$RUNNER_TEMP/sdk-specs" fetch --depth=1 origin "$SDK_SPECS_COMMIT"
+          git -C "$RUNNER_TEMP/sdk-specs" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/sdk-specs" rev-parse HEAD)" = "$SDK_SPECS_COMMIT"
+
+      # The generated /flags?v=4 read features must match this release's contract.
+      # Check before Sampo commits the version and consumes the changesets, so a
+      # failure leaves nothing to recover: fix it and run the release again.
+      - name: Check generated flags v4 features
+        run: |
+          uv run --locked --no-dev python bin/update-flags-v4-features.py \
+            --specs "$RUNNER_TEMP/sdk-specs" --check
+
       - name: Prepare release with Sampo
         id: sampo-release
         env:
@@ -167,24 +185,6 @@ jobs:
         run: |
           git fetch origin main
           git reset --hard "$COMMIT_HASH"
-
-      # Keep both the specs checkout and distribution outputs outside the
-      # harness tree: the packager requires clean committed source provenance.
-      - name: Checkout pinned SDK specs
-        if: steps.commit-release.outputs.commit-hash != ''
-        run: |
-          git init "$RUNNER_TEMP/sdk-specs"
-          git -C "$RUNNER_TEMP/sdk-specs" remote add origin https://github.com/PostHog/sdk-specs.git
-          git -C "$RUNNER_TEMP/sdk-specs" fetch --depth=1 origin "$SDK_SPECS_COMMIT"
-          git -C "$RUNNER_TEMP/sdk-specs" checkout --detach FETCH_HEAD
-          test "$(git -C "$RUNNER_TEMP/sdk-specs" rev-parse HEAD)" = "$SDK_SPECS_COMMIT"
-
-      # The generated /flags?v=4 read features must match this release's contract.
-      - name: Check generated flags v4 features
-        if: steps.commit-release.outputs.commit-hash != ''
-        run: |
-          uv run --locked --no-dev python bin/update-flags-v4-features.py \
-            --specs "$RUNNER_TEMP/sdk-specs" --check
 
       - name: Build v2 distribution
         if: steps.commit-release.outputs.commit-hash != ''
