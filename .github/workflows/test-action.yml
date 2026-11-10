@@ -44,6 +44,33 @@ jobs:
       - run: uv sync --locked --extra dev
       - run: uv run --no-sync pytest
 
+  # The release job runs this check on the same pin. Running it here means a
+  # contract change that makes the generated features stale fails its own pull
+  # request, not the release.
+  test-flags-v4-features:
+    name: Check the generated /flags?v=4 features
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.4"
+          python-version: "3.12.12"
+      - name: Checkout pinned SDK specs
+        run: |
+          SDK_SPECS_COMMIT=$(yq '.env.SDK_SPECS_COMMIT' .github/workflows/release.yml)
+          git init "$RUNNER_TEMP/sdk-specs"
+          git -C "$RUNNER_TEMP/sdk-specs" remote add origin https://github.com/PostHog/sdk-specs.git
+          git -C "$RUNNER_TEMP/sdk-specs" fetch --depth=1 origin "$SDK_SPECS_COMMIT"
+          git -C "$RUNNER_TEMP/sdk-specs" checkout --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/sdk-specs" rev-parse HEAD)" = "$SDK_SPECS_COMMIT"
+      - name: Check generated flags v4 features
+        run: |
+          uv run --locked --no-dev python bin/update-flags-v4-features.py \
+            --specs "$RUNNER_TEMP/sdk-specs" --check
+
   test-minimal-adapter:
     name: Test the minimal adapter example
     uses: ./.github/workflows/test-sdk-action.yml
