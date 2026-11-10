@@ -40,7 +40,7 @@ You can manually start the workflow from the Actions tab via `workflow_dispatch`
 ## V2 release inputs and handoff
 
 `.github/workflows/release.yml` tracks `SDK_SPECS_COMMIT`, currently
-`dd11a6b8f8c7be3013cd26d97782452ce0f8a76d` from `PostHog/sdk-specs` (PR174),
+`674e5977ee82a01f898684e353d2fc34d417dd23` from `PostHog/sdk-specs` (PR188),
 including the merged group-identify, capture-exception, evaluate-flags and generated `/flags?v=4` read coverage.
 Update this immutable commit pin through review, not a moving branch reference.
 The workflow checks out specs and writes distribution/smoke outputs under

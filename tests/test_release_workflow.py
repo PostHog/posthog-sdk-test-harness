@@ -128,7 +128,7 @@ def test_release_locks_version_before_commit_and_builds_clean_pinned_inputs():
     assert STEPS.index(step("Sync checkout to release commit")) < STEPS.index(step("Build v2 distribution"))
     pin = WORKFLOW["env"]["SDK_SPECS_COMMIT"]
     assert re.fullmatch(r"[0-9a-f]{40}", pin)
-    assert pin == "dd11a6b8f8c7be3013cd26d97782452ce0f8a76d"
+    assert pin == "674e5977ee82a01f898684e353d2fc34d417dd23"
     checkout = step("Checkout pinned SDK specs")["run"]
     assert 'fetch --depth=1 origin "$SDK_SPECS_COMMIT"' in checkout
     assert 'rev-parse HEAD)" = "$SDK_SPECS_COMMIT"' in checkout
