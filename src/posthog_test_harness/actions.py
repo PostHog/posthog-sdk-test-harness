@@ -2452,7 +2452,7 @@ class GetFeatureFlagPayloadAction(Action):
 
 
 class AssertLegacyFlagValueForCaseAction(Action):
-    """Assert the legacy getter returned the legacy rendering of the case's record value, with strict JSON types."""
+    """Assert the legacy rendering, allowing null as a no-result sentinel only for explicitly failed records."""
 
     @property
     def name(self) -> str:
@@ -2460,8 +2460,15 @@ class AssertLegacyFlagValueForCaseAction(Action):
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         result = _case_result(params, ctx)
-        expected = _case_expectation(params)["legacy_value"]
-        _assert_json_equal(params["case"], "legacy value", result.get("value"), expected)
+        expected = _case_expectation(params)
+        actual = result.get("value")
+        if actual is None and expected["legacy_value"] is False:
+            record = (
+                flags_v4.response(params.get("source", "readers"), params["case"]).get("flags", {}).get(expected["key"])
+            )
+            if isinstance(record, dict) and record.get("failed") is True:
+                return
+        _assert_json_equal(params["case"], "legacy value", actual, expected["legacy_value"])
 
 
 class AssertLegacyFlagPayloadForCaseAction(Action):

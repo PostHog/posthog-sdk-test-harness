@@ -241,7 +241,8 @@
   assert_legacy_flag_value_for_case:
     description: >
       Assert the adapter reported success, the SDK read the fixture with /flags?v=4, and the legacy
-      getter returned the legacy rendering of the fixture case's record, with strict JSON types
+      getter returned the legacy rendering of the fixture case's record, with strict JSON types.
+      Explicitly failed records also accept JSON null or an omitted value as a no-result sentinel.
     params:
       source:
         type: string
