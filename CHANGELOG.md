@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.31.1 — 2026-11-12
+
+### Patch changes
+
+- [a169ec9](https://github.com/posthog/posthog-sdk-test-harness/commit/a169ec9ad6c80f708b1d71bf579f39e067dba300) Accept null or omitted legacy flag results for explicitly failed records while keeping healthy values and malformed-record checks strict. — Thanks @marandaneto!
+
 ## 1.31.0 — 2026-11-10
 
 ### Minor changes
