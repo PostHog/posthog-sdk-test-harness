@@ -249,6 +249,71 @@ async def test_legacy_value_assertion_is_type_strict() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case_id",
+    ["readers.dependency_error", "readers.error", "readers.error_with_value", "readers.v1_failed"],
+)
+@pytest.mark.parametrize("result", [{"value": False}, {"value": None}, {}])
+async def test_failed_records_accept_legacy_no_result_sentinels(case_id, result) -> None:
+    params = {"source": "readers", "case": case_id}
+    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx(result, params))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [True, 0, 1, "variant", {"value": False}, []])
+async def test_failed_records_reject_values_other_than_no_result_sentinels(value) -> None:
+    params = {"source": "readers", "case": "readers.error_with_value"}
+    with pytest.raises(AssertionError, match="legacy value"):
+        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": value}, params))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source, case_id",
+    [
+        ("readers", "readers.old_server_false"),
+        ("readers", "readers.complete_split"),
+        ("readers", "readers.missing_group_key"),
+        ("readers", "readers.split_wrong_type_rule_id"),
+        ("values", "v2_value.object.no_match_null"),
+    ],
+)
+async def test_null_does_not_replace_healthy_false_or_other_reader_errors(source, case_id) -> None:
+    params = {"source": source, "case": case_id}
+    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": False}, params))
+    with pytest.raises(AssertionError, match="legacy value"):
+        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}, params))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("marker", [None, False, "true", 1])
+async def test_null_failure_sentinel_requires_an_explicit_boolean_marker(monkeypatch, marker) -> None:
+    params = {"source": "readers", "case": "readers.error_with_value"}
+    body = flags_v4.response(params["source"], params["case"])
+    record = body["flags"]["garden-layout"]
+    if marker is None:
+        record.pop("failed")
+    else:
+        record["failed"] = marker
+    monkeypatch.setattr(flags_v4, "response", lambda source, case_id: body)
+    with pytest.raises(AssertionError, match="legacy value"):
+        await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}, params))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("global_errors", [False, None])
+async def test_null_failure_sentinel_does_not_depend_on_global_errors(monkeypatch, global_errors) -> None:
+    params = {"source": "readers", "case": "readers.error_with_value"}
+    body = flags_v4.response(params["source"], params["case"])
+    if global_errors is None:
+        body.pop("errorsWhileComputingFlags")
+    else:
+        body["errorsWhileComputingFlags"] = global_errors
+    monkeypatch.setattr(flags_v4, "response", lambda source, case_id: body)
+    await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}, params))
+
+
+@pytest.mark.asyncio
 async def test_legacy_value_assertion_requires_no_value_for_a_missing_flag() -> None:
     params = {"source": "readers", "case": "readers.missing_flag"}
     await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": None}, params))
@@ -302,8 +367,9 @@ async def test_payload_assertion_reads_a_config_version_1_payload() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
-async def test_case_assertions_require_a_successful_adapter_result(action) -> None:
-    params = {"source": "readers", "case": "readers.missing_flag"}
+@pytest.mark.parametrize("case_id", ["readers.missing_flag", "readers.error_with_value"])
+async def test_case_assertions_require_a_successful_adapter_result(action, case_id) -> None:
+    params = {"source": "readers", "case": case_id}
     ctx = SimpleNamespace(
         last_action_result={"success": False, "error": "request failed"},
         mock_server=_served_state(params["case"]),
@@ -314,16 +380,18 @@ async def test_case_assertions_require_a_successful_adapter_result(action) -> No
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
-async def test_case_assertions_require_the_sdk_to_read_the_fixture(action) -> None:
-    params = {"source": "readers", "case": "readers.missing_flag"}
+@pytest.mark.parametrize("case_id", ["readers.missing_flag", "readers.error_with_value"])
+async def test_case_assertions_require_the_sdk_to_read_the_fixture(action, case_id) -> None:
+    params = {"source": "readers", "case": case_id}
     with pytest.raises(AssertionError, match="no /flags request"):
         await action().execute(params, _result_ctx({"value": None}, params, MockServerState()))
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action", [AssertLegacyFlagValueForCaseAction, AssertLegacyFlagPayloadForCaseAction])
-async def test_case_assertions_require_a_v4_request(action) -> None:
-    params = {"source": "readers", "case": "readers.missing_flag"}
+@pytest.mark.parametrize("case_id", ["readers.missing_flag", "readers.error_with_value"])
+async def test_case_assertions_require_a_v4_request(action, case_id) -> None:
+    params = {"source": "readers", "case": case_id}
     state = _served_state(params["case"], query="v=2")
     with pytest.raises(AssertionError, match="expected v=4"):
         await action().execute(params, _result_ctx({"value": None}, params, state))
