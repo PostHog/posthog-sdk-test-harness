@@ -46,11 +46,13 @@ FEATURES: Dict[str, Dict[str, Any]] = {
         "description": [
             "The existing getter returns the legacy rendering of a v4 record's value:",
             "booleans and strings as is, null as false, numbers and objects as true. A",
-            "failed or unreadable record returns false, and a missing flag returns no",
-            "value. An older server's record without `value` reads as `variant ?? enabled`.",
-            "Unknown fields, malformed sibling records and a `value` beside stale",
-            "`enabled`/`variant` fields do not change the result. Types are strict:",
-            'true is not 1, and the string "false" is not false.',
+            "record with `failed: true` has no evaluated value, so the getter returns",
+            "false or no value. Other reader errors, such as an unreadable record,",
+            "return false, and a missing flag returns no value. An older server's",
+            "record without `value` reads as `variant ?? enabled`. Unknown fields,",
+            "malformed sibling records and a `value` beside stale `enabled`/`variant`",
+            "fields do not change the result. Types are strict: true is not 1, and the",
+            'string "false" is not false.',
         ],
         "sources": [("readers", "reader fixture"), ("values", "typed value")],
         "read": "getter",
@@ -100,6 +102,8 @@ def explanation(source: str, case_id: str, read: str) -> str:
     if error_code == "FLAG_NOT_FOUND":
         missing = "the getter returns no value" if read == "getter" else "the payload getter returns no payload"
         return f"The response has no record for the requested flag, so {missing}."
+    if read == "getter" and flags_v4.failed_record(source, case_id):
+        return "The record has failed: true, so it has no evaluated value and the getter returns false or no value."
     if error_code is not None:
         return f"The reader reports {error_code} for the record, so {result}."
     if read == "getter":
@@ -136,7 +140,10 @@ def scenario(source: str, label: str, case_id: str, read: str) -> List[str]:
     ]
     if read == "getter":
         value = expected["legacy_value"]
-        if value is None:
+        if flags_v4.failed_record(response_source, case_id):
+            # The legacy false sentinel or no value, as the YAML suite accepts for these records.
+            lines.append(f"{INDENT}And the public flag getter should return false or no value")
+        elif value is None:
             lines.append(f"{INDENT}And the public flag getter should return no value")
         else:
             lines.append(f"{INDENT}And the public flag getter should return exactly JSON {dumps(value)}")

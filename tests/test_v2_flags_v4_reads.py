@@ -23,6 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 GETTER = "migration/yaml-parity-v1/remote-flags-v4-legacy-getter.feature"
 PAYLOAD = "migration/yaml-parity-v1/remote-flags-v4-legacy-payload.feature"
 ROUTES = ["/setup", "/get_feature_flag", "/get_feature_flag_payload"]
+FAILED_STEP = "the public flag getter should return false or no value"
+# The reader cases whose requested record has a boolean failed: true.
+FAILED = ["readers.dependency_error", "readers.error", "readers.error_with_value", "readers.v1_failed"]
 
 
 def _generator():
@@ -79,6 +82,30 @@ def test_each_scenario_serves_the_fixture_response_and_expects_its_reader_result
                 "key": flags_v4.expectation(response_source, fixture_case)["key"],
             }
             assert response_source == "values" or fixture_case in flags_v4.case_ids(source)
+
+
+def test_only_failed_records_accept_false_or_no_value():
+    """The getter feature applies the YAML suite's failed-record rule; every other result stays exact."""
+    failed = []
+    for case in compile_feature(GENERATOR.rendered()[GETTER], GETTER, "revision"):
+        fixture_case = case.name.rsplit(" ", 1)[1]
+        source = "values" if fixture_case.startswith("v2_value.") else "readers"
+        value = flags_v4.expectation(source, fixture_case)["legacy_value"]
+        if flags_v4.failed_record(source, fixture_case):
+            failed.append(fixture_case)
+            assert value is False
+            assert case.steps[-1].text == FAILED_STEP
+        elif value is None:
+            assert case.steps[-1].text == "the public flag getter should return no value"
+        else:
+            assert case.steps[-1].text == f"the public flag getter should return exactly JSON {GENERATOR.dumps(value)}"
+    assert failed == FAILED
+    # A failed record has no payload, so the payload feature does not change.
+    payload = compile_feature(GENERATOR.rendered()[PAYLOAD], PAYLOAD, "revision")
+    assert all(step.text != FAILED_STEP for case in payload for step in case.steps)
+    for case in payload:
+        if case.name.rsplit(" ", 1)[1] in FAILED:
+            assert case.steps[-1].text == "the public flag payload getter should return no payload"
 
 
 def test_checked_in_features_match_the_contract(specs):
@@ -139,6 +166,14 @@ async def test_every_case_passes_against_the_contract_expectations(generated):
         (GETTER, "reader fixture readers.complete_split", "numeric_boolean", "flag_value"),
         (GETTER, "reader fixture readers.complete_split", "null_for_false", "flag_value"),
         (GETTER, "reader fixture readers.missing_flag", "missing_as_false", "flag_value"),
+        # No value replaces false only for a failed record: not a healthy false, not another reader error.
+        (GETTER, "reader fixture readers.old_server_false", "undefined_for_false", "flag_value"),
+        (GETTER, "reader fixture readers.missing_group_key", "null_for_false", "flag_value"),
+        (GETTER, "reader fixture readers.split_wrong_type_rule_id", "undefined_for_false", "flag_value"),
+        # A failed record still accepts only false or no value, with strict JSON types.
+        (GETTER, "reader fixture readers.error_with_value", "numeric_boolean", "flag_value"),
+        (GETTER, "reader fixture readers.error_with_value", "string_for_false", "flag_value"),
+        (GETTER, "reader fixture readers.error_with_value", "true_for_false", "flag_value"),
         (GETTER, "typed value v2_value.number.target", "numeric_boolean", "flag_value"),
         (PAYLOAD, "typed value v2_value.number.target", "serialized_payload", "flag_payload"),
         (PAYLOAD, "reader fixture readers.v1_at_v4", "serialized_payload", "flag_payload"),
@@ -170,6 +205,12 @@ async def test_wrong_answers_fail_the_read_assertion(generated, path, fixture_ca
         # Payloads compare as JSON values, so 0 and 0.0 are the same number.
         (PAYLOAD, "typed value v2_value.number.zero", "float_payload"),
         (PAYLOAD, "typed value v2_value.number.max_safe_integer", "float_payload"),
+        # A failed record has no evaluated value: false, native undefined or JSON null.
+        *[
+            (GETTER, f"reader fixture {case}", defect)
+            for case in FAILED
+            for defect in ("null_for_false", "undefined_for_false")
+        ],
     ],
 )
 async def test_equivalent_answers_pass(generated, path, fixture_case, defect):
@@ -191,6 +232,8 @@ async def test_equivalent_answers_pass(generated, path, fixture_case, defect):
         (PAYLOAD, "typed value v2_value.string.target", "no_request", "flag_fixture_read"),
         (GETTER, "reader fixture readers.missing_flag", "unserved_request", "flag_fixture_read"),
         (PAYLOAD, "reader fixture readers.error", "unserved_request", "flag_fixture_read"),
+        (GETTER, "reader fixture readers.error", "no_request", "flag_fixture_read"),
+        (GETTER, "reader fixture readers.v1_failed", "unserved_request", "flag_fixture_read"),
         # The fixture read with the wrong /flags version.
         (GETTER, "reader fixture readers.complete_split", "v2_request", "flag_fixture_read"),
         (PAYLOAD, "typed value v2_value.number.target", "v2_request", "flag_fixture_read"),
@@ -222,3 +265,26 @@ async def test_every_request_gets_the_body_when_a_getter_reads_twice(generated):
         report, _ = await run(contracts, generated, [PAYLOAD], url, host.profile["id"], case_ids=[selected])
     assert next(r for r in report["results"] if r["case_id"] == selected)["result"]["status"] == "passed"
     assert len(host.engines[0].parsed_responses) == 2
+
+
+async def test_the_failed_record_step_requires_a_failed_record(tmp_path):
+    """The step cannot relax the result of a record without failed: true."""
+    scenario = GENERATOR.scenario("readers", "reader fixture", "readers.missing_group_key", "getter")
+    assert scenario[-1] == "    And the public flag getter should return exactly JSON false"
+    scenario[-1] = f"    And {FAILED_STEP}"
+    feature = GENERATOR.FEATURES[Path(GETTER).name]
+    target = tmp_path / GETTER
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "\n".join([feature["tags"], "Feature: Misused step", "", GENERATOR.BACKGROUND.rstrip("\n"), "", *scenario])
+        + "\n",
+        encoding="utf-8",
+    )
+    contracts = Contracts()
+    selected = case_id(GETTER, "Legacy getter reads reader fixture readers.missing_group_key")
+    async with serve(contracts, host_type=FlagsV4Host, defect="null_for_false") as (host, url):
+        report, _ = await run(contracts, tmp_path, [GETTER], url, host.profile["id"], case_ids=[selected])
+    row = next(r for r in report["results"] if r["case_id"] == selected)["result"]
+    assert row["status"] != "passed", row
+    assert row["failure"]["code"] == "invalid_step_data"
+    assert strict_exit_code(contracts, report) == 1

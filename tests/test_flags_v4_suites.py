@@ -248,6 +248,16 @@ async def test_legacy_value_assertion_is_type_strict() -> None:
         await AssertLegacyFlagValueForCaseAction().execute(params, _result_ctx({"value": 1}, params))
 
 
+def test_failed_record_is_a_boolean_failed_true_on_the_requested_record() -> None:
+    # The YAML suite and the generated Gherkin getter feature both use this predicate.
+    failed = [case for case in flags_v4.case_ids("readers") if flags_v4.failed_record("readers", case)]
+    assert failed == ["readers.dependency_error", "readers.error", "readers.error_with_value", "readers.v1_failed"]
+    assert not any(flags_v4.failed_record("values", case) for case in flags_v4.case_ids("values"))
+    # A missing flag has no record; an unreadable record has no failed marker.
+    assert not flags_v4.failed_record("readers", "readers.missing_flag")
+    assert not flags_v4.failed_record("readers", "readers.missing_group_key")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case_id",
