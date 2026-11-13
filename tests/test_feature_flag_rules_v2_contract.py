@@ -15,7 +15,14 @@ SCHEMA_PATH = CONTRACT_ROOT / "schemas" / "config.schema.json"
 REGISTRY_PATH = CONTRACT_ROOT / "registries" / "literals.json"
 SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 BIN_ROOT = Path(__file__).parents[1] / "bin"
-CORPUS_KINDS = ("corpus", "boolean_evaluation_corpus", "value_evaluation_corpus", "experiment_evaluation_corpus")
+V2_EVALUATION_CORPUS_KINDS = (
+    "boolean_evaluation_corpus",
+    "value_evaluation_corpus",
+    "experiment_evaluation_corpus",
+    "local_evaluation_corpus",
+)
+CORPUS_KINDS = ("corpus", *V2_EVALUATION_CORPUS_KINDS)
+FIXTURE_SET_KINDS = ("fixture_set", "definitions_feed_fixture")
 
 
 def _bin_module(name: str) -> Any:
@@ -132,7 +139,7 @@ def test_fixture_ids_are_unique_and_match_fixture_files() -> None:
     assert len(fixture_ids) == len(set(fixture_ids))
 
     manifest_fixture_paths = {fixture["path"] for fixture in fixtures} | {
-        artifact["path"] for artifact in _manifest()["artifacts"] if artifact["kind"] == "fixture_set"
+        artifact["path"] for artifact in _manifest()["artifacts"] if artifact["kind"] in FIXTURE_SET_KINDS
     }
     actual_fixture_paths = {
         path.relative_to(CONTRACT_ROOT).as_posix()
