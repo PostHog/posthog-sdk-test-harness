@@ -1,7 +1,7 @@
 {
   "contract": {
     "name": "feature_flag_rules_v2",
-    "version": "10.0.0",
+    "version": "10.1.0",
     "config_version": 2
   },
   "artifacts": [
@@ -507,6 +507,30 @@
     {
       "path": "corpus/v2_experiment_evaluation.json",
       "kind": "experiment_evaluation_corpus"
+    },
+    {
+      "path": "schemas/local_outcomes.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "rules/local_outcomes.json",
+      "kind": "local_outcomes"
+    },
+    {
+      "path": "schemas/v2_local_evaluation.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "corpus/v2_local_evaluation.json",
+      "kind": "local_evaluation_corpus"
+    },
+    {
+      "path": "schemas/definitions_feed_fixture.schema.json",
+      "kind": "schema"
+    },
+    {
+      "path": "fixtures/wire/definitions_feed.json",
+      "kind": "definitions_feed_fixture"
     }
   ]
 }
