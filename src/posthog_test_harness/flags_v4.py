@@ -196,6 +196,16 @@ def reader_payload_decided(case_id: str) -> bool:
     return (record.get("metadata") or {}).get("payload") is None
 
 
+def failed_record(source: str, case_id: str) -> bool:
+    """Whether a ``readers`` or ``values`` case's requested record has a boolean ``failed: true``.
+
+    Such a record has no evaluated value, so a legacy getter may report the false
+    sentinel, JSON null or no value (sdk-specs ``get-feature-flag-result``).
+    """
+    record = response(source, case_id).get("flags", {}).get(expectation(source, case_id)["key"])
+    return isinstance(record, dict) and record.get("failed") is True
+
+
 def expectation(source: str, case_id: str) -> Dict[str, Any]:
     """What an SDK must report for a case's requested key.
 
