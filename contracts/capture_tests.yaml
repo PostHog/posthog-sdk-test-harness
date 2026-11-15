@@ -411,7 +411,8 @@
               - action: assert_final_success
 
           - name: max_retries_respected
-            description: SDK should stop retrying after max_retries attempts
+            description: Bounded retry profiles stop after max_retries retries (max_retries + 1 attempts)
+            excludes: unbounded_retries
             sdk_types: [client, server]
             steps:
               - action: configure_mock_responses
@@ -436,6 +437,40 @@
               - action: assert_request_count
                 params:
                   expected: 4
+
+          - name: retries_until_recovery_after_retry_budget
+            description: Unbounded retry profiles retain the event past max_retries and deliver it after recovery
+            sdk_types: [client, server]
+            requires: unbounded_retries
+            steps:
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 503
+                    - status_code: 200
+              - action: init
+                params:
+                  max_retries: 3
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  # Five native backoffs accumulate before recovery; allow the final attempt.
+                  duration_ms: 30000
+              - action: assert_request_count
+                params:
+                  expected: 6
+              - action: assert_event_identity_preserved_on_retry
+                params:
+                  event: test_event
+                  distinct_id: test_user
 
       deduplication:
         description: Validate UUID generation and preservation
@@ -616,7 +651,8 @@
                   expected: 0
 
           - name: multiple_events_batched_together
-            description: Multiple events should be sent in a single batch request
+            description: Queued profiles send multiple events in a single batch request
+            excludes: synchronous_capture
             sdk_types: [server]
             steps:
               - action: init
@@ -635,6 +671,74 @@
               - action: assert_batch_format
                 params:
                   has_batch_array: true
+
+              - action: assert_events_in_batch_count
+                params:
+                  expected: 5
+              - action: assert_all_uuids_unique
+
+          - name: synchronous_capture_delivers_each_event_immediately
+            description: Synchronous profiles deliver each capture before flush and flush sends no extra requests
+            sdk_types: [server]
+            requires: synchronous_capture
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture_multiple
+                params:
+                  count: 5
+                  params:
+                    distinct_id: test_user
+                    event: test_event_{index}
+              - action: assert_request_count
+                params:
+                  expected: 5
+              - action: assert_events_in_batch_count
+                params:
+                  request_index: 0
+                  expected: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: test_event_0
+                  expected: 1
+              - action: assert_events_in_batch_count
+                params:
+                  request_index: 1
+                  expected: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: test_event_1
+                  expected: 1
+              - action: assert_events_in_batch_count
+                params:
+                  request_index: 2
+                  expected: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: test_event_2
+                  expected: 1
+              - action: assert_events_in_batch_count
+                params:
+                  request_index: 3
+                  expected: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: test_event_3
+                  expected: 1
+              - action: assert_events_in_batch_count
+                params:
+                  request_index: 4
+                  expected: 1
+              - action: assert_event_count_with_name
+                params:
+                  name: test_event_4
+                  expected: 1
+              - action: assert_all_uuids_unique
+              - action: flush
+              - action: assert_request_count
+                params:
+                  expected: 5
 
       error_handling:
         description: Validate error response handling

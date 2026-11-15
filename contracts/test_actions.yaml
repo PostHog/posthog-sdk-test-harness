@@ -160,6 +160,27 @@
     description: Assert that UUIDs are the same across retry attempts
     params: {}
 
+  assert_event_identity_preserved_on_retry:
+    description: >
+      Require exactly one captured event with the expected name and distinct_id
+      on every request, valid nonmissing UUID/timestamp equal to the initial
+      attempt, and a successful final request. Client distinct_id may be in properties.
+    params:
+      event:
+        type: string
+        required: true
+      distinct_id:
+        type: string
+        required: true
+      path:
+        type: string
+        optional: true
+        description: Limit observed requests to this path
+      success_statuses:
+        type: array
+        optional: true
+        description: Allowed final response status codes (default [200])
+
   assert_different_uuids:
     description: Assert that multiple events have different UUIDs
     params: {}

@@ -12,6 +12,7 @@ from ..sdk_adapter.client import SDKAdapterClient
 from ..types import TestResult, TestSuiteResult, TestSummary
 from .context import TestContext
 from .suites import ContractTestSuite
+from .suites.contract_suite import validate_capabilities
 
 
 async def run_all_suites(
@@ -32,6 +33,7 @@ async def run_all_suites(
     Suites and tests that declare ``requires`` are skipped when the
     adapter's capabilities do not satisfy the requirement.
     """
+    validate_capabilities(capabilities)
     start_ms = int(time.time() * 1000)
 
     contract = ContractExecutor()

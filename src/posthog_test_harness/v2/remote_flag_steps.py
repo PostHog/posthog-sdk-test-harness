@@ -88,11 +88,17 @@ async def field(ctx, step, path, expected):
         )
         value = value[part]
     expect(
-        value == expected,
+        json_equal(value, expected) if path == "geoip_disable" else value == expected,
         "flag_request_field",
         "Flags field differs",
         details={**details, "actual": {"kind": "value", "value": value}},
     )
+
+
+@STEPS.step("the first flags request should use the native GeoIP default")
+async def native_geoip_default(ctx, step):
+    disabled = "flags_geoip_default_disabled" in ctx.profile.get("sdk_capabilities", [])
+    await field(ctx, step, "geoip_disable", json.dumps(disabled))
 
 
 @STEPS.step(r'the first flags request query parameter "([^"]*)" should equal "([^"]*)"')
@@ -179,6 +185,27 @@ async def exact_result(ctx, step, encoded):
         "flag_value",
         "Getter value differs",
         details=getter_details(ctx, expected),
+    )
+
+
+@STEPS.step("the public flag getter should return false or no value")
+async def failed_result(ctx, step):
+    # Scalar getters retain documented no-result mappings, not a successful false decision.
+    body = json.loads(ctx.flags_v4_body)
+    record = body.get("flags", {}).get(ctx.remote_flag_arguments["key"])
+    require(
+        isinstance(record, dict) and record.get("failed") is True,
+        "invalid_step_data",
+        "Native failure mappings require an explicitly failed fixture record",
+    )
+    details = getter_details(ctx, {"native_failure": ["false", "null", "undefined"]})
+    expect_fixture_read(ctx, "flag_fixture_read", details)
+    outcome = ctx.remote_flag_outcome
+    expect(
+        no_value(outcome) or (outcome["kind"] == "value" and outcome["value"] is False),
+        "flag_value",
+        "Getter did not return a native failed-evaluation result",
+        details=details,
     )
 
 

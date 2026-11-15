@@ -11,6 +11,7 @@ from click.testing import CliRunner
 from posthog_test_harness.v2.cli import main
 from posthog_test_harness.v2.client import Client
 from posthog_test_harness.v2.contracts import BoundaryError, Contracts, decode_json, encode_json
+from posthog_test_harness.v2.gherkin import load_cases
 from posthog_test_harness.v2.report import strict_exit_code
 from posthog_test_harness.v2.runner import run
 from tests.v2_ai_host import AIHost
@@ -218,11 +219,14 @@ async def test_saved_report_gate_checks_results_and_diagnostics(tmp_path, specs)
 
 
 async def test_existing_callback_cases_remain_client_only_for_server_profile(specs):
+    features = ["acceptance/public/on-feature-flags.feature"]
+    cases, _ = load_cases(specs, features)
+    expected_ids = {case.id for case in cases}
+    assert expected_ids
     async with serve(Contracts(), host_type=AIHost) as (host, url):
-        report, _ = await run(
-            Contracts(), specs, ["acceptance/public/on-feature-flags.feature"], url, host.profile["id"]
-        )
-    assert len(report["results"]) == 4
+        report, _ = await run(Contracts(), specs, features, url, host.profile["id"])
+    assert len(report["results"]) == len(expected_ids)
+    assert {row["case_id"] for row in report["results"]} == expected_ids
     assert all(row["result"]["status"] == "not_applicable" for row in report["results"])
     assert not report["fixtures"]
     assert not report["calls"]

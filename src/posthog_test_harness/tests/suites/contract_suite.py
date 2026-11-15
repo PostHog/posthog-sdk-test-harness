@@ -13,6 +13,12 @@ from ..context import TestContext
 from .base import TestSuite
 
 
+def validate_capabilities(capabilities: Optional[List[str]]) -> None:
+    """Reject contradictory retry policies before selecting or accepting tests."""
+    if {"bounded_retries", "unbounded_retries"} <= set(capabilities or []):
+        raise ValueError("Invalid capability profile: bounded_retries and unbounded_retries are mutually exclusive")
+
+
 def _requirements_met(
     requires: Union[str, List[str]],
     capabilities: Set[str],
@@ -86,6 +92,7 @@ class ContractTestSuite(TestSuite):
 
         Returns a list of (test_name, test_def) tuples.
         """
+        validate_capabilities(capabilities)
         cap_set = set(capabilities) if capabilities else set()
 
         # Check suite-level requires

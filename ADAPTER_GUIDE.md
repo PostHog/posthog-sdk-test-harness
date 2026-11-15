@@ -43,7 +43,9 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
-| `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts). SDKs that retry without limit omit it |
+| `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
+| `unbounded_retries` | Capture retains/retries transient failures beyond `max_retries` until recovery. Replaces the legacy bounded-attempt assertion with a recovery/identity-preservation test; declaring together with `bounded_retries` is rejected as an invalid profile before selection/acceptance |
+| `synchronous_capture` | Each capture delivers immediately without queue batching. Replaces the legacy multi-event batching assertion with immediate per-event delivery and no-extra-send-on-flush coverage |
 | `disable_geoip` | The adapter maps `disable_geoip` on `/init` to the SDK's GeoIP opt-out |
 | `historical_migration` | The adapter maps `historical_migration` on `/init` to the SDK's historical migration setting |
 | `reported_drops` | `/state` returns `reported_drops`: every event the SDK reported as dropped through its error surface (a callback, error event or error list), whether capture dropped it or the SDK did |
@@ -55,6 +57,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `encoding_zstd` | Zstd compression support |
 | `encoding_br` | Brotli compression support |
 | `encoding_deflate` | Deflate compression support |
+
+For legacy capture compatibility, adapters that declare neither `unbounded_retries` nor `synchronous_capture` retain the original bounded-retry and queued-batching tests. Declaring `bounded_retries` is not required retroactively. Declare profile semantics truthfully, not to suppress a failed assertion; each replacement keeps a positive test in the inventory. These capabilities describe capture delivery, not flag-request retries.
 
 The harness skips any suite or test whose `requires` field isn't satisfied by the adapter's capabilities. If `capabilities` is omitted, only tests with no `requires` field will run. A test can also list `excludes`: the harness skips it when the adapter declares any of those capabilities. This lets a capability replace a default assertion, such as `flags_response_v4` replacing the `?v=2` check on `/flags` with a `?v=4` check.
 

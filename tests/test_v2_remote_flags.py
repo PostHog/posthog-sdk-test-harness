@@ -82,10 +82,14 @@ async def test_source_wire_scopes_alias_precedence_python_equality_and_named_eve
     def request(body, **kwargs):
         return SimpleNamespace(path="/flags", body_decompressed=json.dumps(body), query_params={"v": "2"}, **kwargs)
 
-    recorded = [request({"api_key": "token", "groups": {}, "geoip_disable": 0}), request({"token": "wrong"})]
+    recorded = [
+        request({"api_key": "token", "groups": {}, "geoip_disable": False, "legacy": 0}),
+        request({"token": "wrong"}),
+    ]
     ctx = SimpleNamespace(server=SimpleNamespace(state=SimpleNamespace(get_requests=lambda: recorded)))
     await field(ctx, None, "token", '"token"')
     await field(ctx, None, "geoip_disable", "false")
+    await field(ctx, None, "legacy", "false")
     await query(ctx, None, "v", "2")
     recorded[0].body_decompressed = '{"token": "earlier", "token": "token"}'
     await field(ctx, None, "token", '"token"')
