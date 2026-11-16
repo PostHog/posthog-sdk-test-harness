@@ -40,8 +40,9 @@ You can manually start the workflow from the Actions tab via `workflow_dispatch`
 ## V2 release inputs and handoff
 
 `.github/workflows/release.yml` tracks `SDK_SPECS_COMMIT`, currently
-`674e5977ee82a01f898684e353d2fc34d417dd23` from `PostHog/sdk-specs` (PR188),
-including the merged group-identify, capture-exception, evaluate-flags and generated `/flags?v=4` read coverage.
+`57407963789cfc8ae411cf1895c09b1f7f8b575c` from `PostHog/sdk-specs` main (PR216 merge),
+including the merged group-identify, capture-exception, evaluate-flags and generated `/flags?v=4` read coverage,
+with the failed-record legacy getter scenarios.
 Update this immutable commit pin through review, not a moving branch reference.
 Pull request CI runs the generated `/flags?v=4` features check against the same pin,
 so a contract change that needs regenerated features fails before merge

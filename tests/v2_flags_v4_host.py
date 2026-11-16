@@ -70,6 +70,12 @@ class FlagsV4Engine(RemoteFlagsEngine):
             return int(value)
         if self.defect == "null_for_false" and value is False:
             return None
+        if self.defect == "undefined_for_false" and value is False:
+            return UNDEFINED
+        if self.defect == "string_for_false" and value is False:
+            return "false"
+        if self.defect == "true_for_false" and value is False:
+            return True
         if self.defect == "missing_as_false" and value is None:
             return False
         if self.defect == "missing_as_null" and value is None:

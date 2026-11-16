@@ -1395,6 +1395,12 @@ Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`exact_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
+the public flag getter should return false or no value
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`failed_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
 the public flag getter should return no value
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.

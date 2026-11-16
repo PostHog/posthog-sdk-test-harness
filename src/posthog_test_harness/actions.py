@@ -2463,10 +2463,8 @@ class AssertLegacyFlagValueForCaseAction(Action):
         expected = _case_expectation(params)
         actual = result.get("value")
         if actual is None and expected["legacy_value"] is False:
-            record = (
-                flags_v4.response(params.get("source", "readers"), params["case"]).get("flags", {}).get(expected["key"])
-            )
-            if isinstance(record, dict) and record.get("failed") is True:
+            # The Gherkin features apply the same predicate (bin/update-flags-v4-features.py).
+            if flags_v4.failed_record(params.get("source", "readers"), params["case"]):
                 return
         _assert_json_equal(params["case"], "legacy value", actual, expected["legacy_value"])
 

@@ -190,6 +190,33 @@ async def no_result(ctx, step):
     )
 
 
+@STEPS.step("the public flag getter should return false or no value")
+async def failed_result(ctx, step):
+    """A record with a boolean ``failed: true`` has no evaluated value.
+
+    The legacy getter may report the false sentinel (strict: not 0 or "false"),
+    native undefined or JSON null. The step applies only to such a record, so other
+    reader errors keep their exact false.
+    """
+    body = getattr(ctx, "flags_v4_body", None)
+    require(body is not None, "invalid_state", "Expected a preceding served /flags response body")
+    flags = json.loads(body).get("flags")
+    record = flags.get(ctx.remote_flag_arguments.get("key")) if isinstance(flags, dict) else None
+    require(
+        isinstance(record, dict) and record.get("failed") is True,
+        "invalid_step_data",
+        "Expected the served record of the requested flag to have failed: true",
+    )
+    expect_fixture_read(ctx, "flag_fixture_read", getter_details(ctx, False))
+    outcome = ctx.remote_flag_outcome
+    expect(
+        no_value(outcome) or (outcome["kind"] == "value" and json_equal(outcome["value"], False)),
+        "flag_value",
+        "Getter returned a value other than false",
+        details=getter_details(ctx, False),
+    )
+
+
 @STEPS.step(
     "get feature flag payload is called with JSON arguments:", "docString", routes=("/get_feature_flag_payload",)
 )
