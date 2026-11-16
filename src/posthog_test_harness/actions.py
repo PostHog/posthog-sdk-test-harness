@@ -30,6 +30,7 @@ import re
 import uuid as uuid_module
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Dict
 
 from . import flags_v4
@@ -399,6 +400,26 @@ class WaitAction(Action):
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         await asyncio.sleep(params["duration_ms"] / 1000.0)
+
+
+class WaitForRequestCountAction(Action):
+    """Wait for a minimum request count within a monotonic deadline."""
+
+    @property
+    def name(self) -> str:
+        return "wait_for_request_count"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        expected = params["expected"]
+        deadline = monotonic() + params.get("timeout_ms", 60000) / 1000.0
+        while True:
+            actual = len(_requests_on_path(ctx, params.get("path")))
+            if actual >= expected:
+                return
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise AssertionError(f"Timed out waiting for at least {expected} requests, got {actual}")
+            await asyncio.sleep(min(0.1, remaining))
 
 
 # ============================================================================

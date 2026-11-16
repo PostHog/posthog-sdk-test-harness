@@ -44,8 +44,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
-| `unbounded_retries` | Capture retains/retries transient failures beyond `max_retries` until recovery. Replaces the legacy bounded-attempt assertion with a recovery/identity-preservation test; declaring together with `bounded_retries` is rejected as an invalid profile before selection/acceptance |
-| `synchronous_capture` | Each capture delivers immediately without queue batching. Replaces the legacy multi-event batching assertion with immediate per-event delivery and no-extra-send-on-flush coverage |
+| `unbounded_retries` | Capture retains/retries transient failures beyond `max_retries` until recovery. Replaces the legacy bounded-attempt assertion with a recovery/identity-preservation test that polls for delivery for up to 60 seconds; declaring together with `bounded_retries` is rejected as an invalid profile before selection/acceptance |
+| `synchronous_capture` | Each capture delivers immediately without queue batching. Replaces the legacy multi-event batching assertion with delivery checks after every capture and no-extra-send-on-flush coverage |
 | `disable_geoip` | The adapter maps `disable_geoip` on `/init` to the SDK's GeoIP opt-out |
 | `historical_migration` | The adapter maps `historical_migration` on `/init` to the SDK's historical migration setting |
 | `reported_drops` | `/state` returns `reported_drops`: every event the SDK reported as dropped through its error surface (a callback, error event or error list), whether capture dropped it or the SDK did |

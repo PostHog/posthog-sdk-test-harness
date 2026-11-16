@@ -460,10 +460,10 @@
                   distinct_id: test_user
                   event: test_event
               - action: flush
-              - action: wait
+              - action: wait_for_request_count
                 params:
-                  # Five native backoffs accumulate before recovery; allow the final attempt.
-                  duration_ms: 30000
+                  expected: 6
+                  timeout_ms: 60000
               - action: assert_request_count
                 params:
                   expected: 6
@@ -685,12 +685,38 @@
               - action: init
                 params:
                   flush_at: 10
-              - action: capture_multiple
+              - action: capture
                 params:
-                  count: 5
-                  params:
-                    distinct_id: test_user
-                    event: test_event_{index}
+                  distinct_id: test_user
+                  event: test_event_0
+              - action: assert_request_count
+                params:
+                  expected: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_1
+              - action: assert_request_count
+                params:
+                  expected: 2
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_2
+              - action: assert_request_count
+                params:
+                  expected: 3
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_3
+              - action: assert_request_count
+                params:
+                  expected: 4
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event_4
               - action: assert_request_count
                 params:
                   expected: 5

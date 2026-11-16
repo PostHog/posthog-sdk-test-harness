@@ -1,10 +1,12 @@
 """Legacy capture contracts distinguish delivery/retry policies without weakening defaults."""
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 
+import posthog_test_harness.actions as actions
 from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.server import MockServer
 from posthog_test_harness.mock_server.state import MockServerState
@@ -15,6 +17,27 @@ BOUNDED = "retry_behavior.max_retries_respected"
 UNBOUNDED = "retry_behavior.retries_until_recovery_after_retry_budget"
 QUEUED = "batch_format.multiple_events_batched_together"
 SYNC = "batch_format.synchronous_capture_delivers_each_event_immediately"
+
+
+class VirtualClock:
+    def __init__(self):
+        self.now = 0.0
+        self.on_sleep = None
+        self.sleeps = []
+
+    async def sleep(self, duration):
+        self.sleeps.append(duration)
+        self.now += duration
+        if self.on_sleep:
+            self.on_sleep(self.now)
+
+
+@pytest.fixture(autouse=True)
+def clock(monkeypatch):
+    clock = VirtualClock()
+    monkeypatch.setattr(actions, "monotonic", lambda: clock.now, raising=False)
+    monkeypatch.setattr(actions, "asyncio", SimpleNamespace(sleep=clock.sleep, wait_for=actions.asyncio.wait_for))
+    return clock
 
 
 def definitions(*capabilities):
@@ -266,3 +289,113 @@ async def test_retry_identity_assertion_checks_final_delivery_and_accepts_client
     else:
         with pytest.raises(AssertionError, match="Final retry request did not successfully deliver"):
             await action.execute({"event": "original", "distinct_id": "user"}, ctx)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("buffer_from", [None, 0, 1, 2, 3])
+async def test_synchronous_contract_checks_delivery_after_every_capture(buffer_from):
+    executor = ContractExecutor()
+    suite = ContractTestSuite("capture", executor)
+    test = definitions("synchronous_capture")[SYNC]
+    state = MockServerState()
+    adapter = CapturePolicyAdapter(state)
+    enqueue = adapter.capture
+    delivery_counts = []
+
+    async def capture(request):
+        await enqueue(request)
+        index = len(delivery_counts)
+        if buffer_from is None or index < buffer_from or index == 4:
+            for event in adapter.pending:
+                adapter.client.post("/batch/", json={"api_key": "test", "batch": [event]})
+            adapter.pending = []
+        delivery_counts.append(len(state.get_requests()))
+
+    adapter.capture = capture
+    result = await suite.run_single_test(SYNC, test, HarnessContext(adapter, state, "http://mock"))
+    if buffer_from is None:
+        assert result.passed, result.message
+        assert delivery_counts == [1, 2, 3, 4, 5]
+    else:
+        assert not result.passed, f"Accepted buffered delivery counts {delivery_counts}"
+        assert result.message == f"Expected {buffer_from + 1} requests, got {buffer_from}"
+        assert len(delivery_counts) == buffer_from + 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("recovers", [True, False])
+async def test_unbounded_recovery_waits_for_the_async_backoff_sequence(clock, recovers):
+    executor = ContractExecutor()
+    suite = ContractTestSuite("capture", executor)
+    test = definitions("unbounded_retries")[UNBOUNDED]
+    state = MockServerState()
+    adapter = CapturePolicyAdapter(state, unbounded=True)
+    attempt_times = [0, 1, 3, 7, 15, 31] if recovers else [0, 1, 3, 7, 15]
+    sent_at = []
+
+    def send_due(now):
+        while len(sent_at) < len(attempt_times) and attempt_times[len(sent_at)] <= now:
+            adapter.client.post("/batch/", json={"api_key": "test", "batch": adapter.pending})
+            sent_at.append(attempt_times[len(sent_at)])
+
+    async def flush():
+        send_due(clock.now)
+        clock.on_sleep = send_due
+
+    adapter.flush = flush
+    result = await suite.run_single_test(UNBOUNDED, test, HarnessContext(adapter, state, "http://mock"))
+    if recovers:
+        assert result.passed, result.message
+        assert sent_at == [0, 1, 3, 7, 15, 31]
+        assert 31 <= clock.now < 32
+        assert [request.response_status for request in state.get_requests()] == [503] * 5 + [200]
+    else:
+        assert not result.passed
+        assert "Timed out" in result.message
+        assert clock.now == pytest.approx(60)
+        assert len(state.get_requests()) == 5
+
+
+@pytest.mark.asyncio
+async def test_request_wait_returns_immediately_when_the_minimum_is_already_present(clock):
+    state = MockServerState()
+    client = MockServer(state).app.test_client()
+    for _ in range(3):
+        client.post("/batch/", json={"batch": []})
+    await ContractExecutor().execute_action(
+        "wait_for_request_count", {"expected": 2}, HarnessContext(None, state, "http://mock")
+    )
+    assert clock.sleeps == []
+
+
+@pytest.mark.asyncio
+async def test_request_wait_filters_paths_and_stops_on_delivery(clock):
+    state = MockServerState()
+    client = MockServer(state).app.test_client()
+    for _ in range(2):
+        client.post("/flags/", json={})
+
+    def deliver(now):
+        if now >= 0.2 and len(state.get_requests()) == 2:
+            client.post("/batch/", json={"batch": []})
+
+    clock.on_sleep = deliver
+    await ContractExecutor().execute_action(
+        "wait_for_request_count",
+        {"expected": 1, "path": "/batch", "timeout_ms": 1000},
+        HarnessContext(None, state, "http://mock"),
+    )
+    assert clock.now == pytest.approx(0.2)
+    assert len(state.get_requests()) == 3
+
+
+@pytest.mark.asyncio
+async def test_request_wait_does_not_sleep_past_its_deadline(clock):
+    with pytest.raises(AssertionError, match="Timed out waiting for at least 1 requests, got 0"):
+        await ContractExecutor().execute_action(
+            "wait_for_request_count",
+            {"expected": 1, "timeout_ms": 250},
+            HarnessContext(None, MockServerState(), "http://mock"),
+        )
+    assert clock.sleeps == pytest.approx([0.1, 0.1, 0.05])
+    assert clock.now == pytest.approx(0.25)

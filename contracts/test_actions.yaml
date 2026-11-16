@@ -75,6 +75,21 @@
         required: true
         description: Duration to wait in milliseconds
 
+  wait_for_request_count:
+    description: Poll until at least the expected number of requests arrives or fail at the deadline
+    params:
+      expected:
+        type: integer
+        required: true
+      timeout_ms:
+        type: integer
+        default: 60000
+        description: Maximum wait in milliseconds, measured with a monotonic clock
+      path:
+        type: string
+        optional: true
+        description: Count only requests to this path
+
   # Assertion actions - Request level
   assert_request_count:
     description: Assert exact number of HTTP requests made to mock server
