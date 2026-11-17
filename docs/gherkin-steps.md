@@ -1371,6 +1371,12 @@ Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`query`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
+the first flags request should use the native GeoIP default
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`native_geoip_default`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
 the mock serves these ordered flag responses:
 ```
 Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
@@ -1393,6 +1399,12 @@ the public flag getter should return exactly JSON (.+)
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
 Handler: [`exact_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+the public flag getter should return false or no value
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`failed_result`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
 the public flag getter should return no value

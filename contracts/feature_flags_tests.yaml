@@ -1,6 +1,9 @@
   # Feature Flag Contract Tests
   # Tests that verify SDKs send correctly structured /flags requests and
   # capture the documented side-effect $feature_flag_called event.
+  # Explicit success fixtures carry both the legacy projection and rich-v2
+  # records. V4 readers support these via their old-server compatibility branch;
+  # these are not v4 producer-schema fixtures (covered by feature_flags_v4).
 
   categories:
     request_payload:
@@ -338,7 +341,31 @@
               params:
                 responses:
                   - status_code: 200
-                    body: '{"featureFlags": {"signup-aa-test": "variant-a"}}'
+                    body: >-
+                      {
+                        "featureFlags": {
+                          "signup-aa-test": "variant-a"
+                        },
+                        "flags": {
+                          "signup-aa-test": {
+                            "key": "signup-aa-test",
+                            "enabled": true,
+                            "variant": "variant-a",
+                            "reason": {
+                              "code": "condition_match",
+                              "condition_index": 0
+                            },
+                            "metadata": {
+                              "id": 101,
+                              "version": 1,
+                              "payload": null,
+                              "has_experiment": false
+                            }
+                          }
+                        },
+                        "requestId": "20000000-0000-4000-8000-000000000002",
+                        "evaluatedAt": 1800000000000
+                      }
             - action: init
             - action: get_feature_flag
               params:
@@ -364,7 +391,31 @@
                 responses:
                   - status_code: 502
                   - status_code: 200
-                    body: '{"featureFlags": {"transient-502-flag": true}}'
+                    body: >-
+                      {
+                        "featureFlags": {
+                          "transient-502-flag": true
+                        },
+                        "flags": {
+                          "transient-502-flag": {
+                            "key": "transient-502-flag",
+                            "enabled": true,
+                            "variant": null,
+                            "reason": {
+                              "code": "condition_match",
+                              "condition_index": 0
+                            },
+                            "metadata": {
+                              "id": 101,
+                              "version": 1,
+                              "payload": null,
+                              "has_experiment": false
+                            }
+                          }
+                        },
+                        "requestId": "20000000-0000-4000-8000-000000000002",
+                        "evaluatedAt": 1800000000000
+                      }
             - action: init
             - action: get_feature_flag
               params:
@@ -390,7 +441,31 @@
                 responses:
                   - status_code: 504
                   - status_code: 200
-                    body: '{"featureFlags": {"transient-504-flag": true}}'
+                    body: >-
+                      {
+                        "featureFlags": {
+                          "transient-504-flag": true
+                        },
+                        "flags": {
+                          "transient-504-flag": {
+                            "key": "transient-504-flag",
+                            "enabled": true,
+                            "variant": null,
+                            "reason": {
+                              "code": "condition_match",
+                              "condition_index": 0
+                            },
+                            "metadata": {
+                              "id": 101,
+                              "version": 1,
+                              "payload": null,
+                              "has_experiment": false
+                            }
+                          }
+                        },
+                        "requestId": "20000000-0000-4000-8000-000000000002",
+                        "evaluatedAt": 1800000000000
+                      }
             - action: init
             - action: get_feature_flag
               params:
@@ -422,7 +497,31 @@
               params:
                 responses:
                   - status_code: 200
-                    body: '{"featureFlags": {"my-flag": true}}'
+                    body: >-
+                      {
+                        "featureFlags": {
+                          "my-flag": true
+                        },
+                        "flags": {
+                          "my-flag": {
+                            "key": "my-flag",
+                            "enabled": true,
+                            "variant": null,
+                            "reason": {
+                              "code": "condition_match",
+                              "condition_index": 0
+                            },
+                            "metadata": {
+                              "id": 101,
+                              "version": 1,
+                              "payload": null,
+                              "has_experiment": false
+                            }
+                          }
+                        },
+                        "requestId": "20000000-0000-4000-8000-000000000002",
+                        "evaluatedAt": 1800000000000
+                      }
             - action: init
             - action: get_feature_flag
               params:

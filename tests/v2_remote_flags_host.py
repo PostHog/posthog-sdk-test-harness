@@ -15,6 +15,8 @@ UNDEFINED = object()
 class RemoteFlagsEngine(AIEngine):
     """Owns fetching, HTTP parsing, cache choice, tracking and synchronous notifications."""
 
+    geoip_default_disabled = False
+
     def __init__(
         self, storage, host, config, protocol, defect, token, *, client=False, cached=False, flags_version="2"
     ):
@@ -42,7 +44,7 @@ class RemoteFlagsEngine(AIEngine):
             "distinct_id": args.get("distinct_id", self.identity),
             "groups": deepcopy(args.get("groups", {})),
             "group_properties": deepcopy(args.get("group_properties", {})),
-            "geoip_disable": args.get("disable_geoip", False),
+            "geoip_disable": args.get("disable_geoip", self.geoip_default_disabled),
         }
         if "person_properties" in args:
             body["person_properties"] = deepcopy(args["person_properties"])

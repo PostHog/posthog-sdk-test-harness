@@ -30,6 +30,7 @@ import re
 import uuid as uuid_module
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Dict
 
 from . import flags_v4
@@ -401,6 +402,26 @@ class WaitAction(Action):
         await asyncio.sleep(params["duration_ms"] / 1000.0)
 
 
+class WaitForRequestCountAction(Action):
+    """Wait for a minimum request count within a monotonic deadline."""
+
+    @property
+    def name(self) -> str:
+        return "wait_for_request_count"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        expected = params["expected"]
+        deadline = monotonic() + params.get("timeout_ms", 60000) / 1000.0
+        while True:
+            actual = len(_requests_on_path(ctx, params.get("path")))
+            if actual >= expected:
+                return
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise AssertionError(f"Timed out waiting for at least {expected} requests, got {actual}")
+            await asyncio.sleep(min(0.1, remaining))
+
+
 # ============================================================================
 # Assertion Actions - Request Level
 # ============================================================================
@@ -698,6 +719,46 @@ class AssertTimestampPreservedOnRetryAction(Action):
 
         if first_timestamps != second_timestamps:
             raise AssertionError(f"Timestamps changed on retry: {first_timestamps} != {second_timestamps}")
+
+
+class AssertEventIdentityPreservedOnRetryAction(Action):
+    """Require one captured event on every attempt, including successful recovery.
+
+    Compare only event identity, not mutable request envelopes or incidental
+    properties. Legacy first-two-request assertions keep their existing behavior.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_event_identity_preserved_on_retry"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = _requests_on_path(ctx, params.get("path"))
+        if len(requests) < 2:
+            raise AssertionError("Need at least 2 requests to check retry identity")
+        original_identity = None
+        for index, request in enumerate(requests):
+            events = request.parsed_events or []
+            if len(events) != 1:
+                raise AssertionError(f"Retry attempt {index + 1}: expected exactly one event, got {len(events)}")
+            event = events[0]
+            distinct_id = event.get("distinct_id", (event.get("properties") or {}).get("distinct_id"))
+            if event.get("event") != params["event"] or distinct_id != params["distinct_id"]:
+                raise AssertionError(f"Retry attempt {index + 1}: captured event name or distinct_id changed")
+            uuid = event.get("uuid")
+            timestamp = event.get("timestamp")
+            if not isinstance(uuid, str) or not _is_valid_uuid(uuid):
+                raise AssertionError(f"Retry attempt {index + 1}: missing or invalid event UUID")
+            if not _is_rfc3339(timestamp):
+                raise AssertionError(f"Retry attempt {index + 1}: missing or invalid event timestamp")
+            identity = (uuid, timestamp)
+            if original_identity is None:
+                original_identity = identity
+            elif identity != original_identity:
+                raise AssertionError(f"Retry attempt {index + 1}: event UUID or timestamp changed from initial attempt")
+        success_statuses = params.get("success_statuses", [200])
+        if requests[-1].response_status not in success_statuses:
+            raise AssertionError("Final retry request did not successfully deliver the captured event")
 
 
 class AssertNoDuplicateEventsInBatchAction(Action):
