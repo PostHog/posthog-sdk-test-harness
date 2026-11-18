@@ -65,6 +65,14 @@
         type: string
         optional: true
         description: Caller-supplied event UUID (requires the event_uuid_override capability); pass it to the SDK as given
+      pad_properties_to_bytes:
+        type: integer
+        optional: true
+        description: Add a $test_padding string property so properties serialize (compact JSON, UTF-8) to exactly this many bytes (generated_payloads)
+      marker:
+        type: string
+        optional: true
+        description: Start the padding string with this text (generated_payloads)
 
   capture_ai:
     description: Call the SDK's capture_ai / captureAi method (dedicated AI capture endpoint)
