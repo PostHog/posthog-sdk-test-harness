@@ -50,7 +50,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `historical_migration` | The adapter maps `historical_migration` on `/init` to the SDK's historical migration setting |
 | `reported_drops` | `/state` returns `reported_drops`: every event the SDK reported as dropped through its error surface (a callback, error event or error list), whether capture dropped it or the SDK did |
 | `log_capture` | `/state` returns `log_lines`: every line the SDK logged since `/init` |
-| `generated_payloads` | `/capture_ai` honors `pad_properties_to_bytes` and `marker` |
+| `generated_payloads` | `/capture` and `/capture_ai` honor `pad_properties_to_bytes` and `marker` |
 | `property_layers` | `/init` honors `super_properties` and `before_send` |
 | `fail_open` | `/init` succeeds with an empty or personal (`phx_`) API key and passes it to the SDK |
 | `encoding_gzip` | Gzip compression support |

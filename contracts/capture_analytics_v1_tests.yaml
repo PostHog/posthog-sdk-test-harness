@@ -1,6 +1,205 @@
     description: Tests for Capture Analytics V1 wire protocol compliance (POST /i/v1/analytics/events)
     requires: capture_v1
     categories:
+      redirects_and_library_identity:
+        description: Same-origin 307/308 redirects only, at most 5 (FC-19), and per-event $lib (SD-22a)
+        tests:
+          - name: follows_same_origin_307
+            description: A 307 to the same origin is followed with the same events, which are delivered (FC-19)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 200
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 2
+              - action: assert_final_success
+                params:
+                  path: /i/v1/analytics/events
+              - action: assert_uuid_preserved_on_retry
+
+          - name: does_not_follow_cross_origin_redirect
+            description: A 307 to another origin is not followed or retried; the SDK makes one request (FC-19)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 307
+                      headers:
+                        Location: http://redirect-target.invalid/i/v1/analytics/events
+                    - status_code: 200
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 1
+              - action: assert_sdk_did_not_retry
+
+          - name: treats_302_as_terminal
+            description: A same-origin 302 is not followed or retried; only 307 and 308 are followed (FC-19)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 302
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 200
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 2000
+              - action: assert_request_count
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 1
+              - action: assert_sdk_did_not_retry
+
+          - name: follows_at_most_five_redirects
+            description: The SDK follows at most 5 same-origin redirects for one request, then gives up (FC-19)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: configure_mock_responses
+                params:
+                  responses:
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 307
+                      headers:
+                        Location: /i/v1/analytics/events
+                    - status_code: 200
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 3000
+              - action: assert_request_count
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 6
+
+          - name: sends_lib_and_lib_version_per_event
+            description: Each event carries the SDK's $lib and $lib_version properties (SD-22a, INV-7a)
+            steps:
+              - action: init
+                params:
+                  flush_at: 1
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+              - action: flush
+              - action: assert_event_property
+                params:
+                  property: $lib
+                  exists: true
+              - action: assert_event_property
+                params:
+                  property: $lib_version
+                  exists: true
+
+      request_size:
+        description: Analytics requests stay under the 5 MiB byte target (INV-31)
+        tests:
+          - name: batches_close_before_byte_target
+            description: Three 2 MiB analytics events go out in at least two requests under 5 MiB each, and all three arrive (INV-31)
+            sdk_types: [server]
+            requires: generated_payloads
+            steps:
+              - action: init
+                params:
+                  flush_at: 10
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    case: evt-0
+                  pad_properties_to_bytes: 2097152
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    case: evt-1
+                  pad_properties_to_bytes: 2097152
+              - action: capture
+                params:
+                  distinct_id: test_user
+                  event: test_event
+                  properties:
+                    case: evt-2
+                  pad_properties_to_bytes: 2097152
+              - action: flush
+              - action: wait
+                params:
+                  duration_ms: 5000
+              - action: assert_request_count_gte
+                params:
+                  path: /i/v1/analytics/events
+                  expected: 2
+              - action: assert_request_body_max_bytes
+                params:
+                  path: /i/v1/analytics/events
+                  max_bytes: 5308416
+              - action: assert_events_property_values
+                params:
+                  path: /i/v1/analytics/events
+                  property: case
+                  expected: [evt-0, evt-1, evt-2]
+                  any_order: true
+
       endpoint_and_method:
         description: SDK targets the correct V1 endpoint
         tests:
