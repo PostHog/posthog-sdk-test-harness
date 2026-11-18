@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.33.0 — 2026-11-18
+
+### Minor changes
+
+- [cc6c7e1](https://github.com/posthog/posthog-sdk-test-harness/commit/cc6c7e15040dc6141bd7e6c8b809ebf54247eb2e) Add capture v1 cases for both lanes: a same-origin 307 is followed with the same events, a cross-origin 307 and a same-origin 302 are terminal with no retry, and at most 5 redirects are followed for one request. Each event carries `$lib` and `$lib_version`. On the analytics lane, three 2 MiB events go out in at least two requests under 5 MiB each. `/capture` now documents `pad_properties_to_bytes` and `marker` under `generated_payloads`, as `/capture_ai` does. — Thanks @eli-r-ph!
+
 ## 1.32.0 — 2026-11-17
 
 ### Minor changes
