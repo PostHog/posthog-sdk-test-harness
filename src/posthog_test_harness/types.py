@@ -53,10 +53,13 @@ class FeatureFlagRequest:
     only_evaluate_locally: Optional[bool] = None
     person_property_keys_known_absent: Optional[List[str]] = None
     group_property_keys_known_absent: Optional[Dict[str, List[str]]] = None
+    allow_remote_fallback: Optional[bool] = None
 
     def __post_init__(self) -> None:
         if self.only_evaluate_locally and self.force_remote:
             raise ValueError("only_evaluate_locally and force_remote cannot both be true")
+        if self.allow_remote_fallback and (self.only_evaluate_locally or self.force_remote):
+            raise ValueError("allow_remote_fallback conflicts with only_evaluate_locally and force_remote")
 
 
 @dataclass

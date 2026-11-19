@@ -297,5 +297,6 @@ result requirements.
 Adapters that also advertise `feature_flags_known_absent_v1` run the
 `feature_flags_known_absent` suite: `/get_feature_flag` passes
 `person_property_keys_known_absent` and `group_property_keys_known_absent` to
-the SDK, and the harness checks local results for listed keys and the matching
-`/flags` fallback body fields. See [the known-absent protocol](ADAPTER_GUIDE.md#optional-known-absent-property-keys-protocol-v1).
+the SDK and honors `allow_remote_fallback` (the SDK's default local-then-`/flags`
+getter), and the harness checks local results for listed keys, the 1000-key
+limit and the matching `/flags` fallback body fields. See [the known-absent protocol](ADAPTER_GUIDE.md#optional-known-absent-property-keys-protocol-v1).

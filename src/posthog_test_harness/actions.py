@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Dict
 
+import aiohttp
+
 from . import flags_v4
 from .assertions import assert_request_count
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
@@ -266,20 +268,26 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        result = await ctx.sdk_adapter.get_feature_flag(
-            FeatureFlagRequest(
-                key=params["key"],
-                distinct_id=params["distinct_id"],
-                person_properties=params.get("person_properties"),
-                groups=params.get("groups"),
-                group_properties=params.get("group_properties"),
-                disable_geoip=params.get("disable_geoip"),
-                force_remote=params.get("force_remote"),
-                only_evaluate_locally=params.get("only_evaluate_locally"),
-                person_property_keys_known_absent=params.get("person_property_keys_known_absent"),
-                group_property_keys_known_absent=params.get("group_property_keys_known_absent"),
-            )
+        request = FeatureFlagRequest(
+            key=params["key"],
+            distinct_id=params["distinct_id"],
+            person_properties=params.get("person_properties"),
+            groups=params.get("groups"),
+            group_properties=params.get("group_properties"),
+            disable_geoip=params.get("disable_geoip"),
+            force_remote=params.get("force_remote"),
+            only_evaluate_locally=params.get("only_evaluate_locally"),
+            person_property_keys_known_absent=params.get("person_property_keys_known_absent"),
+            group_property_keys_known_absent=params.get("group_property_keys_known_absent"),
+            allow_remote_fallback=params.get("allow_remote_fallback"),
         )
+        try:
+            result = await ctx.sdk_adapter.get_feature_flag(request)
+        except aiohttp.ClientResponseError as error:
+            # SDKs signal invalid input differently (exception, error result or default value).
+            if not params.get("allow_adapter_error"):
+                raise
+            return {"success": False, "error": f"Adapter returned HTTP {error.status}"}
         if params.get("only_evaluate_locally"):
             # Check the whole test window, including initialization and reloads.
             remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]

@@ -100,6 +100,8 @@ class SDKAdapterClient(SDKAdapterInterface):
             payload["person_property_keys_known_absent"] = request.person_property_keys_known_absent
         if request.group_property_keys_known_absent is not None:
             payload["group_property_keys_known_absent"] = request.group_property_keys_known_absent
+        if request.allow_remote_fallback is not None:
+            payload["allow_remote_fallback"] = request.allow_remote_fallback
 
         return payload
 

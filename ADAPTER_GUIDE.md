@@ -574,11 +574,12 @@ Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
 covers the sdk-specs local-feature-flag-evaluator rules for property keys the
 caller knows are absent, and the matching `/flags` request fields.
 
-`/get_feature_flag` accepts two optional params:
+`/get_feature_flag` accepts three optional params:
 
 - `person_property_keys_known_absent`: array of person property key strings
 - `group_property_keys_known_absent`: object mapping a group type name to an
   array of group property key strings
+- `allow_remote_fallback`: boolean, see below
 
 Pass each one to the SDK's known-absence input only when the request has it,
 unchanged: don't drop empty values, dedupe or truncate, so the SDK's own
@@ -591,13 +592,21 @@ The suite uses two evaluation modes:
   `is_not_set`, `is_not`, `not_icontains`, `not_regex`, `not_starts_with` and
   `not_ends_with` to true, and `is_set`, `exact`, `icontains`, `gt`,
   `semver_neq` and `is_date_before` to false, with no `/flags` request.
-- `force_remote: false` without `only_evaluate_locally` for fallback cases.
-  Use the SDK's **default** getter here: evaluate locally and fall back to
-  `/flags` when local evaluation is inconclusive. Don't map an explicit
-  `force_remote: false` to the local-only API. The harness expects exactly one
+- `allow_remote_fallback: true` for fallback cases. Call the SDK's **default**
+  getter on the client that has local definitions: evaluate locally and fall
+  back to `/flags` when local evaluation is inconclusive. Pass the known-absent
+  params through. Return 400 when it is combined with `force_remote: true` or
+  `only_evaluate_locally: true`, like the existing conflict. When the param is
+  absent, keep every existing behavior, including what an explicit
+  `force_remote: false` means for your adapter. The harness expects exactly one
   `/flags` request and checks its body: `person_property_keys_known_absent` and
   `group_property_keys_known_absent` carry the caller's lists, and neither field
   has a value when the caller listed nothing.
+
+One test lists 1001 person keys with `allow_remote_fallback: true`. The SDK must
+reject the list locally and make no `/flags` request. The harness only checks
+that no `/flags` request was made, so the adapter may report the SDK's error
+as an HTTP error, an error result or a default value.
 
 `icontains_multi`, `not_icontains_multi`, `between`, `not_between` and
 `$feature_enrollment/<flag key>` keys are not covered. SDKs don't evaluate those
