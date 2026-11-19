@@ -41,6 +41,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `capture_ai_v1` | Capture V1 AI endpoint (`POST /i/v1/ai/events`) |
 | `flags_response_v4` | Remote `/flags` requests send `?v=4` and read the v4 flag record. Without it, the harness requires `?v=2` |
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
+| `feature_flags_local_evaluation_v1` | Opt-in local flag evaluation controls. See [Optional local feature flag evaluation](#optional-local-feature-flag-evaluation-protocol-v1) |
+| `feature_flags_known_absent_v1` | `/get_feature_flag` passes `person_property_keys_known_absent` and `group_property_keys_known_absent` to the SDK. Runs only together with `feature_flags_local_evaluation_v1`. See [Known-absent property keys](#optional-known-absent-property-keys-protocol-v1) |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
@@ -564,3 +566,39 @@ python -m pytest tests/test_local_evaluation_python_integration.py -q
 
 Without that explicit path this integration test skips; ordinary harness unit
 tests require no SDK installation.
+
+## Optional known-absent property keys (protocol v1)
+
+Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
+`feature_flags_known_absent_v1` run the `feature_flags_known_absent` suite. It
+covers the sdk-specs local-feature-flag-evaluator rules for property keys the
+caller knows are absent, and the matching `/flags` request fields.
+
+`/get_feature_flag` accepts two optional params:
+
+- `person_property_keys_known_absent`: array of person property key strings
+- `group_property_keys_known_absent`: object mapping a group type name to an
+  array of group property key strings
+
+Pass each one to the SDK's known-absence input only when the request has it,
+unchanged: don't drop empty values, dedupe or truncate, so the SDK's own
+validation is what runs. Don't send either field to the SDK when the request
+omits it.
+
+The suite uses two evaluation modes:
+
+- `only_evaluate_locally: true` for definitive results. A listed key resolves
+  `is_not_set`, `is_not`, `not_icontains`, `not_regex`, `not_starts_with` and
+  `not_ends_with` to true, and `is_set`, `exact`, `icontains`, `gt`,
+  `semver_neq` and `is_date_before` to false, with no `/flags` request.
+- `force_remote: false` without `only_evaluate_locally` for fallback cases.
+  Use the SDK's **default** getter here: evaluate locally and fall back to
+  `/flags` when local evaluation is inconclusive. Don't map an explicit
+  `force_remote: false` to the local-only API. The harness expects exactly one
+  `/flags` request and checks its body: `person_property_keys_known_absent` and
+  `group_property_keys_known_absent` carry the caller's lists, and neither field
+  has a value when the caller listed nothing.
+
+`icontains_multi`, `not_icontains_multi`, `between`, `not_between` and
+`$feature_enrollment/<flag key>` keys are not covered. SDKs don't evaluate those
+operators locally yet, and only posthog-python handles enrollment locally.

@@ -96,6 +96,10 @@ class SDKAdapterClient(SDKAdapterInterface):
 
         if request.only_evaluate_locally is not None:
             payload["only_evaluate_locally"] = request.only_evaluate_locally
+        if request.person_property_keys_known_absent is not None:
+            payload["person_property_keys_known_absent"] = request.person_property_keys_known_absent
+        if request.group_property_keys_known_absent is not None:
+            payload["group_property_keys_known_absent"] = request.group_property_keys_known_absent
 
         return payload
 

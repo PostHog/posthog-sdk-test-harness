@@ -43,7 +43,8 @@ adapter_interface:
             "historical_migration", "reported_drops", "log_capture",
             "generated_payloads", "property_layers", "fail_open",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate",
-            "feature_flag_payloads".
+            "feature_flag_payloads", "feature_flags_local_evaluation_v1",
+            "feature_flags_known_absent_v1".
           default: []
 
   # Parallel test execution
@@ -294,6 +295,18 @@ adapter_interface:
         only_evaluate_locally:
           type: boolean
           description: Optional local-only evaluation; never remote fallback. Conflicts with force_remote=true.
+        person_property_keys_known_absent:
+          type: array
+          items:
+            type: string
+          description: Optional, feature_flags_known_absent_v1 only. Person property keys known absent; pass unchanged to the SDK
+        group_property_keys_known_absent:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional, feature_flags_known_absent_v1 only. Group type name to group property keys known absent; pass unchanged to the SDK
     response:
       type: object
       required: [success]
@@ -395,3 +408,6 @@ test_suites:
 
   # Explicit adapter opt-in only; never inferred from sdk_type
   feature_flags_local_evaluation: !include contracts/feature_flags_local_evaluation_tests.yaml
+
+  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_known_absent_v1
+  feature_flags_known_absent: !include contracts/feature_flags_known_absent_tests.yaml

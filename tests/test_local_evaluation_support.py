@@ -318,6 +318,9 @@ def test_new_controls_are_not_used_by_any_existing_suite():
         if name == "feature_flags_local_evaluation":
             assert definition["requires"] == CAPABILITY
             continue
+        if name == "feature_flags_known_absent":
+            assert CAPABILITY in definition["requires"]
+            continue
         for category in definition.get("categories", {}).values():
             for test in category.get("tests", []):
                 for step in test.get("steps", []):

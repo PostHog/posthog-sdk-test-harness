@@ -1,0 +1,308 @@
+# Source: sdk-specs local-feature-flag-evaluator (known-absent property keys).
+# Definitive cases use only_evaluate_locally=true. Fallback cases send force_remote=false
+# without only_evaluate_locally, so the SDK's default local-then-remote path runs.
+description: 'Opt-in known-absent person and group property keys for local evaluation and the /flags fallback body.'
+requires: [feature_flags_local_evaluation_v1, feature_flags_known_absent_v1]
+categories:
+  local_resolution:
+    tests:
+    - name: listed_key_matches_is_not_set
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - &profile_incomplete
+              id: 1
+              key: profile-incomplete
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: is_not_set, operator: is_not_set, type: person}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - &init
+        action: init
+        params:
+          personal_api_key: phx_test_key
+      - &reload
+        action: reload_feature_flag_definitions
+        params:
+          timeout_ms: 5000
+      - action: get_feature_flag
+        params:
+          key: profile-incomplete
+          distinct_id: known-absent-user
+          only_evaluate_locally: true
+          person_properties: {}
+          person_property_keys_known_absent: [plan]
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - &no_flags_count
+        action: assert_flags_request_count
+        params:
+          expected: 0
+      - &no_flags_paths
+        action: assert_no_requests_to_paths
+        params:
+          paths: [/flags, /flags/]
+
+    - name: listed_key_does_not_match_is_set
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: profile-complete
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: is_set, operator: is_set, type: person}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: profile-complete
+          distinct_id: known-absent-user
+          only_evaluate_locally: true
+          person_properties: {}
+          person_property_keys_known_absent: [plan]
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: listed_key_overrides_supplied_value
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: [*profile_incomplete]
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: profile-incomplete
+          distinct_id: known-absent-user
+          only_evaluate_locally: true
+          person_properties:
+            plan: pro
+          person_property_keys_known_absent: [plan]
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: listed_key_operator_results
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - {id: 1, key: op-is-not, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: is_not, type: person}], rollout_percentage: 100}]}}
+            - {id: 2, key: op-not-icontains, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: not_icontains, type: person}], rollout_percentage: 100}]}}
+            - {id: 3, key: op-not-regex, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: ^pro, operator: not_regex, type: person}], rollout_percentage: 100}]}}
+            - {id: 4, key: op-not-starts-with, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: not_starts_with, type: person}], rollout_percentage: 100}]}}
+            - {id: 5, key: op-not-ends-with, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: not_ends_with, type: person}], rollout_percentage: 100}]}}
+            - {id: 6, key: op-exact, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: exact, type: person}], rollout_percentage: 100}]}}
+            - {id: 7, key: op-icontains, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: pro, operator: icontains, type: person}], rollout_percentage: 100}]}}
+            - {id: 8, key: op-gt, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: '10', operator: gt, type: person}], rollout_percentage: 100}]}}
+            - {id: 9, key: op-semver-neq, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: 1.2.3, operator: semver_neq, type: person}], rollout_percentage: 100}]}}
+            - {id: 10, key: op-is-date-before, active: true, version: 1, filters: {groups: [{properties: [{key: plan, value: '2025-01-01T10:00:00Z', operator: is_date_before, type: person}], rollout_percentage: 100}]}}
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - {action: get_feature_flag, params: {key: op-is-not, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: op-not-icontains, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: op-not-regex, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: op-not-starts-with, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: op-not-ends-with, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: op-exact, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: false}}
+      - {action: get_feature_flag, params: {key: op-icontains, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: false}}
+      - {action: get_feature_flag, params: {key: op-gt, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: false}}
+      - {action: get_feature_flag, params: {key: op-semver-neq, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: false}}
+      - {action: get_feature_flag, params: {key: op-is-date-before, distinct_id: known-absent-user, only_evaluate_locally: true, person_properties: {}, person_property_keys_known_absent: [plan]}}
+      - {action: assert_action_result, params: {field: value, expected: false}}
+      - *no_flags_count
+      - *no_flags_paths
+
+  remote_fallback:
+    tests:
+    - name: group_key_listed_for_other_group_type_falls_back
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: org-incomplete
+              active: true
+              version: 1
+              filters:
+                aggregation_group_type_index: 0
+                groups:
+                - properties:
+                  - {key: tier, value: is_not_set, operator: is_not_set, type: group, group_type_index: 0}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: &group_types
+              '0': organization
+              '1': project
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: org-incomplete
+          distinct_id: known-absent-user
+          force_remote: false
+          groups: {organization: acme, project: web}
+          group_properties: {organization: {name: Acme}, project: {name: Web}}
+          group_property_keys_known_absent: {project: [tier]}
+      - &one_flags_request
+        action: assert_flags_request_count
+        params:
+          expected: 1
+      - action: assert_flags_request_field
+        params:
+          field: group_property_keys_known_absent
+          expected: {project: [tier]}
+
+    - name: unlisted_omitted_key_falls_back
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: [*profile_incomplete]
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: profile-incomplete
+          distinct_id: known-absent-user
+          force_remote: false
+          person_properties: {}
+          person_property_keys_known_absent: [region]
+      - *one_flags_request
+      - action: assert_flags_request_field
+        params:
+          field: person_property_keys_known_absent
+          expected: [region]
+
+    - name: fallback_sends_person_keys_known_absent
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - &plan_and_email
+              id: 1
+              key: plan-and-email
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: is_not_set, operator: is_not_set, type: person}
+                  - {key: email, value: '@example.com', operator: icontains, type: person}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: plan-and-email
+          distinct_id: known-absent-user
+          force_remote: false
+          person_properties: {}
+          person_property_keys_known_absent: [plan]
+      - *one_flags_request
+      - action: assert_flags_request_field
+        params:
+          field: person_property_keys_known_absent
+          expected: [plan]
+
+    - name: fallback_sends_group_keys_known_absent
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: org-tier-and-name
+              active: true
+              version: 1
+              filters:
+                aggregation_group_type_index: 0
+                groups:
+                - properties:
+                  - {key: tier, value: is_not_set, operator: is_not_set, type: group, group_type_index: 0}
+                  - {key: name, value: Acme, operator: exact, type: group, group_type_index: 0}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: *group_types
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: org-tier-and-name
+          distinct_id: known-absent-user
+          force_remote: false
+          groups: {organization: acme}
+          group_properties: {organization: {}}
+          group_property_keys_known_absent: {organization: [tier]}
+      - *one_flags_request
+      - action: assert_flags_request_field
+        params:
+          field: group_property_keys_known_absent
+          expected: {organization: [tier]}
+
+    - name: fallback_without_known_absent_input_omits_fields
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: [*plan_and_email]
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: plan-and-email
+          distinct_id: known-absent-user
+          force_remote: false
+          person_properties: {}
+      - *one_flags_request
+      - action: assert_flags_request_field_absent
+        params:
+          fields: [person_property_keys_known_absent, group_property_keys_known_absent]

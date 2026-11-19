@@ -167,6 +167,16 @@
         type: boolean
         optional: true
         description: No remote fallback; require locally_evaluated=true. Conflicts with force_remote=true.
+      person_property_keys_known_absent:
+        type: array
+        items:
+          type: string
+        optional: true
+        description: Person property keys known absent for this evaluation; requires feature_flags_known_absent_v1. Pass unchanged to the SDK.
+      group_property_keys_known_absent:
+        type: object
+        optional: true
+        description: Group type name to array of group property keys known absent; requires feature_flags_known_absent_v1. Pass unchanged to the SDK.
 
   get_feature_flag_for_case:
     description: Call /get_feature_flag with force_remote=true for a fixture case's requested key
