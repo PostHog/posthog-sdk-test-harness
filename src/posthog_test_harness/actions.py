@@ -268,6 +268,8 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        if params.get("allow_adapter_error") and params.get("only_evaluate_locally"):
+            raise ValueError("allow_adapter_error cannot be combined with only_evaluate_locally")
         request = FeatureFlagRequest(
             key=params["key"],
             distinct_id=params["distinct_id"],
