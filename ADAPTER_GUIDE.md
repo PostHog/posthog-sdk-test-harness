@@ -603,10 +603,9 @@ The suite uses two evaluation modes:
   `group_property_keys_known_absent` carry the caller's lists, and neither field
   has a value when the caller listed nothing.
 
-One test lists 1001 person keys with `allow_remote_fallback: true`. The SDK must
-reject the list locally and make no `/flags` request. The harness only checks
-that no `/flags` request was made, so the adapter may report the SDK's error
-as an HTTP error, an error result or a default value.
+The harness doesn't check the 1000-key limit. Adapters report SDK errors in
+different ways, so the harness can't tell an SDK rejection apart from an
+unrelated adapter failure. Cover the limit in the SDK's own tests.
 
 `icontains_multi`, `not_icontains_multi`, `between`, `not_between` and
 `$feature_enrollment/<flag key>` keys are not covered. SDKs don't evaluate those

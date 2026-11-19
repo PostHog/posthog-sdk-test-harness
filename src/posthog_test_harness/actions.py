@@ -33,8 +33,6 @@ from datetime import datetime, timezone
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Dict
 
-import aiohttp
-
 from . import flags_v4
 from .assertions import assert_request_count
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
@@ -268,8 +266,6 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        if params.get("allow_adapter_error") and params.get("only_evaluate_locally"):
-            raise ValueError("allow_adapter_error cannot be combined with only_evaluate_locally")
         request = FeatureFlagRequest(
             key=params["key"],
             distinct_id=params["distinct_id"],
@@ -283,13 +279,7 @@ class GetFeatureFlagAction(Action):
             group_property_keys_known_absent=params.get("group_property_keys_known_absent"),
             allow_remote_fallback=params.get("allow_remote_fallback"),
         )
-        try:
-            result = await ctx.sdk_adapter.get_feature_flag(request)
-        except aiohttp.ClientResponseError as error:
-            # SDKs signal invalid input differently (exception, error result or default value).
-            if not params.get("allow_adapter_error") or error.status < 400:
-                raise
-            return {"success": False, "error": f"Adapter returned HTTP {error.status}"}
+        result = await ctx.sdk_adapter.get_feature_flag(request)
         if params.get("only_evaluate_locally"):
             # Check the whole test window, including initialization and reloads.
             remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]

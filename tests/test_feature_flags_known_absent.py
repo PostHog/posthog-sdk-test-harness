@@ -18,7 +18,7 @@ SUITE = "feature_flags_known_absent"
 LOCAL = "feature_flags_local_evaluation_v1"
 KNOWN_ABSENT = "feature_flags_known_absent_v1"
 FIELDS = ("person_property_keys_known_absent", "group_property_keys_known_absent")
-SUITE_ONLY_PARAMS = {*FIELDS, "allow_remote_fallback", "allow_adapter_error"}
+SUITE_ONLY_PARAMS = {*FIELDS, "allow_remote_fallback"}
 
 
 @pytest.mark.parametrize(
@@ -38,8 +38,8 @@ def test_suite_covers_spec_scenarios_without_unsupported_operators():
         "listed_key_does_not_match_is_set",
         "listed_key_overrides_supplied_value",
         "listed_key_operator_results",
+        "default_getter_resolves_listed_person_key_locally",
         "default_getter_resolves_listed_group_key_locally",
-        "over_limit_person_keys_make_no_flags_request",
         "group_key_listed_for_other_group_type_falls_back",
         "unlisted_omitted_key_falls_back",
         "fallback_sends_person_keys_known_absent",
@@ -91,13 +91,16 @@ def test_suite_covers_spec_scenarios_without_unsupported_operators():
     assert [s["action"] for s in group_local[-2:]] == ["assert_flags_request_count", "assert_no_requests_to_paths"]
     assert group_local[-2]["params"]["expected"] == 0
 
-    over_limit = tests["over_limit_person_keys_make_no_flags_request"]["steps"]
-    evaluation = next(s for s in over_limit if s["action"] == "get_feature_flag")["params"]
-    keys = evaluation["person_property_keys_known_absent"]
-    assert evaluation["allow_adapter_error"] is True
-    assert len(keys) == len(set(keys)) == 1001
-    assert [s["action"] for s in over_limit[-2:]] == ["assert_flags_request_count", "assert_no_requests_to_paths"]
-    assert over_limit[-2]["params"]["expected"] == 0
+    person_local = tests["default_getter_resolves_listed_person_key_locally"]["steps"]
+    evaluation = next(s for s in person_local if s["action"] == "get_feature_flag")["params"]
+    assert evaluation["person_property_keys_known_absent"] == ["plan"]
+    assert "plan" not in evaluation.get("person_properties", {})
+    assert [s["params"] for s in person_local if s["action"] == "assert_action_result"] == [
+        {"field": "success", "expected": True},
+        {"field": "value", "expected": True},
+    ]
+    assert [s["action"] for s in person_local[-2:]] == ["assert_flags_request_count", "assert_no_requests_to_paths"]
+    assert person_local[-2]["params"]["expected"] == 0
 
 
 def test_known_absent_params_are_not_used_by_other_suites():
@@ -165,34 +168,13 @@ def _adapter_error(status=500):
 
 
 @pytest.mark.asyncio
-async def test_allow_adapter_error_turns_http_error_into_failed_result():
-    adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=_adapter_error()))
-    ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
-    params = {"key": "k", "distinct_id": "u", "allow_remote_fallback": True}
-    with pytest.raises(aiohttp.ClientResponseError):
-        await GetFeatureFlagAction().execute(params, ctx)
-    result = await GetFeatureFlagAction().execute({**params, "allow_adapter_error": True}, ctx)
-    assert result["success"] is False and "500" in result["error"]
-
-
-@pytest.mark.asyncio
-async def test_allow_adapter_error_does_not_hide_malformed_success_response():
-    malformed = aiohttp.ContentTypeError(request_info=None, history=(), status=200)
-    adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=malformed))
+@pytest.mark.parametrize("status", [413, 500])
+async def test_adapter_http_errors_fail_the_step(status):
+    adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=_adapter_error(status)))
     ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
     params = {"key": "k", "distinct_id": "u", "allow_remote_fallback": True, "allow_adapter_error": True}
-    with pytest.raises(aiohttp.ContentTypeError):
+    with pytest.raises(aiohttp.ClientResponseError):
         await GetFeatureFlagAction().execute(params, ctx)
-
-
-@pytest.mark.asyncio
-async def test_allow_adapter_error_conflicts_with_only_evaluate_locally():
-    adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=_adapter_error()))
-    ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
-    params = {"key": "k", "distinct_id": "u", "only_evaluate_locally": True, "allow_adapter_error": True}
-    with pytest.raises(ValueError, match="allow_adapter_error"):
-        await GetFeatureFlagAction().execute(params, ctx)
-    adapter.get_feature_flag.assert_not_awaited()
 
 
 def _ctx_with_flags_body(body):

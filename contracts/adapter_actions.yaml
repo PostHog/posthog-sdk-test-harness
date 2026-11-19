@@ -181,10 +181,6 @@
         type: boolean
         optional: true
         description: Use the SDK's default getter on the client with local definitions (local, then /flags when inconclusive); requires feature_flags_known_absent_v1. Conflicts with force_remote=true and only_evaluate_locally=true (400).
-      allow_adapter_error:
-        type: boolean
-        optional: true
-        description: Harness-only, never sent to the adapter. Treat an adapter HTTP error as the action result instead of failing the step Conflicts with only_evaluate_locally=true.
 
   get_feature_flag_for_case:
     description: Call /get_feature_flag with force_remote=true for a fixture case's requested key
