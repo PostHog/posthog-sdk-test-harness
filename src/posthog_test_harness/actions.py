@@ -287,7 +287,7 @@ class GetFeatureFlagAction(Action):
             result = await ctx.sdk_adapter.get_feature_flag(request)
         except aiohttp.ClientResponseError as error:
             # SDKs signal invalid input differently (exception, error result or default value).
-            if not params.get("allow_adapter_error"):
+            if not params.get("allow_adapter_error") or error.status < 400:
                 raise
             return {"success": False, "error": f"Adapter returned HTTP {error.status}"}
         if params.get("only_evaluate_locally"):
@@ -1118,7 +1118,7 @@ class AssertFlagsRequestFieldAbsentAction(Action):
         return "assert_flags_request_field_absent"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        flags_requests = [r for r in ctx.mock_server.get_requests() if "/flags" in r.path]
+        flags_requests = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
         if not flags_requests:
             raise AssertionError("No /flags requests recorded")
         try:

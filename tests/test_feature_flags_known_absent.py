@@ -160,8 +160,8 @@ async def test_get_feature_flag_action_passes_known_absent_params():
     assert request.allow_remote_fallback is None
 
 
-def _adapter_error():
-    return aiohttp.ClientResponseError(request_info=None, history=(), status=500)
+def _adapter_error(status=500):
+    return aiohttp.ClientResponseError(request_info=None, history=(), status=status)
 
 
 @pytest.mark.asyncio
@@ -176,6 +176,16 @@ async def test_allow_adapter_error_turns_http_error_into_failed_result():
 
 
 @pytest.mark.asyncio
+async def test_allow_adapter_error_does_not_hide_malformed_success_response():
+    malformed = aiohttp.ContentTypeError(request_info=None, history=(), status=200)
+    adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=malformed))
+    ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
+    params = {"key": "k", "distinct_id": "u", "allow_remote_fallback": True, "allow_adapter_error": True}
+    with pytest.raises(aiohttp.ContentTypeError):
+        await GetFeatureFlagAction().execute(params, ctx)
+
+
+@pytest.mark.asyncio
 async def test_allow_adapter_error_conflicts_with_only_evaluate_locally():
     adapter = SimpleNamespace(get_feature_flag=AsyncMock(side_effect=_adapter_error()))
     ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
@@ -187,6 +197,7 @@ async def test_allow_adapter_error_conflicts_with_only_evaluate_locally():
 
 def _ctx_with_flags_body(body):
     state = MockServerState()
+    state.record_request("POST", "/flags/other", {}, {}, b"{}")
     if body is not None:
         raw = body if isinstance(body, bytes) else json.dumps(body).encode()
         state.record_request("POST", "/flags/", {}, {"v": "2"}, raw)
