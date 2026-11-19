@@ -303,11 +303,15 @@ categories:
           allow_remote_fallback: true
           person_properties: {}
           person_property_keys_known_absent: [plan]
+          group_property_keys_known_absent: {}
       - *one_flags_request
       - action: assert_flags_request_field
         params:
           field: person_property_keys_known_absent
           expected: [plan]
+      - action: assert_flags_request_field_absent
+        params:
+          fields: [group_property_keys_known_absent]
 
     - name: fallback_sends_group_keys_known_absent
       steps:
@@ -326,12 +330,16 @@ categories:
           allow_remote_fallback: true
           groups: {organization: acme}
           group_properties: {organization: {}}
+          person_property_keys_known_absent: []
           group_property_keys_known_absent: {organization: [tier]}
       - *one_flags_request
       - action: assert_flags_request_field
         params:
           field: group_property_keys_known_absent
           expected: {organization: [tier]}
+      - action: assert_flags_request_field_absent
+        params:
+          fields: [person_property_keys_known_absent]
 
     - name: fallback_without_known_absent_input_omits_fields
       steps:
