@@ -151,6 +151,8 @@ def test_client_forwards_known_absent_only_when_set():
     assert payload["person_property_keys_known_absent"] == []
     assert payload["group_property_keys_known_absent"] == {"organization": ["tier"]}
     assert "allow_remote_fallback" not in payload
+    payload = client._feature_flag_payload(FeatureFlagRequest("k", "u", group_property_keys_known_absent={}))
+    assert payload == {"key": "k", "distinct_id": "u", "group_property_keys_known_absent": {}}
     payload = client._feature_flag_payload(FeatureFlagRequest("k", "u", allow_remote_fallback=True))
     assert payload == {"key": "k", "distinct_id": "u", "allow_remote_fallback": True}
 

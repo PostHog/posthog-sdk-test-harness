@@ -567,6 +567,11 @@ python -m pytest tests/test_local_evaluation_python_integration.py -q
 Without that explicit path this integration test skips; ordinary harness unit
 tests require no SDK installation.
 
+`tests/test_known_absent_python_integration.py` runs the
+`feature_flags_known_absent` suite the same way. Point
+`POSTHOG_LOCAL_EVALUATION_SDK_PATH` at a posthog-python checkout that supports
+known-absent property keys.
+
 ## Optional known-absent property keys (protocol v1)
 
 Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
@@ -598,8 +603,10 @@ The suite uses two evaluation modes:
   params through. Return 400 when it is combined with `force_remote: true` or
   `only_evaluate_locally: true`, like the existing conflict. When the param is
   absent, keep every existing behavior, including what an explicit
-  `force_remote: false` means for your adapter. The harness expects exactly one
-  `/flags` request and checks its body: `person_property_keys_known_absent` and
+  `force_remote: false` means for your adapter. When a listed key settles the
+  result locally, the harness expects no `/flags` request. Only an inconclusive
+  result makes one. Then the harness expects exactly one `/flags` request and
+  checks its body: `person_property_keys_known_absent` and
   `group_property_keys_known_absent` carry the caller's lists, and neither field
   has a value when the caller listed nothing.
 

@@ -1,6 +1,7 @@
 # Source: sdk-specs local-feature-flag-evaluator (known-absent property keys).
-# Definitive cases use only_evaluate_locally=true. Fallback cases send allow_remote_fallback=true,
-# so the SDK's default local-then-remote getter runs on the client with definitions.
+# Definitive cases use only_evaluate_locally=true. Other cases send allow_remote_fallback=true,
+# so the SDK's default local-then-remote getter runs on the client with definitions. A listed key
+# that settles the result locally makes no /flags request. Only an inconclusive result makes one.
 # Operator support is checked before the known-absent table. In
 # unsupported_operator_on_listed_key_falls_back a dynamic-cohort leaf uses not_between, which
 # SDKs don't implement locally, so the flag stays unsupported_definition and falls back to /flags
