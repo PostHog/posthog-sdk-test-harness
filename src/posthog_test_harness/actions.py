@@ -266,18 +266,20 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
-        result = await ctx.sdk_adapter.get_feature_flag(
-            FeatureFlagRequest(
-                key=params["key"],
-                distinct_id=params["distinct_id"],
-                person_properties=params.get("person_properties"),
-                groups=params.get("groups"),
-                group_properties=params.get("group_properties"),
-                disable_geoip=params.get("disable_geoip"),
-                force_remote=params.get("force_remote"),
-                only_evaluate_locally=params.get("only_evaluate_locally"),
-            )
+        request = FeatureFlagRequest(
+            key=params["key"],
+            distinct_id=params["distinct_id"],
+            person_properties=params.get("person_properties"),
+            groups=params.get("groups"),
+            group_properties=params.get("group_properties"),
+            disable_geoip=params.get("disable_geoip"),
+            force_remote=params.get("force_remote"),
+            only_evaluate_locally=params.get("only_evaluate_locally"),
+            person_property_keys_known_absent=params.get("person_property_keys_known_absent"),
+            group_property_keys_known_absent=params.get("group_property_keys_known_absent"),
+            allow_remote_fallback=params.get("allow_remote_fallback"),
         )
+        result = await ctx.sdk_adapter.get_feature_flag(request)
         if params.get("only_evaluate_locally"):
             # Check the whole test window, including initialization and reloads.
             remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
@@ -1096,6 +1098,28 @@ class AssertFlagsRequestFieldAction(Action):
             raise AssertionError(
                 f"Expected {field}={expected!r}, got {current!r}"
             )
+
+
+class AssertFlagsRequestFieldAbsentAction(Action):
+    """Assert root-level fields are absent (or JSON null) in the first /flags request body."""
+
+    @property
+    def name(self) -> str:
+        return "assert_flags_request_field_absent"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        flags_requests = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
+        if not flags_requests:
+            raise AssertionError("No /flags requests recorded")
+        try:
+            body = json.loads(flags_requests[0].body_decompressed or "")
+        except json.JSONDecodeError:
+            raise AssertionError("Body of /flags request is not valid JSON")
+        if not isinstance(body, dict):
+            raise AssertionError("Body of /flags request is not a JSON object")
+        present = [field for field in params["fields"] if body.get(field) is not None]
+        if present:
+            raise AssertionError(f"/flags request body should not contain {present}")
 
 
 class AssertFlagsRequestQueryParamAction(Action):

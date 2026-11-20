@@ -133,6 +133,8 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | `capture_ai` | `capture_ai_v0` | `POST /i/v0/ai/batch/` |
 | `capture_ai_v1` | `capture_ai_v1` | `POST /i/v1/ai/events` |
 | `feature_flags_v4` | `flags_response_v4` | Mock `POST /flags?v=4` responses from the feature flag rules v2 contract fixtures |
+| `feature_flags_local_evaluation` | `feature_flags_local_evaluation_v1` | Local rules from mocked definitions, no `/flags` requests |
+| `feature_flags_known_absent` | `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1` | Known-absent property keys, locally and in the `/flags` fallback body |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`, `event_options`, `event_uuid_override`, `bounded_retries`, `feature_flag_payloads`). See [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) for the full list.
 
@@ -291,3 +293,10 @@ No existing adapter or default health response opts in automatically; remote
 fixtures and requests remain unchanged. See [the optional adapter protocol](ADAPTER_GUIDE.md#optional-local-feature-flag-evaluation-protocol-v1)
 for privileged definitions loading, bounded readiness/reload and local-only
 result requirements.
+
+Adapters that also advertise `feature_flags_known_absent_v1` run the
+`feature_flags_known_absent` suite: `/get_feature_flag` passes
+`person_property_keys_known_absent` and `group_property_keys_known_absent` to
+the SDK and honors `allow_remote_fallback` (the SDK's default local-then-`/flags`
+getter), and the harness checks local results for listed keys and the matching `/flags`
+fallback body fields. SDKs test the 1000-key limit themselves. See [the known-absent protocol](ADAPTER_GUIDE.md#optional-known-absent-property-keys-protocol-v1).

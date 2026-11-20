@@ -86,7 +86,8 @@ class SDKAdapterInterface(ABC):
         Evaluate a feature flag.
 
         Args:
-            request: Feature flag evaluation request
+            request: Feature flag evaluation request. The known-absent key fields are
+                set only for feature_flags_known_absent_v1 tests; pass them to the SDK unchanged.
 
         Returns:
             Dict with feature flag evaluation result

@@ -262,6 +262,14 @@
         required: true
         description: Expected field value
 
+  assert_flags_request_field_absent:
+    description: Assert root-level fields are absent or JSON null in the first /flags request body
+    params:
+      fields:
+        type: array
+        required: true
+        description: Root-level field names that must not carry a value
+
   assert_flags_request_query_param:
     description: Assert a query parameter value on the first /flags request
     params:

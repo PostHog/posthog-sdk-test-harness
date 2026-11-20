@@ -41,6 +41,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `capture_ai_v1` | Capture V1 AI endpoint (`POST /i/v1/ai/events`) |
 | `flags_response_v4` | Remote `/flags` requests send `?v=4` and read the v4 flag record. Without it, the harness requires `?v=2` |
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
+| `feature_flags_local_evaluation_v1` | Opt-in local flag evaluation controls. See [Optional local feature flag evaluation](#optional-local-feature-flag-evaluation-protocol-v1) |
+| `feature_flags_known_absent_v1` | `/get_feature_flag` passes `person_property_keys_known_absent` and `group_property_keys_known_absent` to the SDK. Runs only together with `feature_flags_local_evaluation_v1`. See [Known-absent property keys](#optional-known-absent-property-keys-protocol-v1) |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
@@ -564,3 +566,64 @@ python -m pytest tests/test_local_evaluation_python_integration.py -q
 
 Without that explicit path this integration test skips; ordinary harness unit
 tests require no SDK installation.
+
+`tests/test_known_absent_python_integration.py` runs the
+`feature_flags_known_absent` suite the same way. Point
+`POSTHOG_LOCAL_EVALUATION_SDK_PATH` at a posthog-python checkout that supports
+known-absent property keys.
+
+## Optional known-absent property keys (protocol v1)
+
+Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
+`feature_flags_known_absent_v1` run the `feature_flags_known_absent` suite. It
+covers the sdk-specs local-feature-flag-evaluator rules for property keys the
+caller knows are absent, and the matching `/flags` request fields.
+
+`/get_feature_flag` accepts three optional params:
+
+- `person_property_keys_known_absent`: array of person property key strings
+- `group_property_keys_known_absent`: object mapping a group type name to an
+  array of group property key strings
+- `allow_remote_fallback`: boolean, see below
+
+Pass each one to the SDK's known-absence input only when the request has it,
+unchanged: don't drop empty values, dedupe or truncate, so the SDK's own
+validation is what runs. Don't send either field to the SDK when the request
+omits it.
+
+The suite uses two evaluation modes:
+
+- `only_evaluate_locally: true` for definitive results. A listed key resolves
+  `is_not_set`, `is_not`, `not_icontains`, `not_regex`, `not_starts_with` and
+  `not_ends_with` to true, and `is_set`, `exact`, `icontains`, `gt`,
+  `semver_neq` and `is_date_before` to false, with no `/flags` request.
+- `allow_remote_fallback: true` for fallback cases. Call the SDK's **default**
+  getter on the client that has local definitions: evaluate locally and fall
+  back to `/flags` when local evaluation is inconclusive. Pass the known-absent
+  params through. Return 400 when it is combined with `force_remote: true` or
+  `only_evaluate_locally: true`, like the existing conflict. When the param is
+  absent, keep every existing behavior, including what an explicit
+  `force_remote: false` means for your adapter. When a listed key settles the
+  result locally, the harness expects no `/flags` request. Only an inconclusive
+  result makes one. Then the harness expects exactly one `/flags` request and
+  checks its body: `person_property_keys_known_absent` and
+  `group_property_keys_known_absent` carry the caller's lists, and neither field
+  has a value when the caller listed nothing.
+
+The harness doesn't check the 1000-key limit. Adapters report SDK errors in
+different ways, so the harness can't tell an SDK rejection apart from an
+unrelated adapter failure. Cover the limit in the SDK's own tests.
+
+Operator support is checked before the known-absent table. An operator the SDK
+doesn't implement locally keeps the flag `unsupported_definition` even when the
+key is listed, so it falls back to `/flags`. The suite has one such case,
+`unsupported_operator_on_listed_key_falls_back`: a dynamic-cohort leaf uses
+`not_between` on a listed key, and the harness expects exactly one `/flags`
+request. If the SDK applied the table instead, `not_between` would match
+locally and no `/flags` request would be sent. When an SDK implements
+`not_between` locally (PostHog/posthog#138581), this case has to change.
+
+Local results for `icontains_multi`, `not_icontains_multi`, `between` and
+`not_between`, and `$feature_enrollment/<flag key>` keys are not covered. SDKs
+don't evaluate those operators locally yet, and only posthog-python handles
+enrollment locally.
