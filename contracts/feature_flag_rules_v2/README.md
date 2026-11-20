@@ -52,6 +52,9 @@ Percentage rollout inclusion maps to TARGETING_MATCH by contract choice; OpenFea
 - corpus/v2_boolean_evaluation.json contains the person boolean evaluation corpus, and schemas/v2_boolean_evaluation.schema.json is its companion schema.
 - corpus/v2_value_evaluation.json contains the string, number and object evaluation corpus with each result's legacy rendering, and schemas/v2_value_evaluation.schema.json is its companion schema.
 - corpus/v2_experiment_evaluation.json contains the experiment rule evaluation corpus, and schemas/v2_experiment_evaluation.schema.json is its companion schema.
+- rules/local_outcomes.json states what a local evaluator does with every case of the version 2 evaluation corpora, and schemas/local_outcomes.schema.json is its schema.
+- corpus/v2_local_evaluation.json contains the cases that only a local evaluator runs, and schemas/v2_local_evaluation.schema.json is its companion schema.
+- fixtures/wire/definitions_feed.json contains a whole definitions feed with a local evaluator's outcome for each entry, and schemas/definitions_feed_fixture.schema.json is the schema of the fixture file.
 - manifest.json holds the contract and config versions, lists every package file with its kind, and records each config fixture's ID and expected result.
 
 In the config and corpus schemas, objects marked with x-posthog-open-object accept arbitrary keys by design; every other object is closed.
@@ -130,7 +133,7 @@ Run `python -m pytest tests/test_feature_flag_rules_v2_*.py` from the repository
 - `schemas/flags_response_v4.schema.json` is the exact producer schema. It forbids `experiment_id` on v2 records; only version 1 records carry one. `schemas/flags_response_v4_presence.schema.json` adds the terminal-reason presence matrix from `rules/response_presence.json`. The companion also requires the failure envelope flag whenever a record failed and rejects a version 1 `experiment_id` alongside `has_experiment: false`; `has_experiment: true` alone does not imply an unambiguous experiment ID. Validate against both, then check map-key equality and recursive seed absence. A schema-only success does not establish a valid producer response.
 - `schemas/management_warning.schema.json` describes a diagnostic with a required warning code from the registry's five `warning_codes` and optional presentation `detail` and field `attr`. `schemas/management_error.schema.json` preserves the management validation-error envelope (`type`, `code`, `detail`, `attr`); error codes remain endpoint-owned. These artifacts do not install a warning response envelope or an acknowledgement protocol.
 - `schemas/feature_flag_called_context.schema.json` and `schemas/experiment_exposure_properties.schema.json` describe **closed property projections**, not entire capture envelopes. The generic call supports v1 diagnostics and v2 terminal context. A config version 2 call carries the reason code in `$feature_flag_reason_code`, when the record has one, and never `$feature_flag_reason`, the reason description. Version 1 calls keep `$feature_flag_reason` with any value; the schema declares it only so that a version 2 call that carries it is rejected. `$feature_flag_rule_id` and `$feature_flag_rule_type` are sent together or not at all, and only with a rule type the reason allows. A tolerant reader drops the whole attribution of a record that breaks this, as it does for a malformed split: for `targeting_match`, `experiment_split`, `rollout_miss`, `experiment_paused` and `holdout`, a diagnostic call may retain config version 2 and the reason code while omitting every rule, variant and experiment attribution field. A partly populated tuple, such as a rule ID without its rule type, and a rule type the reason does not allow, such as `targeting_match` with `experiment`, are rejected. A config version 2 call whose reason code is missing, or is not one of the registry's `reason_codes`, keeps config version 2 and the raw code, if any, and carries no rule, variant or experiment attribution. A registered code is checked only against its own reason's branches, so a `targeting_match` call with a half pair is still rejected. A direct exposure carries exactly `$feature_flag`, `$feature_flag_response`, `$feature_flag_variant_key`, `$feature_flag_rule_id` and `locally_evaluated` in the projection. The closed schema rejects a config version, rule type, reason code, source marker or experiment ID on it, and a `not` clause rejects `$feature_flag_forced_variant`, which the schema declares with its producer shape. Scan the full event for assignment seeds before extracting the projection; normal capture identity, library, group and optional transport properties remain outside it.
-- `fixtures/wire/` contains definitions entry and producer response fixtures, and separate tolerant-reader expectations. Fixture sets are added together with the first consumer that runs them; the definitions feed, management diagnostic and event schemas have no fixtures and are specifications. The meta-tests check the event schemas against projections they build: an exposure without each required property, an exposure with each forbidden property, a version 2 call with `$feature_flag_reason` for every presence-matrix row, the complete call for every row, a call without attribution for every reason that names a rule, for the local `flag_disabled`, for an unregistered reason code and for a missing one, each half rule pair and disallowed rule type, and each attribution field added to a call without attribution. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes. The meta-tests generate each presence-matrix row's per-field response negatives (each missing required field, each forbidden field and a wrong condition index) from `rules/response_presence.json` and the row's template; the committed invalid response cases are the hand-made ones, plus `responses.holdout_missing_rule_id`, which keeps a presence-layer `required` failure in the committed set for consumers that port the validator.
+- `fixtures/wire/` contains definitions entry and producer response fixtures, and separate tolerant-reader expectations. Fixture sets are added together with the first consumer that runs them; the management diagnostic and event schemas have no fixtures and are specifications. `fixtures/wire/definitions_feed.json` is a whole feed for the in-process tests of an SDK's local evaluator; see [Definitions feed fixture](#definitions-feed-fixture). The meta-tests check the event schemas against projections they build: an exposure without each required property, an exposure with each forbidden property, a version 2 call with `$feature_flag_reason` for every presence-matrix row, the complete call for every row, a call without attribution for every reason that names a rule, for the local `flag_disabled`, for an unregistered reason code and for a missing one, each half rule pair and disallowed rule type, and each attribution field added to a call without attribution. A case deep-copies a named template, removes existing members by JSON Pointer, and then sets members by JSON Pointer (the parent must exist). Invalid cases declare the validation layer, keyword and instance path; reader cases separately declare producer validity; optional message fragments disambiguate required fields. `schema`, `presence`, `semantic` and `seed` are fixture validation layers, not new wire error codes. The meta-tests generate each presence-matrix row's per-field response negatives (each missing required field, each forbidden field and a wrong condition index) from `rules/response_presence.json` and the row's template; the committed invalid response cases are the hand-made ones, plus `responses.holdout_missing_rule_id`, which keeps a presence-layer `required` failure in the committed set for consumers that port the validator.
 
 Definitions retain canonical rule and holdout assignment seeds because local evaluation needs them. Evaluation responses and events prohibit assignment seeds recursively, including inside arrays, diagnostic conditions and opaque transport objects. The response's `flags` map keys are user-defined flag names, so names such as `seed` are allowed; every record and the rest of the envelope are still scanned. Likewise, the immediate keys of an event's `$groups`, `$set` and `$set_once` maps are customer-chosen group type and person property names; their values are still scanned.
 
@@ -215,6 +218,7 @@ They supplement real digest cases and must not become a public override API.
 
 Consumers must report the `ordering`, `properties`, `context`, `errors`, `hashing`, `white_box`, `eligibility`, and `parser` families separately.
 Eligibility cases run through the existing request boundary and require omission, without calling the core.
+[Local evaluation](#local-evaluation) states what an SDK that evaluates from definitions does with each case.
 Parser cases require whole-document rejection, separately from evaluation support.
 The existing published variant/experiment/holdout/group/dependency vectors remain outside this component's evaluator scope.
 A passing boolean corpus does not establish those families or production reachability.
@@ -292,3 +296,94 @@ Consumers report `ordering`, `assignment`, `values`, `white_box` and `parser` se
 The threshold or boundaries each hash is compared with follow from the rule, and `corpus/hash_sha1_60_v1.json` pins the SHA-1 arithmetic.
 `white_box` rows replay through a private test seam that returns `white_box.hash01_binary64_hex` for every hash the evaluation draws; `boundary_binary64_hex` and `relation` name the comparison that decides the row.
 `parser` rows require whole-document rejection with `malformed` for the experiment rule rejections that no config fixture covers, including the semantic constraints the schema cannot express: duplicate variant keys, weights that do not total 100, and percentages with more than two decimal places.
+
+## Local evaluation
+
+A local evaluator is an SDK that holds only the definitions feed and the context its caller supplied.
+It returns a result only when the config and that context decide it.
+When they do not, it returns no value: it never substitutes false, the flag default, or the value of a later rule.
+
+### Local outcome of each case
+
+`rules/local_outcomes.json` gives the local outcome of every case in the boolean, value, experiment and local corpora.
+The outcome follows from the case's `expected.status` and its error or parse-error kind, so cases carry no local field of their own.
+
+| `expected` | `local_evaluation` | `unresolved_reason` |
+| --- | --- | --- |
+| `success` | `conclusive` | |
+| `error`, `missing_context` | `inconclusive` | `missing_context` |
+| `error`, `invalid_property` | `inconclusive` | `missing_context` |
+| `error`, `invalid_regex` | `inconclusive` | `unsupported_definition` |
+| `parse_error`, `unsupported` | `inconclusive` | `unsupported_definition` |
+| `parse_error`, `malformed` | `inconclusive` | `unsupported_definition` |
+| `omitted` | `not_applicable` | |
+
+- `conclusive`: the evaluator returns the expected value, reason, rule and variant itself, as a config version 2 result. The SDK sends no `/flags` request for the flag.
+- `inconclusive`: the evaluator returns no value. In auto mode the SDK asks the server for that flag. In local-only mode the flag is unresolved, with the reason.
+- `not_applicable`: the case describes the remote request boundary. A local evaluator does not run it.
+
+`conclusive` and `inconclusive` mean what they mean in the version 1 corpus.
+The unresolved reasons are the ones SDKs already report for a flag that local evaluation left without a value ([PostHog/sdk-specs](https://github.com/PostHog/sdk-specs/blob/57407963789cfc8ae411cf1895c09b1f7f8b575c/openspec/specs/evaluate-flags/spec.md#L810-L825)): the caller can fix `missing_context`, and `unsupported_definition` is fixed in the flag or by a newer SDK.
+The server stays the authority for errors: a local evaluator never builds an `error` result itself.
+
+Why each row has its outcome:
+
+- `missing_context`: an ordered evaluation ends at the first rule that matches. A rule that needs a property the caller did not supply therefore ends the evaluation. The evaluator must not skip that rule and try a later one, as version 1 local evaluators do with conditions, because the skipped rule could be the one that matches.
+- `invalid_property`: the supplied value is one that the operator cannot read, such as null for `gt`. The caller can fix that, and `missing_context` already covers a property supplied in a form the evaluator cannot use. The meta-tests check that every `invalid_property` case has a readable rule value and an unreadable supplied value.
+- `invalid_regex`: the pattern belongs to the definition. Regex engines differ between languages, so an SDK cannot tell a pattern that is invalid everywhere from one that only its own engine rejects.
+- `parse_error`: a local evaluator reads a config with a closed parser. An unknown config version, rule type, predicate type, operator or field makes the whole flag unsupported, and no part of the document is evaluated. A closed parser cannot tell a malformed document from one written for a newer reader, so `malformed` and `unsupported` have the same outcome.
+- `omitted`: a response leaves the flag out. A deleted flag is never in a definitions feed, and a flag that the caller did not ask for is not evaluated. An inactive flag is in the feed; see [Inactive flags](#inactive-flags).
+
+### Property maps
+
+A caller-supplied property map is partial: a missing key is unknown, never absent ([PostHog/sdk-specs](https://github.com/PostHog/sdk-specs/blob/57407963789cfc8ae411cf1895c09b1f7f8b575c/openspec/specs/local-feature-flag-evaluator/spec.md#L154)).
+An SDK therefore always evaluates with `properties_complete: false` outside its tests.
+The boolean `context` family and the local corpus hold the partial-map cases.
+
+Cases with `properties_complete: true` state the evaluator's result for a map that is known to be complete.
+A local evaluator replays them in-process with a complete map, as it replays the `white_box` rows through its private hash seam.
+The public API of an SDK cannot reach a case that reads a missing key from a complete map.
+
+### Local evaluation corpus
+
+`corpus/v2_local_evaluation.json` and its companion schema hold the cases that a local evaluator runs in addition to the other three corpora.
+Every case takes `defaults.context` as its context; a case's own `context` fields replace the default fields of the same name.
+`flag` holds the definitions entry fields that the evaluator reads besides the config: the key and `active`.
+`expected` has the shape of the other corpora and is exhaustive in the same way.
+
+The `context` family has one config with three rules and two contexts.
+With `plan: pro` the first rule matches and is terminal, so the result is conclusive although the second rule needs a property the caller did not supply.
+With `plan: free` the first rule misses conclusively, the second rule needs the missing property, and the evaluation stops there: the third rule, which targets everyone, is not reached.
+
+### Inactive flags
+
+A definitions feed includes an inactive config version 2 flag, with `active: false`.
+The local evaluator returns no value for it, with the reason `flag_disabled`, config version 2, and no rule or variant.
+It does so before it reads any rule, so the rule values, the flag default and missing context do not change the result.
+
+`expected.value` is null for every return type.
+The legacy rendering of null is false with no payload, which is what a local evaluator returns for an inactive version 1 flag.
+A typed read gets the caller default, as it does when a remote response leaves the flag out.
+The called-context schema accepts the `$feature_flag_called` projection of a legacy read: config version 2, the reason code, `false` as the response, and no rule or variant.
+
+The `flag_disabled` family has a case for each return type, for an experiment rule that would assign a variant, and for a rule whose targeting needs a property the caller did not supply.
+The remote corpora expect `omitted` for an inactive flag (`v2_boolean.eligibility.inactive`), because a response leaves it out.
+
+### Definitions feed fixture
+
+`fixtures/wire/definitions_feed.json` is one whole feed: version 1 and version 2 flags, active and inactive, a cohort map, a group type mapping, and three entries that a reader of this contract does not support.
+Those three have an unknown config version, an unknown rule type and an unknown rule field.
+`expectations` has one item for each feed entry, in feed order:
+
+- `producer_expected` says whether the entry matches `schemas/definitions_entry.schema.json`, and `producer_failure` gives the failure, with a JSON Pointer from the entry. Without its three unsupported entries, the feed matches `schemas/definitions_v2.schema.json`.
+- `evaluator` is the arm that `filters.version` selects for an entry the reader supports: `v1` when the version is absent or 1, `v2` when it is 2.
+- `reader` is what the reader does with the entry in each SDK mode, before any context: `local_evaluation` in both modes for an entry it supports, otherwise `remote_fallback` in auto mode and `unsupported` in local-only mode, the words that `fixtures/wire/definitions.json` uses. An `unsupported` flag is unresolved with the reason `unsupported_definition`.
+- `expected` is the result of a version 2 entry for the fixture's `context`, in the shape of the local corpus. A version 1 result belongs to the version 1 evaluator and is not stated.
+
+An unsupported entry does not affect the other entries: each one sits between supported entries, and every supported entry keeps its evaluator and its result.
+Each unsupported document is one that a lenient reader would get wrong.
+Its first rule alone matches the context, and for the unknown rule type and the unknown field the unsupported part is in a second rule that the evaluation would not reach.
+A reader that evaluates before it has read the whole document returns a value where it must fall back.
+
+Open objects stay open: `layout-preview` carries a rule `description`, rule `metadata` and a predicate `label`, and the reader supports it.
+The fixture does not state the outcome of an entry field outside `filters` that the reader does not know, or of an inactive entry whose document the reader does not support.

@@ -1,0 +1,11 @@
+---
+pypi/posthog-sdk-test-harness: minor
+---
+
+State what a local evaluator does with every feature flag rules v2 evaluation case (contract package 10.1.0). A local evaluator is an SDK that holds only the definitions feed and the context its caller supplied.
+
+- `rules/local_outcomes.json` gives the local outcome of every case in the boolean, value, experiment and local corpora, from the case's expected status and error kind. A `success` case is `conclusive`: the evaluator returns the expected result itself. An `error` or `parse_error` case is `inconclusive`: the evaluator returns no value, the SDK asks the server in auto mode, and the flag is unresolved in local-only mode. The unresolved reason is `missing_context` for `missing_context` and `invalid_property`, and `unsupported_definition` for `invalid_regex` and both parse errors. An `omitted` case is `not_applicable`. Cases gain no field.
+- `corpus/v2_local_evaluation.json` adds 8 cases that only a local evaluator runs, with a partial property map. The `flag_disabled` family (6 cases) pins an inactive flag for each return type: no value, the reason `flag_disabled`, and no rule or variant, whatever the rules and the default say. The `context` family (2 cases) pins that a rule which needs a property the caller did not supply stops the evaluation, also after an earlier targeting miss, and that an earlier matching rule is still terminal.
+- `fixtures/wire/definitions_feed.json` is one whole definitions feed: version 1 and version 2 flags, active and inactive, a cohort map, a group type mapping, and entries with an unknown config version, an unknown rule type and an unknown rule field. Each entry states the evaluator that reads it and the reader outcome in auto and local-only mode, and each supported version 2 entry states its result for the fixture context. An unsupported entry falls back alone; the entries beside it keep their results.
+- New schemas: `schemas/local_outcomes.schema.json`, `schemas/v2_local_evaluation.schema.json` and `schemas/definitions_feed_fixture.schema.json`.
+- No existing case, expectation or schema changes, and the generated `/flags?v=4` features do not change. Files and cases are added, so this is a minor contract version.
