@@ -1,6 +1,11 @@
 # Source: sdk-specs local-feature-flag-evaluator (known-absent property keys).
 # Definitive cases use only_evaluate_locally=true. Fallback cases send allow_remote_fallback=true,
 # so the SDK's default local-then-remote getter runs on the client with definitions.
+# Operator support is checked before the known-absent table. In
+# unsupported_operator_on_listed_key_falls_back a dynamic-cohort leaf uses not_between, which
+# SDKs don't implement locally, so the flag stays unsupported_definition and falls back to /flags
+# even though the key is listed. When an SDK implements not_between locally
+# (PostHog/posthog#138581), this case has to change.
 description: 'Opt-in known-absent person and group property keys for local evaluation and the /flags fallback body.'
 requires: [feature_flags_local_evaluation_v1, feature_flags_known_absent_v1]
 categories:
@@ -368,3 +373,39 @@ categories:
       - action: assert_flags_request_field_absent
         params:
           fields: [person_property_keys_known_absent, group_property_keys_known_absent]
+
+    - name: unsupported_operator_on_listed_key_falls_back
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: plan-cohort
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: id, value: 1, type: cohort}
+                  rollout_percentage: 100
+            cohorts:
+              '1':
+                type: OR
+                values:
+                - {key: plan, value: [1, 2], operator: not_between, type: person}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: plan-cohort
+          distinct_id: known-absent-user
+          allow_remote_fallback: true
+          person_properties: {}
+          person_property_keys_known_absent: [plan]
+      - *one_flags_request
+      - action: assert_flags_request_field
+        params:
+          field: person_property_keys_known_absent
+          expected: [plan]

@@ -607,6 +607,16 @@ The harness doesn't check the 1000-key limit. Adapters report SDK errors in
 different ways, so the harness can't tell an SDK rejection apart from an
 unrelated adapter failure. Cover the limit in the SDK's own tests.
 
-`icontains_multi`, `not_icontains_multi`, `between`, `not_between` and
-`$feature_enrollment/<flag key>` keys are not covered. SDKs don't evaluate those
-operators locally yet, and only posthog-python handles enrollment locally.
+Operator support is checked before the known-absent table. An operator the SDK
+doesn't implement locally keeps the flag `unsupported_definition` even when the
+key is listed, so it falls back to `/flags`. The suite has one such case,
+`unsupported_operator_on_listed_key_falls_back`: a dynamic-cohort leaf uses
+`not_between` on a listed key, and the harness expects exactly one `/flags`
+request. If the SDK applied the table instead, `not_between` would match
+locally and no `/flags` request would be sent. When an SDK implements
+`not_between` locally (PostHog/posthog#138581), this case has to change.
+
+Local results for `icontains_multi`, `not_icontains_multi`, `between` and
+`not_between`, and `$feature_enrollment/<flag key>` keys are not covered. SDKs
+don't evaluate those operators locally yet, and only posthog-python handles
+enrollment locally.

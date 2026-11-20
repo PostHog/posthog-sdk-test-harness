@@ -19,6 +19,8 @@ LOCAL = "feature_flags_local_evaluation_v1"
 KNOWN_ABSENT = "feature_flags_known_absent_v1"
 FIELDS = ("person_property_keys_known_absent", "group_property_keys_known_absent")
 SUITE_ONLY_PARAMS = {*FIELDS, "allow_remote_fallback"}
+UNSUPPORTED_OPERATORS = {"icontains_multi", "not_icontains_multi", "between", "not_between"}
+UNSUPPORTED_OPERATOR_TEST = "unsupported_operator_on_listed_key_falls_back"
 
 
 @pytest.mark.parametrize(
@@ -30,7 +32,28 @@ def test_suite_requires_both_capabilities(capabilities):
     assert suite.collect_tests(capabilities=[LOCAL, KNOWN_ABSENT])
 
 
-def test_suite_covers_spec_scenarios_without_unsupported_operators():
+def _definition_operators(test):
+    def leaves(node):
+        if "values" in node:
+            for child in node["values"]:
+                yield from leaves(child)
+        else:
+            yield node
+
+    for step in test["steps"]:
+        if step["action"] != "configure_local_evaluation_definitions":
+            continue
+        definitions = step["params"]["definitions"]
+        for flag in definitions["flags"]:
+            for group in flag["filters"]["groups"]:
+                for prop in group["properties"]:
+                    yield prop.get("operator")
+        for cohort in definitions.get("cohorts", {}).values():
+            for leaf in leaves(cohort):
+                yield leaf.get("operator")
+
+
+def test_suite_covers_spec_scenarios():
     collected = ContractTestSuite(SUITE, ContractExecutor()).collect_tests(capabilities=[LOCAL, KNOWN_ABSENT])
     tests = {name.split(".", 1)[1]: test for name, test in collected}
     assert set(tests) == {
@@ -45,17 +68,18 @@ def test_suite_covers_spec_scenarios_without_unsupported_operators():
         "fallback_sends_person_keys_known_absent",
         "fallback_sends_group_keys_known_absent",
         "fallback_without_known_absent_input_omits_fields",
+        UNSUPPORTED_OPERATOR_TEST,
     }
-    operators = {
-        prop["operator"]
-        for test in tests.values()
-        for step in test["steps"]
-        if step["action"] == "configure_local_evaluation_definitions"
-        for flag in step["params"]["definitions"]["flags"]
-        for group in flag["filters"]["groups"]
-        for prop in group["properties"]
-    }
-    assert not operators & {"icontains_multi", "not_icontains_multi", "between", "not_between"}
+    for name, test in tests.items():
+        if name != UNSUPPORTED_OPERATOR_TEST:
+            assert not set(_definition_operators(test)) & UNSUPPORTED_OPERATORS, name
+
+    unsupported = tests[UNSUPPORTED_OPERATOR_TEST]["steps"]
+    assert set(_definition_operators(tests[UNSUPPORTED_OPERATOR_TEST])) & UNSUPPORTED_OPERATORS
+    evaluation = next(s for s in unsupported if s["action"] == "get_feature_flag")["params"]
+    assert evaluation["allow_remote_fallback"] is True
+    assert evaluation["person_property_keys_known_absent"] == ["plan"]
+    assert [s["params"] for s in unsupported if s["action"] == "assert_flags_request_count"] == [{"expected": 1}]
 
     operator_steps = tests["listed_key_operator_results"]["steps"]
     flags = {f["key"]: f for f in operator_steps[0]["params"]["definitions"]["flags"]}
