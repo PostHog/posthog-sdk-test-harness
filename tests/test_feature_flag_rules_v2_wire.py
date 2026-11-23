@@ -728,7 +728,13 @@ def calls_without_a_value() -> list[Any]:
     ]
     # A failed config version 1 record carries no config version either.
     params.append(pytest.param(without_response(missing, "evaluation_failed"), id="v1_failed/evaluation_failed"))
-    for error in ["evaluation_failed", "errors_while_computing_flags,evaluation_failed"]:
+    # evaluation_failed counts as any whole item of the list: alone, first, in the middle or last.
+    for error in [
+        "evaluation_failed",
+        "evaluation_failed,errors_while_computing_flags",
+        "errors_while_computing_flags,evaluation_failed,unknown_error",
+        "errors_while_computing_flags,evaluation_failed",
+    ]:
         params += [
             pytest.param(without_response(row_call(row), error), id=f"calls.{row_name(row)}/{error}")
             for row in FAILED_ROWS
