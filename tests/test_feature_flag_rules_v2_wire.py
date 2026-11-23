@@ -693,3 +693,80 @@ def unregistered_attribution_calls() -> list[Any]:
 def test_called_context_rejects_a_half_or_mismatched_rule_pair(value: dict[str, Any]) -> None:
     errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
     assert errors == [("oneOf", "")]
+
+
+# A call may omit $feature_flag_response when the read has no value. A missing flag carries no config version.
+# A config version 2 call omits it only for a failed record with no successful fallback, which reports
+# evaluation_failed in the comma-separated $feature_flag_error.
+FAILED_ROWS = [row for row in MATRIX if row["failed"]]
+
+
+def without_response(call: dict[str, Any], error: Any = None) -> dict[str, Any]:
+    call = {k: v for k, v in call.items() if k != "$feature_flag_response"}
+    if error is not None:
+        call["$feature_flag_error"] = error
+    return call
+
+
+def calls_without_a_value() -> list[Any]:
+    """A missing flag with or without an error, and a failed record, each without the response."""
+    missing = {"$feature_flag": "garden-layout"}
+    params = [
+        pytest.param(without_response(missing, error), id=f"missing_flag/{error or 'no_error'}")
+        for error in [None, "flag_missing", "unknown_error"]
+    ]
+    # A failed config version 1 record carries no config version either.
+    params.append(pytest.param(without_response(missing, "evaluation_failed"), id="v1_failed/evaluation_failed"))
+    for error in ["evaluation_failed", "errors_while_computing_flags,evaluation_failed"]:
+        params += [
+            pytest.param(without_response(row_call(row), error), id=f"calls.{row_name(row)}/{error}")
+            for row in FAILED_ROWS
+        ]
+        # A failed record keeps its raw reason code, or none, without attribution.
+        params += [
+            pytest.param(
+                without_response(unregistered_call(reason), error),
+                id=f"calls.unregistered_{reason or 'missing'}/{error}",
+            )
+            for reason in UNREGISTERED_REASONS
+        ]
+    return params
+
+
+@pytest.mark.parametrize("value", calls_without_a_value())
+def test_called_context_accepts_a_call_without_a_value(value: dict[str, Any]) -> None:
+    assert schema_errors(CALLED_SCHEMA, value) == []
+
+
+def v2_calls_without_a_value() -> list[Any]:
+    """Config version 2 calls without the response that do not report evaluation_failed."""
+    params = [pytest.param(without_response(row_call(row)), id=f"calls.{row_name(row)}") for row in MATRIX]
+    params += [
+        pytest.param(without_response(dropped_call(reason)), id=f"calls.{reason}/dropped")
+        for reason in [*RULE_REASONS, "flag_disabled"]
+    ]
+    params += [
+        pytest.param(without_response(unregistered_call(reason)), id=f"calls.unregistered_{reason or 'missing'}")
+        for reason in UNREGISTERED_REASONS
+    ]
+    # Other errors do not excuse the response, nor does a code that only contains evaluation_failed.
+    errors = ["flag_missing", "errors_while_computing_flags", "not_evaluation_failed", "evaluation_failed_late"]
+    params += [
+        pytest.param(without_response(row_call(row), error), id=f"calls.{row_name(row)}/{error}")
+        for row in FAILED_ROWS
+        for error in errors
+    ]
+    return params
+
+
+@pytest.mark.parametrize("value", v2_calls_without_a_value())
+def test_called_context_rejects_a_v2_call_without_a_value(value: dict[str, Any]) -> None:
+    errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
+    assert errors == [("anyOf", "")]
+
+
+def test_called_context_error_list_is_a_string() -> None:
+    # pattern ignores a non-string, so only the declared type stops a list from excusing the response.
+    value = without_response(row_call(FAILED_ROWS[0]), ["evaluation_failed"])
+    errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
+    assert errors == [("type", "/$feature_flag_error")]
