@@ -299,7 +299,8 @@ def test_wire_schemas_and_literal_registry_agree() -> None:
         assert exposure[PRESENCE.event_property(field)] == metadata[field], field
     assert PRESENCE.event_property("experiment_id") not in exposure
     assert exposure["$feature_flag"] == called["$feature_flag"]
-    assert exposure["$feature_flag_response"] == called["$feature_flag_response"]
+    # A call may send a null response when the read has no value; an exposure always has a value.
+    assert called["$feature_flag_response"]["oneOf"] == [*exposure["$feature_flag_response"]["oneOf"], {"type": "null"}]
 
 
 def test_v1_variant_keys_are_carried_verbatim() -> None:
@@ -695,9 +696,9 @@ def test_called_context_rejects_a_half_or_mismatched_rule_pair(value: dict[str, 
     assert errors == [("oneOf", "")]
 
 
-# A call may omit $feature_flag_response when the read has no value. A missing flag carries no config version.
-# A config version 2 call omits it only for a failed record with no successful fallback, which reports
-# evaluation_failed in the comma-separated $feature_flag_error.
+# A call may omit $feature_flag_response, or send null, when the read has no value. A missing flag carries no
+# config version. A config version 2 call does so only for a failed record with no successful fallback, which
+# reports evaluation_failed in the comma-separated $feature_flag_error.
 FAILED_ROWS = [row for row in MATRIX if row["failed"]]
 
 
@@ -708,8 +709,18 @@ def without_response(call: dict[str, Any], error: Any = None) -> dict[str, Any]:
     return call
 
 
+def absent_and_null(params: list[Any]) -> list[Any]:
+    """Each call without a response twice: as it is, and with a null $feature_flag_response."""
+    result = []
+    for param in params:
+        (value,) = param.values
+        result.append(pytest.param(value, id=f"{param.id}/absent"))
+        result.append(pytest.param({**value, "$feature_flag_response": None}, id=f"{param.id}/null"))
+    return result
+
+
 def calls_without_a_value() -> list[Any]:
-    """A missing flag with or without an error, and a failed record, each without the response."""
+    """A missing flag with or without an error, and a failed record, each without a response value."""
     missing = {"$feature_flag": "garden-layout"}
     params = [
         pytest.param(without_response(missing, error), id=f"missing_flag/{error or 'no_error'}")
@@ -733,13 +744,13 @@ def calls_without_a_value() -> list[Any]:
     return params
 
 
-@pytest.mark.parametrize("value", calls_without_a_value())
+@pytest.mark.parametrize("value", absent_and_null(calls_without_a_value()))
 def test_called_context_accepts_a_call_without_a_value(value: dict[str, Any]) -> None:
     assert schema_errors(CALLED_SCHEMA, value) == []
 
 
 def v2_calls_without_a_value() -> list[Any]:
-    """Config version 2 calls without the response that do not report evaluation_failed."""
+    """Config version 2 calls without a response value that do not report evaluation_failed."""
     params = [pytest.param(without_response(row_call(row)), id=f"calls.{row_name(row)}") for row in MATRIX]
     params += [
         pytest.param(without_response(dropped_call(reason)), id=f"calls.{reason}/dropped")
@@ -759,7 +770,7 @@ def v2_calls_without_a_value() -> list[Any]:
     return params
 
 
-@pytest.mark.parametrize("value", v2_calls_without_a_value())
+@pytest.mark.parametrize("value", absent_and_null(v2_calls_without_a_value()))
 def test_called_context_rejects_a_v2_call_without_a_value(value: dict[str, Any]) -> None:
     errors = [(e.validator, _json_pointer(e.absolute_path)) for e in validator(CALLED_SCHEMA).iter_errors(value)]
     assert errors == [("anyOf", "")]
