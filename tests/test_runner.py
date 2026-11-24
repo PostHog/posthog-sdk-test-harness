@@ -294,3 +294,36 @@ class TestParallelCleanup:
         assert results["cat.passes"].passed
         assert not results["cat.fails"].passed
         assert "boom" in (results["cat.fails"].message or "")
+
+    @pytest.mark.asyncio
+    async def test_stalled_cleanup_is_bounded(self):
+        adapter = SDKAdapterClient("http://localhost:8080")
+        state = MockServerState()
+        ctx = TestContext(adapter, state, "http://localhost:8081")
+
+        finished = set()
+
+        async def run_test(test_def, test_ctx):
+            finished.add(test_ctx.test_id)
+            if test_def["name"] == "fails":
+                raise AssertionError("boom")
+
+        async def stalled_reset_after_test(self):
+            if self._test_id in finished:
+                await asyncio.Event().wait()
+            return {"success": True}
+
+        with (
+            patch("posthog_test_harness.tests.runner.ContractExecutor") as mock_ce,
+            patch(
+                "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+                stalled_reset_after_test,
+            ),
+            patch("posthog_test_harness.tests.runner.POST_TEST_RESET_TIMEOUT_SECONDS", 0.05),
+        ):
+            mock_ce.return_value = self._contract(run_test)
+            summary = await asyncio.wait_for(run_all_suites(ctx, concurrency=2, supports_parallel=True), timeout=2)
+
+        results = {r.name: r for suite in summary.suites for r in suite.results}
+        assert results["cat.passes"].passed
+        assert not results["cat.fails"].passed

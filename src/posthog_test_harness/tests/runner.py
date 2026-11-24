@@ -14,6 +14,8 @@ from .context import TestContext
 from .suites import ContractTestSuite
 from .suites.contract_suite import validate_capabilities
 
+POST_TEST_RESET_TIMEOUT_SECONDS = 10.0
+
 
 async def run_all_suites(
     ctx: TestContext,
@@ -143,7 +145,7 @@ async def _run_parallel(
                 # Each test_id is used once, so release its adapter and mock server state now.
                 # Cleanup is best-effort and must not change the test result.
                 try:
-                    await scoped_ctx.reset()
+                    await asyncio.wait_for(scoped_ctx.reset(), timeout=POST_TEST_RESET_TIMEOUT_SECONDS)
                 except Exception:
                     pass
         return (suite_name, result)
