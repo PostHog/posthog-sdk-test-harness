@@ -137,7 +137,15 @@ async def _run_parallel(
             test_id=test_id,
         )
         async with semaphore:
-            result = await suite.run_single_test(test_name, test_def, scoped_ctx)
+            try:
+                result = await suite.run_single_test(test_name, test_def, scoped_ctx)
+            finally:
+                # Each test_id is used once, so release its adapter and mock server state now.
+                # Cleanup is best-effort and must not change the test result.
+                try:
+                    await scoped_ctx.reset()
+                except Exception:
+                    pass
         return (suite_name, result)
 
     tasks = [run_one(sn, tn, td, s) for sn, tn, td, s in all_tests]
