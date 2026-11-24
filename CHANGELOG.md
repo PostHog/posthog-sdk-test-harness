@@ -1,5 +1,11 @@
 # posthog-sdk-test-harness
 
+## 1.34.1 — 2026-11-24
+
+### Patch changes
+
+- [10bcfa4](https://github.com/posthog/posthog-sdk-test-harness/commit/10bcfa4af0d7cc30cfd8618168677698cb09864d) In parallel mode, send a scoped `/reset?test_id=...` after each test finishes, including failed tests, so adapters can release per-test SDK clients instead of holding them until the container exits. The cleanup is best-effort, gives up after 10 seconds, and never changes the test result. — Thanks @marandaneto!
+
 ## 1.34.0 — 2026-11-20
 
 ### Minor changes
