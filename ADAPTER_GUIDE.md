@@ -459,6 +459,7 @@ def reset():
 - The `X-Test-Id` header **must** be sent with every request the SDK makes to the mock server
 - Each `test_id` instance must be fully independent (separate event queue, retry state, etc.)
 - When `test_id` is absent, behave exactly as before (single global instance)
+- The harness sends a scoped `/reset?test_id=...` before and after each test (including failed tests); release that `test_id`'s SDK client, queues, and background workers on reset so memory doesn't grow with suite size
 - This is fully backwards compatible — adapters that don't support parallel will never receive `test_id`
 
 ## Common Issues

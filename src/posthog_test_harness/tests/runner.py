@@ -1,6 +1,7 @@
 """Test runner."""
 
 import asyncio
+import logging
 import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,6 +14,10 @@ from ..types import TestResult, TestSuiteResult, TestSummary
 from .context import TestContext
 from .suites import ContractTestSuite
 from .suites.contract_suite import validate_capabilities
+
+logger = logging.getLogger(__name__)
+
+POST_TEST_RESET_TIMEOUT_SECONDS = 10.0
 
 
 async def run_all_suites(
@@ -137,7 +142,18 @@ async def _run_parallel(
             test_id=test_id,
         )
         async with semaphore:
-            result = await suite.run_single_test(test_name, test_def, scoped_ctx)
+            try:
+                result = await suite.run_single_test(test_name, test_def, scoped_ctx)
+            finally:
+                # Each test_id is used once, so release its adapter and mock server state now.
+                # Cleanup is best-effort and must not change the test result.
+                try:
+                    await asyncio.wait_for(scoped_ctx.reset(), timeout=POST_TEST_RESET_TIMEOUT_SECONDS)
+                except Exception as exc:
+                    logger.debug("Post-test reset failed for %s (%s): %r", test_name, test_id, exc)
+                finally:
+                    # The SDK can flush during its reset, which re-creates this test's mock server state.
+                    scoped_ctx.mock_server.reset()
         return (suite_name, result)
 
     tasks = [run_one(sn, tn, td, s) for sn, tn, td, s in all_tests]
