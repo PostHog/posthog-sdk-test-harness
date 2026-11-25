@@ -1,5 +1,15 @@
 # posthog-sdk-test-harness
 
+## 1.35.0 — 2026-11-25
+
+### Minor changes
+
+- [1f81b5b](https://github.com/posthog/posthog-sdk-test-harness/commit/1f81b5bac420bbb222d9b4850142ef0dad133336) Allow the team setting `null_counts_as_not_set` in the feature flag rules v2 definitions feed (contract package 10.1.0).
+  
+  - PostHog/posthog#141619 added the boolean `null_counts_as_not_set` to the legacy definitions response. The `?v=2` feed is that response plus the config version 2 flags, so it carries the field too.
+  - `schemas/definitions_v2.schema.json` accepts an optional boolean `null_counts_as_not_set`. The top level stays closed, so any other field is still rejected.
+  - An added optional field is a minor contract version. Consumers that vendor the feed schema need to copy this release before they validate a feed from a PostHog build with #141619. — Thanks @andehen!
+
 ## 1.34.1 — 2026-11-24
 
 ### Patch changes
