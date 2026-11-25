@@ -302,12 +302,21 @@ def test_unusable_group_key_tests_resolve_false_without_flags_requests():
     flag = mixed[0]["params"]["definitions"]["flags"][0]
     assert "aggregation_group_type_index" not in flag["filters"]
     assert [c.get("aggregation_group_type_index") for c in flag["filters"]["groups"]] == [0, None]
-    results = [
-        (evaluation["params"]["person_properties"]["plan"], assertion["params"]["expected"])
+    results = {
+        (
+            "local" if evaluation["params"].get("only_evaluate_locally") else "default",
+            evaluation["params"]["person_properties"]["plan"],
+            assertion["params"]["expected"],
+        )
         for evaluation, assertion in zip(mixed, mixed[1:])
         if evaluation["action"] == "get_feature_flag"
-    ]
-    assert ("pro", True) in results and ("free", False) in results
+    }
+    assert results == {
+        ("local", "pro", True),
+        ("local", "free", False),
+        ("default", "pro", True),
+        ("default", "free", False),
+    }
 
     dependency = tests["group_dependency_without_usable_key_resolves_false"]["steps"]
     flags = {f["key"]: f for f in dependency[0]["params"]["definitions"]["flags"]}

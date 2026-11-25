@@ -522,7 +522,8 @@ categories:
           groups: *empty_company
           group_properties: *company_enterprise
           person_properties: {plan: pro}
-      - action: assert_action_result
+      - &result_true
+        action: assert_action_result
         params:
           field: value
           expected: true
@@ -535,6 +536,15 @@ categories:
           group_properties: *company_enterprise
           person_properties: {plan: free}
       - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-or-pro
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+          person_properties: {plan: pro}
+      - *result_true
       - action: get_feature_flag
         params:
           key: company-or-pro
