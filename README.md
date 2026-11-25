@@ -134,7 +134,7 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | `capture_ai_v1` | `capture_ai_v1` | `POST /i/v1/ai/events` |
 | `feature_flags_v4` | `flags_response_v4` | Mock `POST /flags?v=4` responses from the feature flag rules v2 contract fixtures |
 | `feature_flags_local_evaluation` | `feature_flags_local_evaluation_v1` | Local rules from mocked definitions, no `/flags` requests |
-| `feature_flags_known_absent` | `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1` | Known-absent property keys, locally and in the `/flags` fallback body |
+| `feature_flags_known_absent` | `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1` | Known-absent property keys, locally and in the `/flags` fallback body. Its unusable group key cases also need `feature_flags_unusable_group_key_v1`, and the non-string key cases need `feature_flags_json_group_keys_v1` |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`, `event_options`, `event_uuid_override`, `bounded_retries`, `feature_flag_payloads`). See [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) for the full list.
 
@@ -300,3 +300,9 @@ Adapters that also advertise `feature_flags_known_absent_v1` run the
 the SDK and honors `allow_remote_fallback` (the SDK's default local-then-`/flags`
 getter), and the harness checks local results for listed keys and the matching `/flags`
 fallback body fields. SDKs test the 1000-key limit themselves. See [the known-absent protocol](ADAPTER_GUIDE.md#optional-known-absent-property-keys-protocol-v1).
+
+Adapters that also advertise `feature_flags_unusable_group_key_v1` run the
+suite's `unusable_group_key` cases: a group flag evaluated without a usable
+group key resolves to `false` locally with no `/flags` request. Adding
+`feature_flags_json_group_keys_v1` also sends JSON `null`, `true`, `[]` and `{}`
+as group keys. See [Unusable group keys](ADAPTER_GUIDE.md#unusable-group-keys).

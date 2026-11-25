@@ -43,6 +43,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
 | `feature_flags_local_evaluation_v1` | Opt-in local flag evaluation controls. See [Optional local feature flag evaluation](#optional-local-feature-flag-evaluation-protocol-v1) |
 | `feature_flags_known_absent_v1` | `/get_feature_flag` passes `person_property_keys_known_absent` and `group_property_keys_known_absent` to the SDK. Runs only together with `feature_flags_local_evaluation_v1`. See [Known-absent property keys](#optional-known-absent-property-keys-protocol-v1) |
+| `feature_flags_unusable_group_key_v1` | The SDK treats an omitted group or an empty string group key as no group, so a group flag is `false` locally with no `/flags` request. Runs only together with `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1`. See [Unusable group keys](#unusable-group-keys) |
+| `feature_flags_json_group_keys_v1` | `/get_feature_flag` passes JSON `null`, `true`, `[]` and `{}` group keys to the SDK unchanged, and the SDK treats them as no group. Runs only together with `feature_flags_unusable_group_key_v1` |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
@@ -628,3 +630,31 @@ Local results for `icontains_multi`, `not_icontains_multi`, `between` and
 `not_between`, and `$feature_enrollment/<flag key>` keys are not covered. SDKs
 don't evaluate those operators locally yet, and only posthog-python handles
 enrollment locally.
+
+### Unusable group keys
+
+Adapters that also advertise `feature_flags_unusable_group_key_v1` run the
+suite's `unusable_group_key` cases. They cover the sdk-specs rule that a usable
+group key is a non-empty string or a number, as the flags service's
+`is_usable_group_key` defines it. An omitted group, an empty string, JSON
+`null`, a boolean, an array and an object all count as no group. A condition
+aggregated on that group type doesn't match, and a flag whose conditions are all
+skipped this way is `false` locally, with no `/flags` request.
+
+Each case evaluates once with `only_evaluate_locally: true` and once with
+`allow_remote_fallback: true`, then expects no `/flags` request. The cases cover:
+
+- a group flag with the group omitted, and with an empty string key
+- a flag with a group condition and a person condition, where the group key is
+  an empty string, so the person condition decides
+- a person flag that depends on a group flag, where the group key is an empty
+  string, so the dependency is `false`
+
+The cases supply the group properties a usable key would match. An SDK that
+used the unusable key would return `true`, and one that treated it as missing
+context would call `/flags`.
+
+Advertise `feature_flags_json_group_keys_v1` only when `/get_feature_flag` can
+pass JSON `null`, `true`, `[]` and `{}` group keys to the SDK unchanged. Those
+cases repeat the group flag case for each kind. Adapters whose SDK types group
+keys as strings should leave it out.

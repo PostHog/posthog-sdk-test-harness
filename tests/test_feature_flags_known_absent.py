@@ -233,3 +233,97 @@ async def test_assert_flags_request_field_absent(body, message):
     else:
         with pytest.raises(AssertionError, match=message):
             await action.execute({"fields": list(FIELDS)}, ctx)
+
+
+UNUSABLE_GROUP_KEY = "feature_flags_unusable_group_key_v1"
+JSON_GROUP_KEYS = "feature_flags_json_group_keys_v1"
+UNUSABLE_GROUP_KEY_CATEGORY = "unusable_group_key"
+EMPTY_STRING_GROUP_KEY_TESTS = {
+    "omitted_group_resolves_group_flag_false",
+    "empty_string_group_key_resolves_group_flag_false",
+    "empty_string_group_key_skips_mixed_group_condition",
+    "group_dependency_without_usable_key_resolves_false",
+}
+JSON_GROUP_KEY_TESTS = {
+    "null_group_key_resolves_group_flag_false": None,
+    "boolean_group_key_resolves_group_flag_false": True,
+    "array_group_key_resolves_group_flag_false": [],
+    "object_group_key_resolves_group_flag_false": {},
+}
+
+
+def _unusable_group_key_tests(capabilities):
+    collected = ContractTestSuite(SUITE, ContractExecutor()).collect_tests(capabilities=capabilities)
+    return {
+        name.split(".", 1)[1]: test for name, test in collected if name.split(".", 1)[0] == UNUSABLE_GROUP_KEY_CATEGORY
+    }
+
+
+@pytest.mark.parametrize(
+    "capabilities,expected",
+    [
+        ([LOCAL, KNOWN_ABSENT], set()),
+        ([LOCAL, KNOWN_ABSENT, JSON_GROUP_KEYS], set()),
+        ([LOCAL, UNUSABLE_GROUP_KEY, JSON_GROUP_KEYS], set()),
+        ([LOCAL, KNOWN_ABSENT, UNUSABLE_GROUP_KEY], EMPTY_STRING_GROUP_KEY_TESTS),
+        (
+            [LOCAL, KNOWN_ABSENT, UNUSABLE_GROUP_KEY, JSON_GROUP_KEYS],
+            EMPTY_STRING_GROUP_KEY_TESTS | set(JSON_GROUP_KEY_TESTS),
+        ),
+    ],
+)
+def test_unusable_group_key_tests_are_opt_in(capabilities, expected):
+    assert set(_unusable_group_key_tests(capabilities)) == expected
+
+
+def test_unusable_group_key_tests_resolve_false_without_flags_requests():
+    tests = _unusable_group_key_tests([LOCAL, KNOWN_ABSENT, UNUSABLE_GROUP_KEY, JSON_GROUP_KEYS])
+    for name, test in tests.items():
+        steps = test["steps"]
+        evaluations = [s["params"] for s in steps if s["action"] == "get_feature_flag"]
+        assert any(e.get("only_evaluate_locally") for e in evaluations), name
+        assert any(e.get("allow_remote_fallback") for e in evaluations), name
+        assert all("force_remote" not in e for e in evaluations), name
+        assert [s["action"] for s in steps[-2:]] == ["assert_flags_request_count", "assert_no_requests_to_paths"], name
+        assert steps[-2]["params"]["expected"] == 0, name
+        if name != "omitted_group_resolves_group_flag_false":
+            key_kinds = {repr(e["groups"]["company"]) for e in evaluations if "groups" in e}
+            expected_key = JSON_GROUP_KEY_TESTS.get(name, "")
+            assert key_kinds == {repr(expected_key)}, name
+
+    omitted = [
+        s["params"]
+        for s in tests["omitted_group_resolves_group_flag_false"]["steps"]
+        if s["action"] == "get_feature_flag"
+    ]
+    assert all("groups" not in e for e in omitted)
+
+    mixed = tests["empty_string_group_key_skips_mixed_group_condition"]["steps"]
+    flag = mixed[0]["params"]["definitions"]["flags"][0]
+    assert "aggregation_group_type_index" not in flag["filters"]
+    assert [c.get("aggregation_group_type_index") for c in flag["filters"]["groups"]] == [0, None]
+    results = [
+        (evaluation["params"]["person_properties"]["plan"], assertion["params"]["expected"])
+        for evaluation, assertion in zip(mixed, mixed[1:])
+        if evaluation["action"] == "get_feature_flag"
+    ]
+    assert ("pro", True) in results and ("free", False) in results
+
+    dependency = tests["group_dependency_without_usable_key_resolves_false"]["steps"]
+    flags = {f["key"]: f for f in dependency[0]["params"]["definitions"]["flags"]}
+    assert flags["org-parent"]["filters"]["aggregation_group_type_index"] == 0
+    assert flags["person-child"]["filters"]["groups"][0]["properties"][0]["operator"] == "flag_evaluates_to"
+    for evaluation in (s["params"] for s in dependency if s["action"] == "get_feature_flag"):
+        assert evaluation["key"] == "person-child"
+        assert evaluation["group_property_keys_known_absent"] == {"company": ["tier"]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("group_key", ["", None, True, [], {}])
+async def test_get_feature_flag_action_passes_unusable_group_keys_unchanged(group_key):
+    adapter = SimpleNamespace(get_feature_flag=AsyncMock(return_value={"success": True, "value": False}))
+    ctx = SimpleNamespace(sdk_adapter=adapter, mock_server=MockServerState())
+    await GetFeatureFlagAction().execute({"key": "k", "distinct_id": "u", "groups": {"company": group_key}}, ctx)
+    request = adapter.get_feature_flag.await_args.args[0]
+    payload = SDKAdapterClient("http://adapter")._feature_flag_payload(request)
+    assert payload["groups"] == {"company": group_key}
