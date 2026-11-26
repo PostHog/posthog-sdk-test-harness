@@ -192,7 +192,6 @@ INCONCLUSIVE = {"key": "k", "distinct_id": "u", "only_evaluate_locally": True, "
     [
         {"success": False},
         {"success": True, "value": None},
-        {"success": True, "value": None, "locally_evaluated": False},
         {"success": False, "value": None, "locally_evaluated": True},
     ],
 )
@@ -215,6 +214,7 @@ async def test_expect_inconclusive_accepts_no_value(response):
         {},
         {"error": "evaluation failed"},
         {"success": False, "value": None, "error": "evaluation failed"},
+        {"success": True, "value": None, "locally_evaluated": False},
     ],
 )
 async def test_expect_inconclusive_rejects_a_value(response):

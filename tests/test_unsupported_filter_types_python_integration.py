@@ -46,6 +46,7 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
     assert Path(posthog.__file__).resolve().is_relative_to(Path(SDK_PATH).resolve())
     app = Flask("temporary-real-python-unsupported-filter-types-adapter")
     sdk = None
+    reports_reasons = hasattr(Client, "evaluate_flags")
 
     @app.post("/reset")
     def reset():
@@ -92,6 +93,8 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
         if local:
             if value is not None:
                 return jsonify(success=True, value=value, locally_evaluated=True)
+            if not reports_reasons:
+                return jsonify(success=False, value=None)
             snapshot = sdk.evaluate_flags(
                 data["distinct_id"],
                 person_properties=data.get("person_properties"),
@@ -114,10 +117,10 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
                 capabilities=[
                     "feature_flags_local_evaluation_v1",
                     "feature_flags_unsupported_filter_types_v1",
-                    "feature_flags_unresolved_reasons_v1",
+                    *(["feature_flags_unresolved_reasons_v1"] if reports_reasons else []),
                 ],
             )
-            assert result.total == 17
+            assert result.total == (17 if reports_reasons else 14)
             assert result.failed == 0, [(r.name, r.message) for r in result.results if not r.passed]
         finally:
             await ctx.sdk_adapter.reset()
