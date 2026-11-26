@@ -266,6 +266,13 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        # Harness-only: never part of the adapter request.
+        expect_inconclusive = params.get("expect_inconclusive", False)
+        expected_reason = params.get("expected_unresolved_reason")
+        if expect_inconclusive and not params.get("only_evaluate_locally"):
+            raise ValueError("expect_inconclusive requires only_evaluate_locally=true")
+        if expected_reason is not None and not expect_inconclusive:
+            raise ValueError("expected_unresolved_reason requires expect_inconclusive=true")
         request = FeatureFlagRequest(
             key=params["key"],
             distinct_id=params["distinct_id"],
@@ -285,6 +292,22 @@ class GetFeatureFlagAction(Action):
             remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
             if remote:
                 raise AssertionError("Local-only evaluation made a remote /flags request")
+            if expect_inconclusive:
+                if not isinstance(result, dict):
+                    raise AssertionError("Local-only evaluation returned a non-object result")
+                if not isinstance(result.get("success"), bool) or result.get("error") is not None:
+                    raise AssertionError(f"Local-only evaluation returned a malformed response: {result!r}")
+                if result["success"] and result.get("locally_evaluated") is not True:
+                    raise AssertionError(f"Local-only evaluation succeeded without locally_evaluated: {result!r}")
+                if result.get("value") is not None:
+                    raise AssertionError(
+                        f"Local-only evaluation should be inconclusive, got value {result.get('value')!r}"
+                    )
+                if expected_reason is not None and result.get("unresolved_reason") != expected_reason:
+                    raise AssertionError(
+                        f"Expected unresolved_reason {expected_reason!r}, got {result.get('unresolved_reason')!r}"
+                    )
+                return result
             if (
                 not isinstance(result, dict)
                 or result.get("success") is not True

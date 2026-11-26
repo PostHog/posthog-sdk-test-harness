@@ -43,6 +43,8 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
 | `feature_flags_local_evaluation_v1` | Opt-in local flag evaluation controls. See [Optional local feature flag evaluation](#optional-local-feature-flag-evaluation-protocol-v1) |
 | `feature_flags_known_absent_v1` | `/get_feature_flag` passes `person_property_keys_known_absent` and `group_property_keys_known_absent` to the SDK. Runs only together with `feature_flags_local_evaluation_v1`. See [Known-absent property keys](#optional-known-absent-property-keys-protocol-v1) |
+| `feature_flags_unresolved_reasons_v1` | When an `only_evaluate_locally` `/get_feature_flag` request has no value, the response includes `unresolved_reason`, read from the SDK's unresolved flags API. See [Unsupported property-filter types](#optional-unsupported-property-filter-types-protocol-v1) |
+| `feature_flags_unsupported_filter_types_v1` | The SDK treats a property filter type other than `person`, `group`, `cohort` or `flag` (such as `person_metadata`) as inconclusive, and `/get_feature_flag` honors `allow_remote_fallback`. Runs only together with `feature_flags_local_evaluation_v1`. See [Unsupported property-filter types](#optional-unsupported-property-filter-types-protocol-v1) |
 | `feature_flags_unusable_group_key_v1` | The SDK treats an omitted group or an empty string group key as no group, so a group flag is `false` locally with no `/flags` request. Runs only together with `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1`. See [Unusable group keys](#unusable-group-keys) |
 | `feature_flags_json_group_keys_v1` | `/get_feature_flag` passes JSON `null`, `true`, `[]` and `{}` group keys to the SDK unchanged, and the SDK treats them as no group. Runs only together with `feature_flags_unusable_group_key_v1` |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
@@ -575,6 +577,12 @@ tests require no SDK installation.
 `POSTHOG_LOCAL_EVALUATION_SDK_PATH` at a posthog-python checkout that supports
 known-absent property keys.
 
+`tests/test_unsupported_filter_types_python_integration.py` runs the
+`feature_flags_unsupported_filter_types` suite the same way. Point
+`POSTHOG_LOCAL_EVALUATION_SDK_PATH` at a posthog-python checkout that treats
+unsupported filter types as inconclusive, and set
+`POSTHOG_UNSUPPORTED_FILTER_TYPES_SMOKE=1`.
+
 ## Optional known-absent property keys (protocol v1)
 
 Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
@@ -658,3 +666,54 @@ Advertise `feature_flags_json_group_keys_v1` only when `/get_feature_flag` can
 pass JSON `null`, `true`, `[]` and `{}` group keys to the SDK unchanged. Those
 cases repeat the group flag case for each kind. Adapters whose SDK types group
 keys as strings should leave it out.
+
+## Optional unsupported property-filter types (protocol v1)
+
+Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
+`feature_flags_unsupported_filter_types_v1` run the
+`feature_flags_unsupported_filter_types` suite. It covers the sdk-specs
+local-feature-flag-evaluator requirement "Unsupported property-filter types are
+inconclusive": `person` and `group` filters match caller properties, and a
+missing, `null` or empty-string `type` is a person filter. `cohort` and `flag`
+filters keep their own matching. Any other type, such as a cohort's
+`person_metadata` filter on `created_at` (first seen, which `/flags` reads from
+the persons table) or a type added later, is inconclusive.
+The SDK must not match it against a caller property with the same key.
+
+The suite needs no new adapter params. It uses:
+
+- `only_evaluate_locally: true` for definitive results, as in the local
+  evaluation suite: a `person` filter on `created_at` with the type set,
+  omitted, `null` or `""`; another cohort leaf deciding an `AND` group; a
+  definitively false person filter deciding a condition that also has an
+  unsupported filter; a later catch-all condition deciding after an
+  unsupported one; and another flag resolving while one flag is deferred.
+- `only_evaluate_locally: true` for inconclusive results. Return no flag value
+  (`value` `null` or omitted) when the SDK's local-only getter returns nothing.
+  Don't report an inconclusive result as local `false`. The harness checks
+  that `value` has no value and that no `/flags` request was made. Leaf
+  `negation` and an outer `not_in` must not turn the unsupported leaf into a
+  match.
+- `allow_remote_fallback: true`, as described in
+  [the known-absent protocol](#optional-known-absent-property-keys-protocol-v1).
+  Adapters with this capability must honor it even without
+  `feature_flags_known_absent_v1`. The harness expects exactly one `/flags`
+  request for a `person_metadata` cohort leaf, whatever `created_at` value the
+  caller passes.
+
+One case, `local_only_inconclusive_with_created_at_known_absent`, also lists
+`created_at` as known absent and runs only when the adapter advertises
+`feature_flags_known_absent_v1`. A known-absent listing doesn't resolve an
+unsupported filter.
+
+Adapters that also advertise `feature_flags_unresolved_reasons_v1` run three
+more cases that check the reason. For an `only_evaluate_locally` request with no
+value, return `unresolved_reason` in the `/get_feature_flag` response, read
+from the SDK's unresolved flags API (sdk-specs evaluate-flags, "Snapshot
+unresolved flag reporting"). For example, a Python adapter can call
+`client.evaluate_flags(..., flag_keys=[key], only_evaluate_locally=True)` and
+return `snapshot.unresolved_flags.get(key)`. The suite expects
+`unsupported_definition`. Omit the field when the flag has a value. Exposing
+unresolved flags is optional in the spec, so SDKs without that API skip these
+cases and still run the rest of the suite. Cover the load-time definition check
+in the SDK's own tests.
