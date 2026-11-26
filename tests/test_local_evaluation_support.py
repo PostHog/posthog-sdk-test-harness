@@ -318,7 +318,7 @@ def test_new_controls_are_not_used_by_any_existing_suite():
         if name == "feature_flags_local_evaluation":
             assert definition["requires"] == CAPABILITY
             continue
-        if name == "feature_flags_known_absent":
+        if name in {"feature_flags_known_absent", "feature_flags_unsupported_filter_types"}:
             assert CAPABILITY in definition["requires"]
             continue
         for category in definition.get("categories", {}).values():

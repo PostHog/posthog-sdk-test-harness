@@ -131,10 +131,18 @@ def test_known_absent_params_are_not_used_by_other_suites():
     for name, definition in ContractExecutor().get_test_suites().items():
         if name == SUITE:
             continue
+        # This suite's capability also requires allow_remote_fallback; known-absent keys need a test-level requires.
+        unsupported_types = name == "feature_flags_unsupported_filter_types"
         for category in definition.get("categories", {}).values():
             for test in category.get("tests", []):
+                allowed = set()
+                if unsupported_types:
+                    allowed.add("allow_remote_fallback")
+                    requires = test.get("requires", [])
+                    if KNOWN_ABSENT in ([requires] if isinstance(requires, str) else requires):
+                        allowed.update(FIELDS)
                 for step in test.get("steps", []):
-                    assert not SUITE_ONLY_PARAMS & set(step.get("params", {})), (name, test["name"])
+                    assert not (SUITE_ONLY_PARAMS - allowed) & set(step.get("params", {})), (name, test["name"])
 
 
 def test_client_forwards_known_absent_only_when_set():

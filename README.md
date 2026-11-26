@@ -135,6 +135,7 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | `feature_flags_v4` | `flags_response_v4` | Mock `POST /flags?v=4` responses from the feature flag rules v2 contract fixtures |
 | `feature_flags_local_evaluation` | `feature_flags_local_evaluation_v1` | Local rules from mocked definitions, no `/flags` requests |
 | `feature_flags_known_absent` | `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1` | Known-absent property keys, locally and in the `/flags` fallback body |
+| `feature_flags_unsupported_filter_types` | `feature_flags_local_evaluation_v1` and `feature_flags_unsupported_filter_types_v1` | Unsupported property-filter types (such as `person_metadata`) are inconclusive locally and fall back to `/flags` |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`, `event_options`, `event_uuid_override`, `bounded_retries`, `feature_flag_payloads`). See [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) for the full list.
 
@@ -300,3 +301,9 @@ Adapters that also advertise `feature_flags_known_absent_v1` run the
 the SDK and honors `allow_remote_fallback` (the SDK's default local-then-`/flags`
 getter), and the harness checks local results for listed keys and the matching `/flags`
 fallback body fields. SDKs test the 1000-key limit themselves. See [the known-absent protocol](ADAPTER_GUIDE.md#optional-known-absent-property-keys-protocol-v1).
+
+Adapters that also advertise `feature_flags_unsupported_filter_types_v1` run the
+`feature_flags_unsupported_filter_types` suite: a property filter type other
+than `person`, `group`, `cohort` or `flag`, such as a cohort's `person_metadata`
+filter on `created_at`, must stay inconclusive locally and fall back to
+`/flags` through `allow_remote_fallback`. See [the unsupported filter types protocol](ADAPTER_GUIDE.md#optional-unsupported-property-filter-types-protocol-v1).

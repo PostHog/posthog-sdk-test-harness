@@ -266,6 +266,10 @@ class GetFeatureFlagAction(Action):
         return "get_feature_flag"
 
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        # Harness-only: never part of the adapter request.
+        expect_inconclusive = params.get("expect_inconclusive", False)
+        if expect_inconclusive and not params.get("only_evaluate_locally"):
+            raise ValueError("expect_inconclusive requires only_evaluate_locally=true")
         request = FeatureFlagRequest(
             key=params["key"],
             distinct_id=params["distinct_id"],
@@ -285,6 +289,14 @@ class GetFeatureFlagAction(Action):
             remote = [r for r in ctx.mock_server.get_requests() if r.path.rstrip("/") == "/flags"]
             if remote:
                 raise AssertionError("Local-only evaluation made a remote /flags request")
+            if expect_inconclusive:
+                if not isinstance(result, dict):
+                    raise AssertionError("Local-only evaluation returned a non-object result")
+                if result.get("value") is not None:
+                    raise AssertionError(
+                        f"Local-only evaluation should be inconclusive, got value {result.get('value')!r}"
+                    )
+                return result
             if (
                 not isinstance(result, dict)
                 or result.get("success") is not True
