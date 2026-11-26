@@ -191,7 +191,6 @@ INCONCLUSIVE = {"key": "k", "distinct_id": "u", "only_evaluate_locally": True, "
     "response",
     [
         {"success": False},
-        {"success": True, "value": None},
         {"success": False, "value": None, "locally_evaluated": True},
     ],
 )
@@ -215,6 +214,7 @@ async def test_expect_inconclusive_accepts_no_value(response):
         {"error": "evaluation failed"},
         {"success": False, "value": None, "error": "evaluation failed"},
         {"success": True, "value": None, "locally_evaluated": False},
+        {"success": True, "value": None},
     ],
 )
 async def test_expect_inconclusive_rejects_a_value(response):
@@ -227,7 +227,7 @@ async def test_expect_inconclusive_still_rejects_flags_requests():
     state = MockServerState()
     state.record_request("POST", "/flags/", {}, {}, b"{}")
     with pytest.raises(AssertionError, match="remote /flags"):
-        await GetFeatureFlagAction().execute(dict(INCONCLUSIVE), _ctx({"success": True, "value": None}, state))
+        await GetFeatureFlagAction().execute(dict(INCONCLUSIVE), _ctx({"success": False, "value": None}, state))
 
 
 @pytest.mark.asyncio

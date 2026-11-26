@@ -46,7 +46,12 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
     assert Path(posthog.__file__).resolve().is_relative_to(Path(SDK_PATH).resolve())
     app = Flask("temporary-real-python-unsupported-filter-types-adapter")
     sdk = None
-    reports_reasons = hasattr(Client, "evaluate_flags")
+    # Unresolved reporting is optional; check for the snapshot API itself.
+    try:
+        from posthog.feature_flag_evaluations import FeatureFlagEvaluations
+    except ImportError:
+        FeatureFlagEvaluations = None
+    reports_reasons = hasattr(Client, "evaluate_flags") and hasattr(FeatureFlagEvaluations, "unresolved_flags")
 
     @app.post("/reset")
     def reset():

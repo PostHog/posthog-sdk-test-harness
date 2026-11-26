@@ -297,8 +297,8 @@ class GetFeatureFlagAction(Action):
                     raise AssertionError("Local-only evaluation returned a non-object result")
                 if not isinstance(result.get("success"), bool) or "error" in result:
                     raise AssertionError(f"Local-only evaluation returned a malformed response: {result!r}")
-                if result["success"] and result.get("locally_evaluated", True) is not True:
-                    raise AssertionError(f"Local-only evaluation reported locally_evaluated=false: {result!r}")
+                if result["success"] and result.get("locally_evaluated") is not True:
+                    raise AssertionError(f"Local-only evaluation succeeded without locally_evaluated: {result!r}")
                 if result.get("value") is not None:
                     raise AssertionError(
                         f"Local-only evaluation should be inconclusive, got value {result.get('value')!r}"
