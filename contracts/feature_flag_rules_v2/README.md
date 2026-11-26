@@ -375,7 +375,7 @@ The remote corpora expect `omitted` for an inactive flag (`v2_boolean.eligibilit
 Those three have an unknown config version, an unknown rule type and an unknown rule field.
 `expectations` has one item for each feed entry, in feed order:
 
-- `producer_expected` says whether the entry matches `schemas/definitions_entry.schema.json`, and `producer_failure` gives the failure, with a JSON Pointer from the entry. Without its three unsupported entries, the feed matches `schemas/definitions_v2.schema.json`.
+- `producer_expected` says whether the entry matches `schemas/definitions_entry.schema.json`, and `producer_failure` gives the failure, with a JSON Pointer from the entry. Without its three unsupported entries and the last two entries, the feed matches `schemas/definitions_v2.schema.json`.
 - `evaluator` is the arm that `filters.version` selects for an entry the reader supports: `v1` when the version is absent or 1, `v2` when it is 2.
 - `reader` is what the reader does with the entry in each SDK mode, before any context: `local_evaluation` in both modes for an entry it supports, otherwise `remote_fallback` in auto mode and `unsupported` in local-only mode, the words that `fixtures/wire/definitions.json` uses. An `unsupported` flag is unresolved with the reason `unsupported_definition`.
 - `expected` is the result of a version 2 entry for the fixture's `context`, in the shape of the local corpus. A version 1 result belongs to the version 1 evaluator and is not stated.
@@ -386,4 +386,7 @@ Its first rule alone matches the context, and for the unknown rule type and the 
 A reader that evaluates before it has read the whole document returns a value where it must fall back.
 
 Open objects stay open: `layout-preview` carries a rule `description`, rule `metadata` and a predicate `label`, and the reader supports it.
-The fixture does not state the outcome of an entry field outside `filters` that the reader does not know, or of an inactive entry whose document the reader does not support.
+The last two entries pin what the reader does outside the document. The flags service never sends either of them, so the producer schema rejects both:
+
+- `retired-future-rule-type` is inactive, and its document has an unknown rule type. The reader does not read the document of an inactive entry: the flag is disabled in both modes, with no value and the reason `flag_disabled`, and its document does not make it unsupported.
+- `future-entry-field` has an entry field outside `filters` that the reader does not know, `tags`. The reader ignores the field and evaluates the entry.

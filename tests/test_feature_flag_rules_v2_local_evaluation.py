@@ -140,6 +140,8 @@ def _evaluator(entry: dict[str, Any]) -> Optional[str]:
         return None
     if version == versions["v1"]:
         return "v1"
+    if version == versions["v2"] and not entry["active"]:
+        return "v2"  # an inactive entry is disabled before its document is read
     filters = entry["filters"]
     if version == versions["v2"] and not list(CONFIG.iter_errors(filters)) and not _semantic_errors(filters):
         return "v2"
@@ -306,8 +308,11 @@ def test_feed_matches_the_feed_schema_without_its_unsupported_entries() -> None:
 def test_feed_reader_outcome_follows_the_entry_alone(entry: dict[str, Any], expectation: dict[str, Any]) -> None:
     evaluator = _evaluator(entry)
     assert expectation.get("evaluator") == evaluator
-    # An entry that the producer schema rejects is one that no evaluator arm reads, and the reverse.
-    assert (expectation["producer_expected"] == "invalid") == (evaluator is None)
+    # An entry that the producer schema rejects is one that no evaluator arm reads, and the reverse, except an
+    # inactive entry and an entry whose only failure is an entry field outside filters.
+    failure = expectation.get("producer_failure", {}).get("instance_path")
+    read_anyway = failure is not None and (not entry["active"] or not failure.startswith("/filters"))
+    assert (expectation["producer_expected"] == "invalid" and not read_anyway) == (evaluator is None)
     if evaluator is None:
         assert expectation["reader"] == {"auto": "remote_fallback", "local_only": "unsupported"}
     else:
@@ -345,6 +350,8 @@ def test_feed_covers_both_config_versions_and_every_unsupported_kind() -> None:
         "/filters/version": "const",
         "/filters/rules/1/rule_type": "const",
         "/filters/rules/1": "additionalProperties",
+        "/filters/rules/0/rule_type": "const",
+        "": "additionalProperties",
     }
 
 
