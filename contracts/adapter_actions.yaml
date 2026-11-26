@@ -149,7 +149,7 @@
       groups:
         type: object
         optional: true
-        description: Group identifiers
+        description: Group type name to group key, passed to the SDK unchanged. Keys are strings except in feature_flags_json_group_keys_v1 tests, which also send JSON null, true, [] and {}.
       group_properties:
         type: object
         optional: true

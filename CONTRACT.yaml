@@ -44,7 +44,8 @@ adapter_interface:
             "generated_payloads", "property_layers", "fail_open",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate",
             "feature_flag_payloads", "feature_flags_local_evaluation_v1",
-            "feature_flags_known_absent_v1", "feature_flags_unsupported_filter_types_v1",
+            "feature_flags_known_absent_v1", "feature_flags_unusable_group_key_v1",
+            "feature_flags_json_group_keys_v1", "feature_flags_unsupported_filter_types_v1",
             "feature_flags_unresolved_reasons_v1".
           default: []
 
@@ -283,7 +284,9 @@ adapter_interface:
           description: Person properties to send with the request
         groups:
           type: object
-          description: Group identifiers
+          description: >
+            Group type name to group key. Pass each key to the SDK unchanged. Keys are strings except in
+            feature_flags_json_group_keys_v1 tests, which also send JSON null, true, [] and {}
         group_properties:
           type: object
           description: Group properties
@@ -424,7 +427,9 @@ test_suites:
   # Explicit adapter opt-in only; never inferred from sdk_type
   feature_flags_local_evaluation: !include contracts/feature_flags_local_evaluation_tests.yaml
 
-  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_known_absent_v1
+  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_known_absent_v1.
+  # Its unusable_group_key category also requires feature_flags_unusable_group_key_v1, and its
+  # non-string group key cases also require feature_flags_json_group_keys_v1.
   feature_flags_known_absent: !include contracts/feature_flags_known_absent_tests.yaml
 
   # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_unsupported_filter_types_v1

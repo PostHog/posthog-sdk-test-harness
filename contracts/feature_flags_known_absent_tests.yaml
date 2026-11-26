@@ -410,3 +410,300 @@ categories:
         params:
           field: person_property_keys_known_absent
           expected: [plan]
+
+  # sdk-specs local-feature-flag-evaluator: a usable group key is a non-empty string or a number,
+  # as the flags service's is_usable_group_key defines it. An omitted group, an empty string, JSON
+  # null, a boolean, an array or an object counts as no group: a condition aggregated on that group
+  # type doesn't match, and a flag whose conditions are all skipped this way is false locally with
+  # no /flags request. Each case supplies the group properties a usable key would match, so an SDK
+  # that used the unusable key would return true, and one that treated it as missing context would
+  # call /flags. feature_flags_unusable_group_key_v1 covers the omitted group and the empty string.
+  # feature_flags_json_group_keys_v1 adds null, true, [] and {} for adapters that pass JSON values.
+  unusable_group_key:
+    tests:
+    - name: omitted_group_resolves_group_flag_false
+      requires: feature_flags_unusable_group_key_v1
+      steps:
+      - &company_beta_definitions
+        action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: company-beta
+              active: true
+              version: 1
+              filters:
+                aggregation_group_type_index: 0
+                groups:
+                - properties:
+                  - {key: tier, value: enterprise, operator: exact, type: group, group_type_index: 0}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: &company_group_type
+              '0': company
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          group_properties: &company_enterprise {company: {tier: enterprise}}
+      - &result_false
+        action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: empty_string_group_key_resolves_group_flag_false
+      requires: feature_flags_unusable_group_key_v1
+      steps:
+      - *company_beta_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: &empty_company {company: ''}
+          group_properties: *company_enterprise
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: empty_string_group_key_skips_mixed_group_condition
+      requires: feature_flags_unusable_group_key_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: company-or-pro
+              active: true
+              version: 1
+              filters:
+                groups:
+                - aggregation_group_type_index: 0
+                  properties:
+                  - {key: tier, value: enterprise, operator: exact, type: group, group_type_index: 0}
+                  rollout_percentage: 100
+                - properties:
+                  - {key: plan, value: pro, operator: exact, type: person}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: *company_group_type
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-or-pro
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+          person_properties: {plan: pro}
+      - &result_true
+        action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - action: get_feature_flag
+        params:
+          key: company-or-pro
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+          person_properties: {plan: free}
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-or-pro
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+          person_properties: {plan: pro}
+      - *result_true
+      - action: get_feature_flag
+        params:
+          key: company-or-pro
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: *empty_company
+          group_properties: *company_enterprise
+          person_properties: {plan: free}
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: group_dependency_without_usable_key_resolves_false
+      requires: feature_flags_unusable_group_key_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: org-parent
+              active: true
+              version: 1
+              filters:
+                aggregation_group_type_index: 0
+                groups:
+                - properties:
+                  - {key: tier, value: is_not_set, operator: is_not_set, type: group, group_type_index: 0}
+                  rollout_percentage: 100
+            - id: 2
+              key: person-child
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: org-parent, value: true, operator: flag_evaluates_to, type: flag, dependency_chain: [org-parent]}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: *company_group_type
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: person-child
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: *empty_company
+          group_properties: {company: {}}
+          group_property_keys_known_absent: &company_tier_absent {company: [tier]}
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: person-child
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: *empty_company
+          group_properties: {company: {}}
+          group_property_keys_known_absent: *company_tier_absent
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: null_group_key_resolves_group_flag_false
+      requires: [feature_flags_unusable_group_key_v1, feature_flags_json_group_keys_v1]
+      steps:
+      - *company_beta_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: {company: null}
+          group_properties: *company_enterprise
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: {company: null}
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: boolean_group_key_resolves_group_flag_false
+      requires: [feature_flags_unusable_group_key_v1, feature_flags_json_group_keys_v1]
+      steps:
+      - *company_beta_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: {company: true}
+          group_properties: *company_enterprise
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: {company: true}
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: array_group_key_resolves_group_flag_false
+      requires: [feature_flags_unusable_group_key_v1, feature_flags_json_group_keys_v1]
+      steps:
+      - *company_beta_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: {company: []}
+          group_properties: *company_enterprise
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: {company: []}
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
+
+    - name: object_group_key_resolves_group_flag_false
+      requires: [feature_flags_unusable_group_key_v1, feature_flags_json_group_keys_v1]
+      steps:
+      - *company_beta_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          only_evaluate_locally: true
+          groups: {company: {}}
+          group_properties: *company_enterprise
+      - *result_false
+      - action: get_feature_flag
+        params:
+          key: company-beta
+          distinct_id: group-key-user
+          allow_remote_fallback: true
+          groups: {company: {}}
+          group_properties: *company_enterprise
+      - *result_false
+      - *no_flags_count
+      - *no_flags_paths
