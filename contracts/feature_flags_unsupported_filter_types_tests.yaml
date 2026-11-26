@@ -108,6 +108,17 @@ categories:
       - action: configure_local_evaluation_definitions
         params:
           definitions: *first_seen_definitions
+      - &remote_first_seen
+        action: configure_mock_responses
+        params:
+          responses:
+          - path: /flags
+            status_code: 200
+            body: >-
+              {"featureFlags": {"first-seen": "remote-value"},
+              "flags": {"first-seen": {"key": "first-seen", "enabled": true, "variant": "remote-value",
+              "reason": {"code": "condition_match", "condition_index": 0},
+              "metadata": {"id": 1, "version": 1, "payload": null}}}}
       - *init
       - *reload
       - action: get_feature_flag
@@ -116,6 +127,11 @@ categories:
           distinct_id: user-123
           allow_remote_fallback: true
           person_properties: {created_at: '2026-06-01'}
+      - &remote_value
+        action: assert_action_result
+        params:
+          field: value
+          expected: remote-value
       - &one_flags_request
         action: assert_flags_request_count
         params:
@@ -126,6 +142,7 @@ categories:
       - action: configure_local_evaluation_definitions
         params:
           definitions: *first_seen_definitions
+      - *remote_first_seen
       - *init
       - *reload
       - action: get_feature_flag
@@ -134,6 +151,7 @@ categories:
           distinct_id: user-123
           allow_remote_fallback: true
           person_properties: {created_at: '2020-06-01'}
+      - *remote_value
       - *one_flags_request
 
     - name: default_getter_falls_back_without_person_properties
@@ -141,6 +159,7 @@ categories:
       - action: configure_local_evaluation_definitions
         params:
           definitions: *first_seen_definitions
+      - *remote_first_seen
       - *init
       - *reload
       - action: get_feature_flag
@@ -148,6 +167,7 @@ categories:
           key: first-seen
           distinct_id: user-123
           allow_remote_fallback: true
+      - *remote_value
       - *one_flags_request
 
     - name: negated_leaf_stays_inconclusive
@@ -263,6 +283,26 @@ categories:
       - {action: get_feature_flag, params: {key: type-null, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
       - {action: assert_action_result, params: {field: value, expected: true}}
       - {action: get_feature_flag, params: {key: type-empty, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - *no_flags_count
+
+    - name: default_getter_resolves_person_filter_locally
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - {id: 1, key: type-person, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after, type: person}], rollout_percentage: 100}]}}
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: type-person
+          distinct_id: user-123
+          allow_remote_fallback: true
+          person_properties: {created_at: '2026-06-01'}
       - {action: assert_action_result, params: {field: value, expected: true}}
       - *no_flags_count
 

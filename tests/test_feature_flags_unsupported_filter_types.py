@@ -58,6 +58,10 @@ def _flags_count(test):
     return [s["params"]["expected"] for s in test["steps"] if s["action"] == "assert_flags_request_count"]
 
 
+def _results(test):
+    return [s["params"] for s in test["steps"] if s["action"] == "assert_action_result"]
+
+
 def _filter_types(test):
     def leaves(node):
         if "values" in node:
@@ -107,6 +111,7 @@ def test_suite_covers_spec_scenarios():
         "outer_not_in_stays_inconclusive",
         "other_leaf_decides_and_group",
         "created_at_person_filter_matches_caller_property",
+        "default_getter_resolves_person_filter_locally",
         "unknown_type_defers_only_that_flag",
         "false_person_filter_decides_condition",
         "later_catch_all_condition_decides",
@@ -118,12 +123,21 @@ def test_suite_covers_spec_scenarios():
         if name.startswith("default_getter_falls_back"):
             assert [e.get("allow_remote_fallback") for e in evaluations] == [True], name
             assert _flags_count(test) == [1], name
+            assert _results(test) == [{"field": "value", "expected": "remote-value"}], name
+        elif name == "default_getter_resolves_person_filter_locally":
+            assert [e.get("allow_remote_fallback") for e in evaluations] == [True], name
+            assert _flags_count(test) == [0], name
+            assert _results(test) == [{"field": "value", "expected": True}], name
         else:
             assert all(e.get("only_evaluate_locally") is True for e in evaluations), name
             assert _flags_count(test) == [0], name
-        # Every case except the person-type table has an unsupported filter type.
+        # Every case except the person-type checks has an unsupported filter type.
         has_unsupported = bool(set(_filter_types(test)) - SUPPORTED_TYPES)
-        assert has_unsupported is (name != "created_at_person_filter_matches_caller_property"), name
+        person_only = {
+            "created_at_person_filter_matches_caller_property",
+            "default_getter_resolves_person_filter_locally",
+        }
+        assert has_unsupported is (name not in person_only), name
 
     created_at_values = [
         (e.get("person_properties") or {}).get("created_at")
@@ -198,6 +212,9 @@ async def test_expect_inconclusive_accepts_no_value(response):
         {"success": True, "value": True, "locally_evaluated": True},
         {"success": True, "value": "variant"},
         None,
+        {},
+        {"error": "evaluation failed"},
+        {"success": False, "value": None, "error": "evaluation failed"},
     ],
 )
 async def test_expect_inconclusive_rejects_a_value(response):

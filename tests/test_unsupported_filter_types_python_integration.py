@@ -117,7 +117,7 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
                     "feature_flags_unresolved_reasons_v1",
                 ],
             )
-            assert result.total == 16
+            assert result.total == 17
             assert result.failed == 0, [(r.name, r.message) for r in result.results if not r.passed]
         finally:
             await ctx.sdk_adapter.reset()

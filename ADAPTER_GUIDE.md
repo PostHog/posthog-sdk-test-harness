@@ -643,9 +643,10 @@ Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
 `feature_flags_unsupported_filter_types` suite. It covers the sdk-specs
 local-feature-flag-evaluator requirement "Unsupported property-filter types are
 inconclusive": `person` and `group` filters match caller properties, and a
-missing, `null` or empty-string `type` is a person filter. Any other type, such
-as a cohort's `person_metadata` filter on `created_at` (first seen, which
-`/flags` reads from the persons table) or a type added later, is inconclusive.
+missing, `null` or empty-string `type` is a person filter. `cohort` and `flag`
+filters keep their own matching. Any other type, such as a cohort's
+`person_metadata` filter on `created_at` (first seen, which `/flags` reads from
+the persons table) or a type added later, is inconclusive.
 The SDK must not match it against a caller property with the same key.
 
 The suite needs no new adapter params. It uses:

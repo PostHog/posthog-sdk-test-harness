@@ -295,6 +295,8 @@ class GetFeatureFlagAction(Action):
             if expect_inconclusive:
                 if not isinstance(result, dict):
                     raise AssertionError("Local-only evaluation returned a non-object result")
+                if not isinstance(result.get("success"), bool) or "error" in result:
+                    raise AssertionError(f"Local-only evaluation returned a malformed response: {result!r}")
                 if result.get("value") is not None:
                     raise AssertionError(
                         f"Local-only evaluation should be inconclusive, got value {result.get('value')!r}"
