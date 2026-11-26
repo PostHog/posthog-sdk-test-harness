@@ -38,8 +38,17 @@ def live_server(app):
         server.server_close()
 
 
+CAPABILITIES = ["feature_flags_local_evaluation_v1", "feature_flags_known_absent_v1"]
+GROUP_KEY_CAPABILITIES = ["feature_flags_unusable_group_key_v1", "feature_flags_json_group_keys_v1"]
+
+
 @pytest.mark.asyncio
-async def test_known_absent_suite_against_real_python_sdk(monkeypatch):
+@pytest.mark.parametrize(
+    "capabilities,expected_total",
+    [(CAPABILITIES, 12), (CAPABILITIES + GROUP_KEY_CAPABILITIES, 20)],
+    ids=["known_absent", "with_unusable_group_keys"],
+)
+async def test_known_absent_suite_against_real_python_sdk(monkeypatch, capabilities, expected_total):
     monkeypatch.syspath_prepend(SDK_PATH)
     import posthog
     from posthog.client import Client
@@ -100,10 +109,8 @@ async def test_known_absent_suite_against_real_python_sdk(monkeypatch):
     with live_server(mock.app) as mock_url, live_server(app) as adapter_url:
         ctx = HarnessContext(SDKAdapterClient(adapter_url), mock.state, mock_url)
         try:
-            result = await suite.run(
-                ctx, capabilities=["feature_flags_local_evaluation_v1", "feature_flags_known_absent_v1"]
-            )
-            assert result.total == 12
+            result = await suite.run(ctx, capabilities=capabilities)
+            assert result.total == expected_total
             assert result.failed == 0, [(r.name, r.message) for r in result.results if not r.passed]
         finally:
             await ctx.sdk_adapter.reset()
