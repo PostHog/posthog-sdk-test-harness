@@ -192,6 +192,7 @@ INCONCLUSIVE = {"key": "k", "distinct_id": "u", "only_evaluate_locally": True, "
     [
         {"success": False},
         {"success": False, "value": None, "locally_evaluated": True},
+        {"success": False, "value": None, "error": None},
     ],
 )
 async def test_expect_inconclusive_accepts_no_value(response):

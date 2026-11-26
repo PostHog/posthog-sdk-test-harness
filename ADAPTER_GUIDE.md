@@ -578,7 +578,8 @@ known-absent property keys.
 `tests/test_unsupported_filter_types_python_integration.py` runs the
 `feature_flags_unsupported_filter_types` suite the same way. Point
 `POSTHOG_LOCAL_EVALUATION_SDK_PATH` at a posthog-python checkout that treats
-unsupported filter types as inconclusive.
+unsupported filter types as inconclusive, and set
+`POSTHOG_UNSUPPORTED_FILTER_TYPES_SMOKE=1`.
 
 ## Optional known-absent property keys (protocol v1)
 

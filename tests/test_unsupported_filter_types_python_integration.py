@@ -1,7 +1,8 @@
 """Optional real-SDK smoke test for the unsupported filter types suite; no installed SDK or production adapter changes.
 
 Run with POSTHOG_LOCAL_EVALUATION_SDK_PATH pointing at a posthog-python checkout that treats unsupported
-filter types as inconclusive, and PYTHONDONTWRITEBYTECODE=1. Requires that SDK's runtime dependencies.
+filter types as inconclusive, with POSTHOG_UNSUPPORTED_FILTER_TYPES_SMOKE=1 and
+PYTHONDONTWRITEBYTECODE=1. Requires that SDK's runtime dependencies.
 The case that also needs known-absent property keys doesn't run.
 """
 
@@ -21,7 +22,11 @@ from posthog_test_harness.tests.context import TestContext as HarnessContext
 from posthog_test_harness.tests.suites.contract_suite import ContractTestSuite
 
 SDK_PATH = os.environ.get("POSTHOG_LOCAL_EVALUATION_SDK_PATH")
-pytestmark = pytest.mark.skipif(not SDK_PATH, reason="Set POSTHOG_LOCAL_EVALUATION_SDK_PATH for a real Python SDK")
+OPTED_IN = os.environ.get("POSTHOG_UNSUPPORTED_FILTER_TYPES_SMOKE") == "1"
+pytestmark = pytest.mark.skipif(
+    not (SDK_PATH and OPTED_IN),
+    reason="Set POSTHOG_LOCAL_EVALUATION_SDK_PATH and POSTHOG_UNSUPPORTED_FILTER_TYPES_SMOKE=1 for a real Python SDK",
+)
 
 
 @contextmanager
