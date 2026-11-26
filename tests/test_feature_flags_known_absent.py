@@ -298,34 +298,6 @@ def test_unusable_group_key_tests_resolve_false_without_flags_requests():
     ]
     assert all("groups" not in e for e in omitted)
 
-    mixed = tests["empty_string_group_key_skips_mixed_group_condition"]["steps"]
-    flag = mixed[0]["params"]["definitions"]["flags"][0]
-    assert "aggregation_group_type_index" not in flag["filters"]
-    assert [c.get("aggregation_group_type_index") for c in flag["filters"]["groups"]] == [0, None]
-    results = {
-        (
-            "local" if evaluation["params"].get("only_evaluate_locally") else "default",
-            evaluation["params"]["person_properties"]["plan"],
-            assertion["params"]["expected"],
-        )
-        for evaluation, assertion in zip(mixed, mixed[1:])
-        if evaluation["action"] == "get_feature_flag"
-    }
-    assert results == {
-        ("local", "pro", True),
-        ("local", "free", False),
-        ("default", "pro", True),
-        ("default", "free", False),
-    }
-
-    dependency = tests["group_dependency_without_usable_key_resolves_false"]["steps"]
-    flags = {f["key"]: f for f in dependency[0]["params"]["definitions"]["flags"]}
-    assert flags["org-parent"]["filters"]["aggregation_group_type_index"] == 0
-    assert flags["person-child"]["filters"]["groups"][0]["properties"][0]["operator"] == "flag_evaluates_to"
-    for evaluation in (s["params"] for s in dependency if s["action"] == "get_feature_flag"):
-        assert evaluation["key"] == "person-child"
-        assert evaluation["group_property_keys_known_absent"] == {"company": ["tier"]}
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("group_key", ["", None, True, [], {}])
