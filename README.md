@@ -306,4 +306,6 @@ Adapters that also advertise `feature_flags_unsupported_filter_types_v1` run the
 `feature_flags_unsupported_filter_types` suite: a property filter type other
 than `person`, `group`, `cohort` or `flag`, such as a cohort's `person_metadata`
 filter on `created_at`, must stay inconclusive locally and fall back to
-`/flags` through `allow_remote_fallback`. See [the unsupported filter types protocol](ADAPTER_GUIDE.md#optional-unsupported-property-filter-types-protocol-v1).
+`/flags` through `allow_remote_fallback`. Adapters that also advertise
+`feature_flags_unresolved_reasons_v1` return the SDK's `unresolved_reason`, and
+three more cases check that it is `unsupported_definition`. See [the unsupported filter types protocol](ADAPTER_GUIDE.md#optional-unsupported-property-filter-types-protocol-v1).

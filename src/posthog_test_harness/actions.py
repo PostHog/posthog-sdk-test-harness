@@ -268,8 +268,11 @@ class GetFeatureFlagAction(Action):
     async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
         # Harness-only: never part of the adapter request.
         expect_inconclusive = params.get("expect_inconclusive", False)
+        expected_reason = params.get("expected_unresolved_reason")
         if expect_inconclusive and not params.get("only_evaluate_locally"):
             raise ValueError("expect_inconclusive requires only_evaluate_locally=true")
+        if expected_reason is not None and not expect_inconclusive:
+            raise ValueError("expected_unresolved_reason requires expect_inconclusive=true")
         request = FeatureFlagRequest(
             key=params["key"],
             distinct_id=params["distinct_id"],
@@ -295,6 +298,10 @@ class GetFeatureFlagAction(Action):
                 if result.get("value") is not None:
                     raise AssertionError(
                         f"Local-only evaluation should be inconclusive, got value {result.get('value')!r}"
+                    )
+                if expected_reason is not None and result.get("unresolved_reason") != expected_reason:
+                    raise AssertionError(
+                        f"Expected unresolved_reason {expected_reason!r}, got {result.get('unresolved_reason')!r}"
                     )
                 return result
             if (

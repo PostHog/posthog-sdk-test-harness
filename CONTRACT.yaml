@@ -44,7 +44,8 @@ adapter_interface:
             "generated_payloads", "property_layers", "fail_open",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate",
             "feature_flag_payloads", "feature_flags_local_evaluation_v1",
-            "feature_flags_known_absent_v1", "feature_flags_unsupported_filter_types_v1".
+            "feature_flags_known_absent_v1", "feature_flags_unsupported_filter_types_v1",
+            "feature_flags_unresolved_reasons_v1".
           default: []
 
   # Parallel test execution
@@ -327,6 +328,12 @@ adapter_interface:
         locally_evaluated:
           type: boolean
           description: Required true for a successful only_evaluate_locally request; absent on legacy responses is allowed
+        unresolved_reason:
+          type: string
+          description: >
+            Optional, feature_flags_unresolved_reasons_v1 only. When an only_evaluate_locally request has no
+            value, the SDK's unresolved reason for the flag (experience_continuity, unsupported_definition,
+            unresolved_dependency or missing_context), read from its unresolved flags API. Omit it otherwise.
 
   # Optional: feature_flag_payloads only
   get_feature_flag_payload:

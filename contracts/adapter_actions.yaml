@@ -185,6 +185,10 @@
         type: boolean
         optional: true
         description: Harness-only, never sent to the adapter. With only_evaluate_locally=true, require no flag value (null or missing) instead of a conclusive local result; still requires zero /flags requests.
+      expected_unresolved_reason:
+        type: string
+        optional: true
+        description: Harness-only, never sent to the adapter. With expect_inconclusive=true, require the adapter's unresolved_reason to equal this value; used only by tests that require feature_flags_unresolved_reasons_v1.
 
   get_feature_flag_for_case:
     description: Call /get_feature_flag with force_remote=true for a fixture case's requested key

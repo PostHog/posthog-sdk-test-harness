@@ -16,6 +16,12 @@ LOCAL = "feature_flags_local_evaluation_v1"
 UNSUPPORTED = "feature_flags_unsupported_filter_types_v1"
 KNOWN_ABSENT = "feature_flags_known_absent_v1"
 KNOWN_ABSENT_TEST = "person_metadata_cohort_leaf.local_only_inconclusive_with_created_at_known_absent"
+REASONS = "feature_flags_unresolved_reasons_v1"
+REASON_TESTS = {
+    "unresolved_reason.person_metadata_cohort_leaf_reports_unsupported_definition",
+    "unresolved_reason.person_metadata_without_properties_reports_unsupported_definition",
+    "unresolved_reason.unknown_condition_type_reports_unsupported_definition",
+}
 SUPPORTED_TYPES = {"person", "group", "cohort", "flag", None, ""}
 
 
@@ -71,6 +77,20 @@ def _filter_types(test):
         for cohort in definitions["cohorts"].values():
             for leaf in leaves(cohort):
                 yield leaf.get("type")
+
+
+def test_reason_cases_require_their_own_capability():
+    without = _collect([LOCAL, UNSUPPORTED])
+    with_reasons = _collect([LOCAL, UNSUPPORTED, REASONS])
+    assert set(with_reasons) - set(without) == REASON_TESTS
+    for name, test in with_reasons.items():
+        reasons = [e.get("expected_unresolved_reason") for e in _evaluations(test)]
+        if name in REASON_TESTS:
+            assert reasons == ["unsupported_definition"], name
+            assert [e.get("expect_inconclusive") for e in _evaluations(test)] == [True], name
+            assert _flags_count(test) == [0], name
+        else:
+            assert reasons == [None] * len(reasons), name
 
 
 def test_suite_covers_spec_scenarios():
@@ -139,7 +159,9 @@ def test_expect_inconclusive_is_used_only_by_this_suite():
         for category in definition.get("categories", {}).values():
             for test in category.get("tests", []):
                 for step in test.get("steps", []):
-                    assert "expect_inconclusive" not in step.get("params", {}), (name, test["name"])
+                    params = step.get("params", {})
+                    assert "expect_inconclusive" not in params, (name, test["name"])
+                    assert "expected_unresolved_reason" not in params, (name, test["name"])
 
 
 def _ctx(response, state=None):
@@ -197,4 +219,35 @@ async def test_expect_inconclusive_requires_local_only(params):
     with pytest.raises(ValueError, match="expect_inconclusive"):
         await GetFeatureFlagAction().execute(
             {"key": "k", "distinct_id": "u", "expect_inconclusive": True, **params}, _ctx({"success": True})
+        )
+
+
+@pytest.mark.asyncio
+async def test_expected_unresolved_reason_accepts_the_reported_reason():
+    response = {"success": False, "value": None, "unresolved_reason": "unsupported_definition"}
+    params = {**INCONCLUSIVE, "expected_unresolved_reason": "unsupported_definition"}
+    ctx = _ctx(response)
+    assert await GetFeatureFlagAction().execute(params, ctx) == response
+    request = ctx.sdk_adapter.get_feature_flag.await_args.args[0]
+    payload = SDKAdapterClient("http://adapter")._feature_flag_payload(request)
+    assert payload == {"key": "k", "distinct_id": "u", "only_evaluate_locally": True}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", [None, "missing_context"])
+async def test_expected_unresolved_reason_rejects_another_reason(reason):
+    response = {"success": False, "value": None}
+    if reason is not None:
+        response["unresolved_reason"] = reason
+    params = {**INCONCLUSIVE, "expected_unresolved_reason": "unsupported_definition"}
+    with pytest.raises(AssertionError, match="unresolved_reason"):
+        await GetFeatureFlagAction().execute(params, _ctx(response))
+
+
+@pytest.mark.asyncio
+async def test_expected_unresolved_reason_requires_expect_inconclusive():
+    params = {"key": "k", "distinct_id": "u", "only_evaluate_locally": True}
+    with pytest.raises(ValueError, match="expected_unresolved_reason"):
+        await GetFeatureFlagAction().execute(
+            {**params, "expected_unresolved_reason": "unsupported_definition"}, _ctx({"success": True})
         )

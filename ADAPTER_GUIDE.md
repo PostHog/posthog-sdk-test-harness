@@ -43,6 +43,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `feature_flag_payloads` | `POST /get_feature_flag_payload` reads a flag's payload with the SDK's legacy payload accessor. Only used with `flags_response_v4`, where the harness checks the payloads of v4 records |
 | `feature_flags_local_evaluation_v1` | Opt-in local flag evaluation controls. See [Optional local feature flag evaluation](#optional-local-feature-flag-evaluation-protocol-v1) |
 | `feature_flags_known_absent_v1` | `/get_feature_flag` passes `person_property_keys_known_absent` and `group_property_keys_known_absent` to the SDK. Runs only together with `feature_flags_local_evaluation_v1`. See [Known-absent property keys](#optional-known-absent-property-keys-protocol-v1) |
+| `feature_flags_unresolved_reasons_v1` | When an `only_evaluate_locally` `/get_feature_flag` request has no value, the response includes `unresolved_reason`, read from the SDK's unresolved flags API. See [Unsupported property-filter types](#optional-unsupported-property-filter-types-protocol-v1) |
 | `feature_flags_unsupported_filter_types_v1` | The SDK treats a property filter type other than `person`, `group`, `cohort` or `flag` (such as `person_metadata`) as inconclusive, and `/get_feature_flag` honors `allow_remote_fallback`. Runs only together with `feature_flags_local_evaluation_v1`. See [Unsupported property-filter types](#optional-unsupported-property-filter-types-protocol-v1) |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
@@ -673,6 +674,14 @@ One case, `local_only_inconclusive_with_created_at_known_absent`, also lists
 `feature_flags_known_absent_v1`. A known-absent listing doesn't resolve an
 unsupported filter.
 
-The harness doesn't check the `unsupported_definition` reason, because the
-adapter protocol has no field for it. Cover the reason, including the
-load-time definition check, in the SDK's own tests.
+Adapters that also advertise `feature_flags_unresolved_reasons_v1` run three
+more cases that check the reason. For an `only_evaluate_locally` request with no
+value, return `unresolved_reason` in the `/get_feature_flag` response, read
+from the SDK's unresolved flags API (sdk-specs evaluate-flags, "Snapshot
+unresolved flag reporting"). For example, a Python adapter can call
+`client.evaluate_flags(..., flag_keys=[key], only_evaluate_locally=True)` and
+return `snapshot.unresolved_flags.get(key)`. The suite expects
+`unsupported_definition`. Omit the field when the flag has a value. Exposing
+unresolved flags is optional in the spec, so SDKs without that API skip these
+cases and still run the rest of the suite. Cover the load-time definition check
+in the SDK's own tests.

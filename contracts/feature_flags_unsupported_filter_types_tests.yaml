@@ -384,3 +384,71 @@ categories:
           field: value
           expected: existing-user
       - *no_flags_count
+
+  # Needs feature_flags_unresolved_reasons_v1: the adapter returns the SDK's unresolved reason.
+  unresolved_reason:
+    tests:
+    - name: person_metadata_cohort_leaf_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+          person_properties: {created_at: '2026-06-01'}
+      - *no_flags_count
+
+    - name: person_metadata_without_properties_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+      - *no_flags_count
+
+    - name: unknown_condition_type_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: future-type
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: pro, operator: exact, type: future_type}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: future-type
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+          person_properties: {plan: pro}
+      - *no_flags_count

@@ -90,7 +90,18 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
             send_feature_flag_events=False,
         )
         if local:
-            return jsonify(success=value is not None, value=value, locally_evaluated=value is not None)
+            if value is not None:
+                return jsonify(success=True, value=value, locally_evaluated=True)
+            snapshot = sdk.evaluate_flags(
+                data["distinct_id"],
+                person_properties=data.get("person_properties"),
+                groups=data.get("groups"),
+                group_properties=data.get("group_properties"),
+                only_evaluate_locally=True,
+                flag_keys=[data["key"]],
+            )
+            reason = snapshot.unresolved_flags.get(data["key"])
+            return jsonify(success=False, value=None, unresolved_reason=reason.value if reason else None)
         return jsonify(success=True, value=value)
 
     mock = MockServer()
@@ -100,9 +111,13 @@ async def test_unsupported_filter_types_suite_against_real_python_sdk(monkeypatc
         try:
             result = await suite.run(
                 ctx,
-                capabilities=["feature_flags_local_evaluation_v1", "feature_flags_unsupported_filter_types_v1"],
+                capabilities=[
+                    "feature_flags_local_evaluation_v1",
+                    "feature_flags_unsupported_filter_types_v1",
+                    "feature_flags_unresolved_reasons_v1",
+                ],
             )
-            assert result.total == 13
+            assert result.total == 16
             assert result.failed == 0, [(r.name, r.message) for r in result.results if not r.passed]
         finally:
             await ctx.sdk_adapter.reset()
