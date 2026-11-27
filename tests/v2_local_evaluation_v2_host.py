@@ -40,6 +40,9 @@ class LocalV2Engine(AIEngine):
                 self.loads += 1
                 if response.status == 304:
                     await response.read()
+                    if self.defect == "refetch_on_304":
+                        # Drops what it holds, so the next read downloads the feed again.
+                        self.document, self.etag = None, None
                     return
                 if response.status != 200:
                     await response.read()
@@ -48,6 +51,8 @@ class LocalV2Engine(AIEngine):
                 self.etag = response.headers.get("ETag")
 
     async def reload_feature_flags(self):
+        if self.defect == "reload_remote":
+            await self.post("/flags/?v=4", {"token": self.token, "distinct_id": "reload"})
         await self.load_definitions()
 
     def local_value(self, flag):
@@ -70,6 +75,8 @@ class LocalV2Engine(AIEngine):
         return body["flags"][key]["value"]
 
     async def get_feature_flag(self, args):
+        if self.document is None and self.defect == "refetch_on_304":
+            await self.load_definitions()
         flag = next((f for f in (self.document or {}).get("flags", []) if f["key"] == args["key"]), None)
         if flag is None:
             return None

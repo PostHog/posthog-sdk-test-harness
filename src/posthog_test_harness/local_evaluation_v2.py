@@ -55,7 +55,6 @@ EVALUATED_AT = 1800000000000
 
 # A relative date filter value, read against the current time.
 _RELATIVE_DATE = re.compile(r"^-?[0-9]+[hdwmy]$")
-_RETURN_TYPES = ("boolean", "string", "number", "object")
 
 
 def _load(relative: str) -> Any:

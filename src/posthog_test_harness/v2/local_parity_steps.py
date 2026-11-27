@@ -13,10 +13,11 @@ STEPS.definitions.extend(PREVIOUS_STEPS.definitions)
 STEPS.requirements.update(PREVIOUS_STEPS.requirements)
 
 
-def no_remote(ctx):
-    # Observe the whole fixture window, including initialization and reloads.
+def no_remote(ctx, since=0):
+    # Observe the whole fixture window, including initialization and reloads, or only the
+    # traffic after the first ``since`` requests.
     expect(
-        not any(r["path"].rstrip("/") in ("/flags", "/decide") for r in ctx.server.requests()),
+        not any(r["path"].rstrip("/") in ("/flags", "/decide") for r in ctx.server.requests()[since:]),
         "local_remote_escape",
         "Local evaluation made a remote evaluation request",
     )
@@ -86,9 +87,10 @@ async def setup_with_fallback(ctx, step):
     routes=("/reload_feature_flags",),
 )
 async def reload(ctx, step):
-    fresh, _ = await public_reload(ctx)
+    """A fresh reload with no remote evaluation request during it."""
+    fresh, _, traffic_before = await public_reload(ctx)
     expect(bool(fresh), "local_reload_fresh_fetch", "Reload did not fetch new authenticated HTTP 200 definitions")
-    no_remote(ctx)
+    no_remote(ctx, since=traffic_before)
 
 
 @STEPS.step(
@@ -96,15 +98,18 @@ async def reload(ctx, step):
     routes=("/reload_feature_flags",),
 )
 async def reload_not_modified(ctx, step):
-    """A conditional reload: every definitions request it makes is authenticated and gets 304."""
-    _, received = await public_reload(ctx)
+    """A conditional reload: every definitions request it makes is authenticated and gets 304.
+
+    Like the fresh reload step, it forbids remote evaluation requests only during the reload.
+    """
+    _, received, traffic_before = await public_reload(ctx)
     expect(
         bool(received) and all(r["authenticated"] and r["status"] == 304 for r in received),
         "local_reload_not_modified",
         "Reload did not make only authenticated definitions requests answered with 304",
         details={"requests": received},
     )
-    no_remote(ctx)
+    no_remote(ctx, since=traffic_before)
 
 
 @STEPS.step(r'every flag definitions request query parameter "([^"]*)" should equal "([^"]*)"')
@@ -139,9 +144,27 @@ async def definitions_if_none_match(ctx, step, expected):
     )
 
 
+@STEPS.step("every flag definitions request after the first should have been answered with 304")
+async def definitions_not_modified(ctx, step):
+    """At least one definitions request, and every later one got 304: the SDK kept what it loaded."""
+    received = ctx.server.state.get_definition_requests()
+    details = {"requests": [{"path": r.path, "status": r.response_status} for r in received]}
+    expect(bool(received), "definitions_request_missing", "No flag definitions request was received", details=details)
+    expect(
+        all(r.response_status == 304 for r in received[1:]),
+        "definitions_request_not_modified",
+        "A flag definitions request after the first was not answered with 304",
+        details=details,
+    )
+
+
 async def public_reload(ctx):
-    """Reload through the public SDK method within five seconds; return the fresh and all new requests."""
+    """Reload through the public SDK method within five seconds.
+
+    Returns the fresh and all new definitions requests, and the traffic count before the reload.
+    """
     before = len(ctx.server.state.get_definition_requests())
+    traffic_before = len(ctx.server.requests())
     started = time.monotonic()
     original_timeout = ctx.timeout_ms
     deadline = started + 5
@@ -166,7 +189,7 @@ async def public_reload(ctx):
             "requests": requests,
         }
     )
-    return fresh, requests
+    return fresh, requests, traffic_before
 
 
 def definition_requests(ctx, before):

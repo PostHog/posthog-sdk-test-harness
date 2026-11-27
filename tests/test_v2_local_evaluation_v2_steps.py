@@ -173,6 +173,60 @@ SCENARIOS = {
         + getter("When the local flag getter is called with JSON arguments:", "layout-preview")
         + "    Then the local flag getter should return JSON true\n"
     ),
+    "poll_kept": (
+        "  Scenario: A conditional reload keeps the definitions it holds\n"
+        "    Given the definitions service serves this typed document for v=2 requests:\n"
+        + doc(definitions(LEGACY_ENTRY, V2_ENTRY, etag="v2-feed"))
+        + "    And the SDK is initialized for native local evaluation with JSON arguments:\n"
+        + doc(json.loads(SECRET))
+        + getter("When the local flag getter is called with JSON arguments:", "layout-preview")
+        + "    And local definitions are publicly reloaded within 5000 milliseconds and the definitions service"
+        + " answers 304\n"
+        + getter("And the local flag getter is called with JSON arguments:", "layout-preview")
+        + "    Then the local flag getter should return JSON true\n"
+        + "    And every flag definitions request after the first should have been answered with 304\n"
+    ),
+    "no_definitions": (
+        "  Scenario: The 304 check needs a definitions request\n"
+        "    Then every flag definitions request after the first should have been answered with 304\n"
+    ),
+    "reload_after_fallback": (
+        "  Scenario: A reload after a fallback read\n"
+        "    Given the definitions service serves this typed document for v=2 requests:\n"
+        + doc(definitions(V2_ENTRY, UNSUPPORTED_ENTRY))
+        + "    And the mock serves this /flags response body:\n"
+        + doc(FLAGS_BODY)
+        + "    And the SDK is initialized for native local evaluation with remote fallback and JSON arguments:\n"
+        + doc(json.loads(SECRET))
+        + getter("When get feature flag is called with JSON arguments:", "future-config-version")
+        + "    And local definitions are publicly reloaded within 5000 milliseconds\n"
+        + "    Then exactly 1 requests containing /flags should have been received\n"
+    ),
+    "reload_304_after_fallback": (
+        "  Scenario: A conditional reload after a fallback read\n"
+        "    Given the definitions service serves this typed document for v=2 requests:\n"
+        + doc(definitions(V2_ENTRY, UNSUPPORTED_ENTRY, etag="v2-feed"))
+        + "    And the mock serves this /flags response body:\n"
+        + doc(FLAGS_BODY)
+        + "    And the SDK is initialized for native local evaluation with remote fallback and JSON arguments:\n"
+        + doc(json.loads(SECRET))
+        + getter("When get feature flag is called with JSON arguments:", "future-config-version")
+        + "    And local definitions are publicly reloaded within 5000 milliseconds and the definitions service"
+        + " answers 304\n"
+        + "    Then exactly 1 requests containing /flags should have been received\n"
+    ),
+    "whole_window": (
+        "  Scenario: The remote check still observes the whole window\n"
+        "    Given the definitions service serves this typed document for v=2 requests:\n"
+        + doc(definitions(V2_ENTRY, UNSUPPORTED_ENTRY))
+        + "    And the mock serves this /flags response body:\n"
+        + doc(FLAGS_BODY)
+        + "    And the SDK is initialized for native local evaluation with remote fallback and JSON arguments:\n"
+        + doc(json.loads(SECRET))
+        + getter("When get feature flag is called with JSON arguments:", "future-config-version")
+        + "    And local definitions are publicly reloaded within 5000 milliseconds\n"
+        + "    Then no remote flag evaluation path should have been requested\n"
+    ),
 }
 
 
@@ -199,7 +253,19 @@ async def run_scenario(corpus, name, **options):
     return report["results"][index(name)]["result"], diagnostics, host
 
 
-@pytest.mark.parametrize("name", ["request", "legacy_body", "fallback", "events", "poll"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "request",
+        "legacy_body",
+        "fallback",
+        "events",
+        "poll",
+        "poll_kept",
+        "reload_after_fallback",
+        "reload_304_after_fallback",
+    ],
+)
 async def test_a_v2_requesting_sdk_passes(corpus, name):
     contracts = Contracts()
     async with serve(contracts, host_type=LocalV2Host) as (host, url):
@@ -307,3 +373,36 @@ async def test_a_v2_document_step_without_the_capability_is_unsupported(corpus):
     result, _, _ = await run_scenario(corpus, "request", sdk_capabilities=())
     assert result["status"] == "unsupported_binding"
     assert result["failure"]["code"] == "sdk_capability_unavailable"
+
+
+async def test_a_refetch_after_a_304_fails_the_not_modified_check(corpus):
+    # The SDK drops its definitions on 304 and downloads them again: 200, 304, 200.
+    result, diagnostics, _ = await run_scenario(
+        corpus, "poll_kept", defect="refetch_on_304", defect_case=index("poll_kept")
+    )
+    assert result["status"] == "failed_assertion", result
+    assert result["failure"]["code"] == "definitions_request_not_modified"
+    details = diagnostics["cases"][index("poll_kept")]["failure"]["details"]
+    assert [r["status"] for r in details["requests"]] == [200, 304, 200]
+
+
+async def test_the_not_modified_check_needs_a_definitions_request(corpus):
+    result, _, _ = await run_scenario(corpus, "no_definitions")
+    assert result["status"] == "failed_assertion", result
+    assert result["failure"]["code"] == "definitions_request_missing"
+
+
+@pytest.mark.parametrize("name", ["reload_after_fallback", "reload_304_after_fallback"])
+async def test_a_reload_fails_only_for_a_remote_request_it_makes(corpus, name):
+    # An earlier fallback read is allowed with the fallback setup; a request during the reload is not.
+    result, _, _ = await run_scenario(corpus, name, defect="reload_remote", defect_case=index(name))
+    assert result["status"] == "failed_assertion", result
+    assert result["failure"]["code"] == "local_remote_escape"
+    assert result["failure"]["failed_step"]["index"] == 6
+
+
+async def test_the_whole_window_remote_check_still_sees_an_earlier_fallback(corpus):
+    result, _, _ = await run_scenario(corpus, "whole_window")
+    assert result["status"] == "failed_assertion", result
+    assert result["failure"]["code"] == "local_remote_escape"
+    assert result["failure"]["failed_step"]["index"] == 7

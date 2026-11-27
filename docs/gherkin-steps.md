@@ -1205,6 +1205,12 @@ Handler: [`snapshot_value`](../src/posthog_test_harness/v2/local_flag_steps.py).
 ### local_parity_steps
 
 ```text
+every flag definitions request after the first should have been answered with 304
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`definitions_not_modified`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
 every flag definitions request query parameter "([^"]*)" should equal "([^"]*)"
 ```
 Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
