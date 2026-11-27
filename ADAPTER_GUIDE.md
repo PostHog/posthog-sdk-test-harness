@@ -764,8 +764,12 @@ a complete property map that the map lacks. A conclusive case must return its
 legacy value with no `/flags` request and send one `$feature_flag_called` with
 `locally_evaluated: true`, the definition's `$feature_flag_id` and
 `$feature_flag_version`, and the case's config version 2 context; an experiment
-split also sends one `$experiment_exposure`. An inconclusive case or an
-unsupported feed entry falls back to `/flags` once in auto mode, and has no
-value in local-only mode, while the other entries keep their local values. The
-fallback is answered with an invented `/flags?v=4` record whose value a local
-evaluator cannot produce.
+split also sends one `$experiment_exposure`. Neither event may carry an
+assignment seed, at any depth. The payload accessor returns the value of a
+number or object flag, and no payload when its result is null. An inconclusive
+case or an unsupported feed entry falls back to `/flags` once in auto mode, and
+has no value in local-only mode, while the other entries keep their local
+values. The feed's group flag is not read: its context names no group, and a
+group flag without its group belongs to `feature_flags_unusable_group_key_v1`.
+The fallback is answered with an invented `/flags?v=4` record; for a string
+flag its value is one that no rule or default returns.

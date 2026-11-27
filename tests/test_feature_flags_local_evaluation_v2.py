@@ -26,6 +26,7 @@ from posthog_test_harness.actions import (
 from posthog_test_harness.contract import ContractExecutor
 from posthog_test_harness.mock_server.server import MockServer
 from posthog_test_harness.mock_server.state import MockServerState
+from posthog_test_harness.tests.context import TestContext as HarnessContext
 from posthog_test_harness.tests.suites import ContractTestSuite
 
 SUITE = "feature_flags_local_evaluation_v2"
@@ -100,11 +101,21 @@ def test_every_step_is_a_known_action_and_every_case_resolves():
 def test_feed_sources_partition_the_feed():
     entries = [entry["key"] for entry in lev2._feed()["feed"]["flags"]]
     v1, v2, unsupported = (lev2.case_ids(s) for s in ("feed_v1", "feed_v2", "feed_unsupported"))
-    assert sorted(v1 + v2 + unsupported) == sorted(entries)
+    # The group flag is the one entry no source reads; see the next test.
+    assert sorted(v1 + v2 + unsupported + ["legacy-workspace-beta"]) == sorted(entries)
     assert set(lev2.case_ids("feed_v2_payloads")) <= set(v2)
     # The two entries contract 10.2.0 added are read anyway: inactive wins, the unknown entry field is ignored.
     assert {"retired-future-rule-type", "future-entry-field"} <= set(v2)
     assert len(unsupported) == 3
+
+
+def test_feed_v1_leaves_out_a_group_flag_that_the_feed_context_cannot_decide():
+    # The feed's context names no group. Whether a version 1 evaluator returns false for a group flag
+    # without its group or leaves it unresolved is feature_flags_unusable_group_key_v1, not this suite.
+    entry, expectation = lev2._feed_entry("legacy-workspace-beta")
+    assert expectation["evaluator"] == "v1" and entry["filters"]["aggregation_group_type_index"] == 0
+    assert "groups" not in lev2._feed()["context"]
+    assert set(lev2.case_ids("feed_v1")) == {"legacy-banner", "legacy-retired-banner", "legacy-cohort-offer"}
 
 
 def test_every_mapped_case_is_run_or_has_a_reason():
@@ -212,6 +223,22 @@ def test_feed_expectations_come_from_the_fixture():
     assert lev2.expectation("feed_v1", "legacy-banner") == {"key": "legacy-banner", "local_evaluation": "conclusive"}
 
 
+def _return_type(source, case):
+    config = lev2._expected_and_identity(source, case)[1]["filters"]
+    return config.get("return_type") if isinstance(config, dict) else None
+
+
+def test_payload_sources_hold_every_number_and_object_flag():
+    # The legacy payload accessor returns a number or object value, and no payload for a null result,
+    # even when the flag's default is a number or an object.
+    for payloads, conclusive in (("feed_v2_payloads", "feed_v2"), ("corpus_payloads", "corpus_conclusive")):
+        wanted = [c for c in lev2.case_ids(conclusive) if _return_type(conclusive, c) in ("number", "object")]
+        assert lev2.case_ids(payloads) == wanted
+    assert lev2._corpus_case("v2_local.flag_disabled.number")["config"]["default_value"] == 20
+    assert lev2.expectation("corpus_payloads", "v2_local.flag_disabled.number")["legacy_payload"] is None
+    assert lev2.expectation("corpus_payloads", "v2_value.number.no_match_null")["legacy_payload"] is None
+
+
 def test_corpus_unresolved_reasons_follow_the_local_outcomes():
     reasons = {
         lev2.expectation("corpus_inconclusive", c)["unresolved_reason"] for c in lev2.case_ids("corpus_inconclusive")
@@ -235,7 +262,9 @@ def test_corpus_documents_satisfy_the_producer_schema_and_select_the_matching_ve
 
 def test_the_feed_legacy_document_has_only_its_config_version_1_entries():
     legacy, v2 = lev2.documents("feed_unsupported", "future-rule-type")
-    assert [e["key"] for e in legacy["flags"]] == lev2.case_ids("feed_v1")
+    assert [e["key"] for e in legacy["flags"]] == [
+        entry["key"] for entry, expectation in lev2._feed_entries() if expectation.get("evaluator") == "v1"
+    ]
     assert v2 == lev2._feed()["feed"]
     assert {k: v for k, v in legacy.items() if k != "flags"} == {k: v for k, v in v2.items() if k != "flags"}
 
@@ -308,7 +337,7 @@ async def test_configure_serves_the_case_documents_by_v():
     assert v2.get_json()["flags"][0]["key"] == "example-display-key"
     ctx.mock_server.reset()
     await ConfigureLocalEvaluationV2DefinitionsAction().execute({"source": "feed_v1", "serve_v2": False}, ctx)
-    assert [f["key"] for f in _get(client, [("v", "2")]).get_json()["flags"]] == lev2.case_ids("feed_v1")
+    assert _get(client, [("v", "2")]).get_json()["flags"] == lev2.documents("feed_v1")[0]["flags"]
 
 
 @pytest.mark.parametrize(
@@ -421,6 +450,8 @@ def _called(expected, **changes):
         {"$feature_flag_reason": "Matched condition set 1"},
         {"$feature_flag_reason_code": None},
         {"$feature_flag_version": 6},
+        # Contract 10.0.0 renamed it to $feature_flag_variant_key; the closed projection rejects it.
+        {"$feature_flag_variant": "control"},
     ],
 )
 async def test_event_assertion_checks_the_whole_called_context(change):
@@ -546,3 +577,136 @@ async def test_siblings_assertion_allows_an_earlier_fallback_but_not_a_new_one()
     ctx.sdk_adapter.get_feature_flag = AsyncMock(side_effect=wrong)
     with pytest.raises(AssertionError, match="legacy value"):
         await AssertFeedSiblingsEvaluateLocallyAction().execute(params, ctx)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        # Capture fields outside the projection.
+        {"$feature_flag_id": 308, "$feature_flag_version": 5, "$feature_flag_request_id": "request", "$lib": "test"},
+        # What the closed exposure rejects: the call's attribution, the source marker, the renamed variant.
+        {"$feature_flag_config_version": 2},
+        {"$feature_flag_rule_type": "experiment"},
+        {"$feature_flag_reason_code": "experiment_split"},
+        {"$experiment_exposure_source": "sdk"},
+        {"$feature_flag_experiment_id": 7},
+        {"$feature_flag_variant": "control"},
+        {"$feature_flag_forced_variant": True},
+    ],
+)
+async def test_event_assertion_checks_the_closed_exposure(change):
+    state = MockServerState()
+    expected = lev2.expectation("feed_v2", "results-per-page")
+    _events(
+        state, _called(expected), {"event": "$experiment_exposure", "properties": {**expected["exposure"], **change}}
+    )
+    action = AssertLocalCaseEventsAction().execute({"source": "feed_v2", "case": "results-per-page"}, _ctx(state))
+    if "$lib" in change:
+        await action
+    else:
+        with pytest.raises(AssertionError, match="experiment_exposure properties"):
+            await action
+
+
+@pytest.mark.parametrize(
+    "event,change",
+    [
+        ("$feature_flag_called", {"properties": {"diagnostic": [None, {"rule": {"seed": "results-per-page-test"}}]}}),
+        ("$feature_flag_called", {"properties": {"$feature_flag_assignment_seed": "results-per-page-test"}}),
+        ("$feature_flag_called", {"properties": {"$set": {"plan": {"holdoutSeed": "invented"}}}}),
+        ("$feature_flag_called", {"seed": "results-per-page-test"}),
+        ("$experiment_exposure", {"properties": {"variantSeed": "results-per-page-test"}}),
+    ],
+)
+async def test_event_assertion_refuses_an_assignment_seed_anywhere_in_an_event(event, change):
+    state = MockServerState()
+    expected = lev2.expectation("feed_v2", "results-per-page")
+    events = {"$feature_flag_called": _called(expected), "$experiment_exposure": {"properties": expected["exposure"]}}
+    events["$experiment_exposure"]["event"] = "$experiment_exposure"
+    target = events[event]
+    target.update({k: v for k, v in change.items() if k != "properties"})
+    target["properties"] = {**target["properties"], **change.get("properties", {})}
+    _events(state, *events.values())
+    with pytest.raises(AssertionError, match="assignment seed"):
+        await AssertLocalCaseEventsAction().execute({"source": "feed_v2", "case": "results-per-page"}, _ctx(state))
+
+
+async def test_event_assertion_allows_customer_keys_named_seed():
+    # The immediate keys of $groups, $set and $set_once are customer-chosen names.
+    state = MockServerState()
+    expected = lev2.expectation("feed_v2", "results-per-page")
+    named = {"$groups": {"seed": "garden"}, "$set": {"seed": 1}, "$set_once": {"seed": True}}
+    _events(
+        state,
+        _called(expected, **named),
+        {"event": "$experiment_exposure", "properties": {**expected["exposure"], **named}},
+    )
+    await AssertLocalCaseEventsAction().execute({"source": "feed_v2", "case": "results-per-page"}, _ctx(state))
+
+
+async def test_configure_without_v2_removes_an_earlier_v2_document():
+    ctx = _ctx()
+    await ConfigureLocalEvaluationV2DefinitionsAction().execute({"source": "feed_v2", "etag": '"v2"'}, ctx)
+    await ConfigureLocalEvaluationV2DefinitionsAction().execute({"source": "feed_v1", "serve_v2": False}, ctx)
+    response = _get(MockServer(ctx.mock_server).app.test_client(), [("v", "2")])
+    legacy, _ = lev2.documents("feed_v1")
+    assert response.get_json()["flags"] == legacy["flags"]
+    assert "ETag" not in response.headers
+
+
+class _EtagAwareSdk:
+    """A local evaluation SDK that sends the ETag it holds on every definitions request.
+
+    ``load_at_init`` loads at initialization too. ``drops_v2_on_polls`` sends v=2 on the first
+    request only.
+    """
+
+    def __init__(self, state, *, load_at_init, drops_v2_on_polls=False):
+        self._client = MockServer(state).app.test_client()
+        self._load_at_init, self._drops_v2_on_polls = load_at_init, drops_v2_on_polls
+        self._etag, self._flags, self._requests = None, set(), 0
+
+    async def reset(self):
+        self._etag, self._flags, self._requests = None, set(), 0
+
+    async def init(self, request):
+        if self._load_at_init:
+            self._load()
+        return {"success": True}
+
+    async def reload_feature_flag_definitions(self, timeout_ms):
+        self._load()
+        return {"success": True, "ready": True}
+
+    async def get_feature_flag(self, request):
+        return {"success": True, "value": request.key in self._flags, "locally_evaluated": True}
+
+    def _load(self):
+        v2 = [("v", "2")] if self._requests == 0 or not self._drops_v2_on_polls else []
+        headers = {"Authorization": "Bearer phx_test_key", **({"If-None-Match": self._etag} if self._etag else {})}
+        response = self._client.get(PATH, query_string=[("token", "phc_test_key"), *v2], headers=headers)
+        self._requests += 1
+        if response.status_code == 200:
+            self._flags = {flag["key"] for flag in response.get_json()["flags"]}
+            self._etag = response.headers.get("ETag")
+
+
+async def _run_suite_test(name, sdk, state):
+    tests = dict(ContractTestSuite(SUITE, ContractExecutor()).collect_tests("server", [V1, V2]))
+    await ContractExecutor().run_test(tests[name], HarnessContext(sdk, state, "http://mock.invalid"))
+
+
+@pytest.mark.parametrize("load_at_init", [False, True])
+async def test_the_conditional_reload_test_passes_whether_or_not_init_loads(load_at_init):
+    state = MockServerState()
+    sdk = _EtagAwareSdk(state, load_at_init=load_at_init)
+    await _run_suite_test("definitions_request.conditional_reload_keeps_v2", sdk, state)
+    assert [r.response_status for r in state.get_definition_requests()][-1] == 304
+
+
+@pytest.mark.parametrize("load_at_init", [False, True])
+async def test_the_conditional_reload_test_fails_an_sdk_that_drops_v2_on_polls(load_at_init):
+    state = MockServerState()
+    sdk = _EtagAwareSdk(state, load_at_init=load_at_init, drops_v2_on_polls=True)
+    with pytest.raises(AssertionError):
+        await _run_suite_test("definitions_request.conditional_reload_keeps_v2", sdk, state)

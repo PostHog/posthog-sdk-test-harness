@@ -341,7 +341,9 @@
         default: false
 
   assert_local_case_payload:
-    description: Assert the payload accessor returned the case's number or object value, and no /flags request was made
+    description: >
+      Assert the payload accessor returned the case's number or object value, or no payload for a
+      null result, and no /flags request was made
     params:
       source:
         type: string
@@ -355,7 +357,8 @@
       Assert exactly one $feature_flag_called for the case's flag with locally_evaluated true,
       the definition's $feature_flag_id and $feature_flag_version, and the case's closed
       context projection; and exactly one $experiment_exposure with the case's projection for
-      an experiment split, none otherwise
+      an experiment split, none otherwise. A closed projection keeps the properties it rejects,
+      and neither event may carry an assignment seed
     params:
       source:
         type: string
@@ -366,9 +369,9 @@
 
   assert_feed_siblings_evaluate_locally:
     description: >
-      Read every supported entry of the definitions feed other than the case in local-only
-      mode: config version 1 entries must be conclusive and config version 2 entries must
-      return their legacy value, with no new /flags request
+      Read every feed_v1 and feed_v2 entry of the definitions feed other than the case in
+      local-only mode: config version 1 entries must be conclusive and config version 2 entries
+      must return their legacy value, with no new /flags request
     params:
       source:
         type: string

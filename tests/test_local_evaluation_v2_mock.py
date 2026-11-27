@@ -162,3 +162,22 @@ def test_v2_document_credentials_are_the_partition_credentials():
     ok = client.get(PATH, query_string={"token": "project", "v": "2"}, headers={"Authorization": "Bearer personal"})
     assert ok.status_code == 200 and keys(ok) == ["legacy-banner", "layout-preview"]
     assert get(client, [("v", "2")]).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "etag,header,status",
+    [
+        # An entity tag may hold a comma inside its quotes.
+        ('"build,42"', '"build,42"', 304),
+        ('"build,42"', 'W/"other", W/"build,42"', 304),
+        ('"build,42"', '"build"', 200),
+        ('"build,42"', '"build", "42"', 200),
+        # The unquoted tags of the Gherkin steps still compare character by character.
+        ("definitions-v2", "definitions-v2", 304),
+        ("definitions-v2", '"definitions-v2"', 200),
+    ],
+)
+def test_if_none_match_parses_quoted_tags(etag, header, status):
+    state = MockServerState()
+    state.set_v2_definitions(V2, etag=etag)
+    assert get(MockServer(state).app.test_client(), [("v", "2")], {"If-None-Match": header}).status_code == status

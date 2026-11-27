@@ -3,6 +3,7 @@
 import gzip
 import json
 import logging
+import re
 import threading
 import time
 import uuid as uuid_module
@@ -23,11 +24,20 @@ _V2_DEFINITIONS = "v2"
 _EMPTY_DEFINITIONS: Dict[str, Any] = {"flags": [], "cohorts": {}, "group_type_mapping": {}}
 
 
+# One If-None-Match list member: ``*``, or an entity tag whose quoted part may hold commas.
+# An unquoted tag, as the Gherkin steps serve, runs to the next comma or space.
+_IF_NONE_MATCH_MEMBER = re.compile(r'\s*(\*|(?:W/)?"[^"]*"|[^\s,]+)\s*(?:,|$)')
+
+
 def _etag_matches(if_none_match: Optional[str], etag: str) -> bool:
     """``If-None-Match`` weak comparison: ``*`` or any listed tag, ignoring a ``W/`` prefix."""
     if if_none_match is None:
         return False
-    tags = [tag.strip() for tag in if_none_match.split(",")]
+    tags: List[str] = []
+    position = 0
+    while position < len(if_none_match) and (member := _IF_NONE_MATCH_MEMBER.match(if_none_match, position)):
+        tags.append(member.group(1))
+        position = member.end()
     return "*" in tags or etag.removeprefix("W/") in [tag.removeprefix("W/") for tag in tags]
 
 
@@ -177,6 +187,11 @@ class MockServerState:
             if api_key is not None or personal_api_key is not None:
                 current = self._definition_auth.get(test_id, ("phc_test_key", "phx_test_key"))
                 self._definition_auth[test_id] = (api_key or current[0], personal_api_key or current[1])
+
+    def remove_v2_definitions(self, test_id: Optional[str] = None) -> None:
+        """Stop serving a v=2 snapshot, so a v=2 request gets the legacy snapshot again."""
+        with self._lock:
+            self._definitions.get(test_id, {}).pop(_V2_DEFINITIONS, None)
 
     def _set_document(
         self, feed: str, definitions: Dict[str, Any], etag: Optional[str], test_id: Optional[str]

@@ -10,16 +10,19 @@
 # with `cases: <source>` runs once per case and substitutes {case}:
 #   feed_v1, feed_v2, feed_v2_payloads, feed_unsupported: entries of
 #     fixtures/wire/definitions_feed.json, read with the feed's context. The v=2 document is
-#     the whole feed and the legacy document is its config version 1 entries.
+#     the whole feed and the legacy document is its config version 1 entries. feed_v1 leaves
+#     out the group flag, which the feed's context, with no group, does not decide.
 #   corpus_conclusive, corpus_payloads, corpus_inconclusive: cases of the corpora that
 #     rules/local_outcomes.json maps, by local outcome, that a black-box SDK can run: UTC, a
 #     non-empty distinct ID, no relative date, no private seam, and no key read from a
 #     complete property map that the map lacks. The v=2 document holds the case's one flag.
+#   The payload sources are the number and object flags: a value, or no payload for null.
 #
 # Reads in local-only mode send only_evaluate_locally=true. Reads in auto mode send
 # allow_remote_fallback=true, the SDK's default getter on the client with definitions. A
-# fallback is answered by an invented /flags?v=4 record whose value a local evaluator cannot
-# produce. Event checks use the closed projections of the contract's event schemas.
+# fallback is answered by an invented /flags?v=4 record; a string flag's value there is one no
+# rule or default returns. Event checks use the closed projections of the contract's event
+# schemas, and no event may carry an assignment seed.
 
 description: 'Opt-in local evaluation of config version 2 flags from the v=2 definitions feed, driven by the rules v2 contract.'
 requires: [feature_flags_local_evaluation_v1, feature_flags_local_evaluation_v2]
@@ -70,14 +73,18 @@ categories:
       description: >
         The v=2 document has its own ETag. A reload that sends it with v=2 gets 304 and keeps
         the config version 2 flags. A reload that left out v=2 would reach the legacy document,
-        whose ETag differs, and get its body.
+        whose ETag differs, and get its body. The documents get their ETags only after the
+        first reload, so the reload that fetches the v=2 ETag gets 200 whether or not the SDK
+        loaded definitions at initialization.
       steps:
+      - *configure_feed
+      - *init
+      - *reload
       - action: configure_local_evaluation_v2_definitions
         params:
           source: feed_v2
           etag: '"definitions-v2-feed"'
           legacy_etag: '"definitions-legacy-feed"'
-      - *init
       - *reload
       - action: reload_feature_flag_definitions
         params:
@@ -112,12 +119,12 @@ categories:
 
   feed:
     description: >
-      The contract's mixed feed. Every entry the reader supports is evaluated locally with no
-      /flags request, and every config version 2 entry returns its stated result: the legacy
-      getter renders a number or object as true and an inactive flag as false, and the payload
-      accessor returns a number or object value. An unsupported entry falls back to /flags on
-      its own in auto mode and has no value in local-only mode; its siblings keep their local
-      results.
+      The contract's mixed feed. Every entry the reader supports and the feed's context decides
+      is evaluated locally with no /flags request, and every config version 2 entry returns its
+      stated result: the legacy getter renders a number or object as true and an inactive flag
+      as false, and the payload accessor returns a number or object value. An unsupported entry
+      falls back to /flags on its own in auto mode and has no value in local-only mode; its
+      siblings keep their local results.
     tests:
     - name: v2_entry_is_evaluated_locally
       cases: feed_v2

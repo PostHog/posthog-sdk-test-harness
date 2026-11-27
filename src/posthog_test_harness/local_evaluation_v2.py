@@ -12,12 +12,16 @@ definitions and expected results come from one place:
 
 Sources, for ``cases: <source>`` expansion:
 
-- ``feed_v1``: the feed's config version 1 entries; a local-only read is conclusive.
+- ``feed_v1``: the feed's config version 1 entries that its context decides; a local-only
+  read is conclusive. A group flag is left out: the context names no group, and whether a
+  version 1 evaluator returns false for a group flag without its group or leaves it
+  unresolved belongs to ``feature_flags_unusable_group_key_v1``.
 - ``feed_v2``: the feed's config version 2 entries the reader evaluates, with their result.
-- ``feed_v2_payloads``: those whose value is a number or an object.
+- ``feed_v2_payloads``: those of a number or object flag. The payload accessor returns the
+  value, or no payload for a null result.
 - ``feed_unsupported``: entries that fall back in auto mode and are unresolved in local-only mode.
 - ``corpus_conclusive``, ``corpus_payloads`` and ``corpus_inconclusive``: black-box corpus
-  cases by local outcome, and the conclusive ones with a number or object value.
+  cases by local outcome, and the conclusive ones of a number or object flag.
 """
 
 import copy
@@ -41,7 +45,7 @@ FEED = "feed"
 # Identity of the one flag a corpus case's document holds. Invented.
 CORPUS_FLAG_ID = 501
 CORPUS_FLAG_VERSION = 3
-# The /flags record that answers a fallback. Invented; a lenient local evaluator cannot produce it.
+# The /flags record that answers a fallback. Invented; a string flag's value is one no rule or default returns.
 FALLBACK_RULE_ID = "99999999-9999-4999-8999-999999999999"
 FALLBACK_STRING = "remote-fallback"
 FALLBACK_NUMBER = 7
@@ -182,6 +186,17 @@ def _payload_value(value: Any) -> bool:
     return value is not None and not isinstance(value, (bool, str))
 
 
+def _payload_flag(config: Any) -> bool:
+    """A number or object flag, whose legacy payload is its value, or none for a null result."""
+    return isinstance(config, dict) and config.get("return_type") in ("number", "object")
+
+
+def _group_flag(entry: Dict[str, Any]) -> bool:
+    """A config version 1 entry aggregated by a group."""
+    filters = entry.get("filters")
+    return isinstance(filters, dict) and filters.get("aggregation_group_type_index") is not None
+
+
 def case_ids(source: str) -> List[str]:
     """Case IDs a suite test expands over."""
     return list(_case_ids(source))
@@ -194,11 +209,14 @@ def _case_ids(source: str) -> Tuple[str, ...]:
 
 def _select(source: str) -> List[str]:
     if source == "feed_v1":
-        return [e["key"] for e, x in _feed_entries() if _supported(x) and x.get("evaluator") == "v1"]
+        # The feed's context names no group, so it does not decide a group flag; see the module docstring.
+        return [
+            e["key"] for e, x in _feed_entries() if _supported(x) and x.get("evaluator") == "v1" and not _group_flag(e)
+        ]
     if source in ("feed_v2", "feed_v2_payloads"):
         keys = [e["key"] for e, x in _feed_entries() if _supported(x) and "expected" in x]
         if source == "feed_v2_payloads":
-            keys = [k for k in keys if _payload_value(_feed_entry(k)[1]["expected"]["value"])]
+            keys = [k for k in keys if _payload_flag(_feed_entry(k)[0]["filters"])]
         return keys
     if source == "feed_unsupported":
         return [e["key"] for e, x in _feed_entries() if not _supported(x)]
@@ -208,10 +226,10 @@ def _select(source: str) -> List[str]:
         for case_id, _ in _corpus_cases():
             if black_box_reason(case_id) is not None:
                 continue
-            expected = _corpus_case(case_id)["expected"]
-            if local_outcome(expected)["local_evaluation"] != wanted:
+            case = _corpus_case(case_id)
+            if local_outcome(case["expected"])["local_evaluation"] != wanted:
                 continue
-            if source == "corpus_payloads" and not _payload_value(expected.get("value")):
+            if source == "corpus_payloads" and not _payload_flag(case["config"]):
                 continue
             ids.append(case_id)
         return ids
@@ -380,7 +398,12 @@ def expectation(source: str, case: str) -> Dict[str, Any]:
 
 
 def _fallback_value(config: Any) -> Any:
-    """A remote value that differs from the flag's default and from every boolean a lenient reader would invent."""
+    """A remote value that differs from the flag's default.
+
+    A string flag gets a string that no rule returns. The legacy getter renders a boolean as
+    itself and a number or an object as true, so a local evaluator can return the same
+    legacy value; there the single /flags request shows the fallback.
+    """
     return_type = config.get("return_type") if isinstance(config, dict) else None
     default = config.get("default_value") if isinstance(config, dict) else None
     if return_type == "string":
@@ -426,13 +449,57 @@ def fallback_legacy_value(source: str, case: str) -> Any:
     return flags_v4.legacy_rendering(record["value"])
 
 
-def called_projection(properties: Dict[str, Any]) -> Dict[str, Any]:
-    """The closed ``$feature_flag_called`` context projection of event properties."""
-    keys = _load("schemas/feature_flag_called_context.schema.json")["properties"]
+# Properties that the closed projections reject although their schemas do not declare them.
+# Contract 10.0.0 renamed $feature_flag_variant to $feature_flag_variant_key. An exposure
+# carries no config version, rule type, reason code, source marker or experiment ID.
+_RENAMED = ("$feature_flag_variant",)
+_EXPOSURE_REJECTED = (
+    "$feature_flag_config_version",
+    "$feature_flag_rule_type",
+    "$feature_flag_reason_code",
+    "$experiment_exposure_source",
+    "$feature_flag_experiment_id",
+)
+
+
+def _project(properties: Dict[str, Any], schema: str, rejected: Tuple[str, ...]) -> Dict[str, Any]:
+    keys = [*_load(f"schemas/{schema}")["properties"], *rejected]
     return {key: properties[key] for key in keys if key in properties}
+
+
+def called_projection(properties: Dict[str, Any]) -> Dict[str, Any]:
+    """The closed ``$feature_flag_called`` context projection of event properties.
+
+    It keeps the properties the schema declares and a renamed one it rejects, so that an
+    expected projection that lacks them fails; other capture fields stay outside it.
+    """
+    return _project(properties, "feature_flag_called_context.schema.json", _RENAMED)
 
 
 def exposure_projection(properties: Dict[str, Any]) -> Dict[str, Any]:
-    """The closed ``$experiment_exposure`` projection of event properties."""
-    keys = _load("schemas/experiment_exposure_properties.schema.json")["properties"]
-    return {key: properties[key] for key in keys if key in properties}
+    """The closed ``$experiment_exposure`` projection of event properties, with the ones it rejects."""
+    return _project(properties, "experiment_exposure_properties.schema.json", _RENAMED + _EXPOSURE_REJECTED)
+
+
+# The immediate keys of these event maps are customer-chosen group type and person property
+# names, so a key named "seed" there is not an assignment seed. Their values are still scanned.
+_NAMED_EVENT_MAPS = {("properties", "$groups"), ("properties", "$set"), ("properties", "$set_once")}
+
+
+def seed_paths(value: Any, path: Tuple[Any, ...] = ()) -> List[str]:
+    """JSON Pointers of every assignment seed in a captured event, at any depth.
+
+    Events never carry an assignment seed. A key is one when, without a leading ``$`` and
+    in snake case, it is ``seed`` or ends with ``_seed``.
+    """
+    found: List[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(key)).lower().replace("-", "_").lstrip("$")
+            if path not in _NAMED_EVENT_MAPS and (normalized == "seed" or normalized.endswith("_seed")):
+                found.append("/" + "/".join(str(part) for part in (*path, key)))
+            found.extend(seed_paths(child, (*path, key)))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(seed_paths(child, (*path, index)))
+    return found

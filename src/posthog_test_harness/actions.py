@@ -2644,6 +2644,8 @@ class ConfigureLocalEvaluationV2DefinitionsAction(Action):
         ctx.mock_server.set_definitions(legacy, etag=params.get("legacy_etag"))
         if params.get("serve_v2", True):
             ctx.mock_server.set_v2_definitions(v2, etag=params.get("etag"))
+        else:
+            ctx.mock_server.remove_v2_definitions()
 
 
 class GetFeatureFlagForLocalCaseAction(Action):
@@ -2714,7 +2716,7 @@ class GetFeatureFlagPayloadForLocalCaseAction(Action):
 
 
 class AssertLocalCasePayloadAction(Action):
-    """Assert the payload accessor returned the case's number or object value, with no /flags request."""
+    """Assert the payload accessor returned the case's number or object value, or none, with no /flags request."""
 
     @property
     def name(self) -> str:
@@ -2748,6 +2750,7 @@ class AssertLocalCaseEventsAction(Action):
     definition's ``$feature_flag_id`` and ``$feature_flag_version``, and a context
     projection equal to the case's. An experiment split adds exactly one
     ``$experiment_exposure`` with the case's projection; any other result adds none.
+    Neither event may carry an assignment seed, at any depth.
     """
 
     @property
@@ -2771,6 +2774,11 @@ class AssertLocalCaseEventsAction(Action):
         called = named("$feature_flag_called")
         if len(called) != 1:
             raise AssertionError(f"[{label}] expected 1 $feature_flag_called event for {key}, got {len(called)}")
+        exposures = named("$experiment_exposure")
+        for event in called + exposures:
+            seeds = local_evaluation_v2.seed_paths(event)
+            if seeds:
+                raise AssertionError(f"[{label}] {event['event']} carries an assignment seed at {seeds}")
         properties = called[0]["properties"]
         _assert_json_equal(
             label, "$feature_flag_called context", local_evaluation_v2.called_projection(properties), expected["called"]
@@ -2781,7 +2789,6 @@ class AssertLocalCaseEventsAction(Action):
             ("$feature_flag_version", expected["flag_version"]),
         ):
             _assert_json_equal(label, f"$feature_flag_called {prop}", properties.get(prop), value)
-        exposures = named("$experiment_exposure")
         if expected["exposure"] is None:
             if exposures:
                 raise AssertionError(f"[{label}] expected no $experiment_exposure event, got {len(exposures)}")
@@ -2797,7 +2804,7 @@ class AssertLocalCaseEventsAction(Action):
 
 
 class AssertFeedSiblingsEvaluateLocallyAction(Action):
-    """Read every other entry of the feed that the reader supports in local-only mode.
+    """Read every other ``feed_v1`` and ``feed_v2`` entry of the feed in local-only mode.
 
     A config version 1 entry must be conclusive, and a config version 2 entry must return
     its stated legacy value. The reads may follow a fallback, so they must add no /flags

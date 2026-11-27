@@ -49,6 +49,9 @@ class ScopedMockServerState:
     ) -> None:
         self._state.set_v2_definitions(definitions, api_key, personal_api_key, test_id=self._test_id, etag=etag)
 
+    def remove_v2_definitions(self) -> None:
+        self._state.remove_v2_definitions(test_id=self._test_id)
+
     def get_definition_requests(self) -> List[RecordedRequest]:
         return self._state.get_definition_requests(test_id=self._test_id)
 
