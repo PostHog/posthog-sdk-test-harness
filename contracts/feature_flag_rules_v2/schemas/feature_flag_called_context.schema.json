@@ -5,8 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "$feature_flag",
-    "$feature_flag_response"
+    "$feature_flag"
   ],
   "properties": {
     "$feature_flag": {
@@ -21,8 +20,14 @@
         {
           "type": "string",
           "minLength": 1
+        },
+        {
+          "type": "null"
         }
       ]
+    },
+    "$feature_flag_error": {
+      "type": "string"
     },
     "$feature_flag_config_version": {
       "enum": [
@@ -56,7 +61,7 @@
       "const": true
     }
   },
-  "description": "Closed projection of the flag-access context properties. Other existing capture fields are outside this projection. Complete v2 producer context follows the terminal outcome. A tolerant reader drops the whole attribution of a record that breaks its reason's rows (a rule ID without its rule type or the reverse, a rule type the reason does not allow, or a malformed split): for every reason that names a rule, a call may keep the config version and reason code and omit all rule, variant and experiment attribution, while a partly populated or mismatched tuple is rejected. A config version 2 call whose reason code is missing or not registered keeps the raw code, if any, and carries no attribution; a registered code only matches its own reason's branches. A config version 2 call never carries $feature_flag_reason, the reason description that only version 1 calls carry.",
+  "description": "Closed projection of the flag-access context properties. Other existing capture fields are outside this projection. Complete v2 producer context follows the terminal outcome. A tolerant reader drops the whole attribution of a record that breaks its reason's rows (a rule ID without its rule type or the reverse, a rule type the reason does not allow, or a malformed split): for every reason that names a rule, a call may keep the config version and reason code and omit all rule, variant and experiment attribution, while a partly populated or mismatched tuple is rejected. A config version 2 call whose reason code is missing or not registered keeps the raw code, if any, and carries no attribution; a registered code only matches its own reason's branches. A config version 2 call never carries $feature_flag_reason, the reason description that only version 1 calls carry. $feature_flag_response may be absent or null when the read has no value. A call without config version 2 may do so, because a missing flag carries no config version. A config version 2 call may do so only when $feature_flag_error lists evaluation_failed: a failed record with no successful fallback.",
   "allOf": [
     {
       "if": {
@@ -84,6 +89,30 @@
             }
           ]
         },
+        "anyOf": [
+          {
+            "required": [
+              "$feature_flag_response"
+            ],
+            "properties": {
+              "$feature_flag_response": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "$feature_flag_error"
+            ],
+            "properties": {
+              "$feature_flag_error": {
+                "pattern": "(^|,)evaluation_failed(,|$)"
+              }
+            }
+          }
+        ],
         "oneOf": [
           {
             "properties": {
