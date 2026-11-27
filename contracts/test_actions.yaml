@@ -66,6 +66,45 @@
         type: string
         default: phx_test_key
 
+  configure_local_evaluation_v2_definitions:
+    description: >
+      Serve a feature flag rules v2 contract case's definitions: one document to a request with
+      exactly one v=2, another to every other request. A feed source serves the whole
+      definitions feed for v=2 and its config version 1 entries otherwise; a corpus case
+      serves its one flag for v=2 and no flag otherwise
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        description: Case ID; required for a corpus source
+      etag:
+        type: string
+        optional: true
+        description: ETag of the v=2 document; a matching If-None-Match gets 304
+      legacy_etag:
+        type: string
+        optional: true
+        description: ETag of the other document
+      serve_v2:
+        type: boolean
+        default: true
+        description: false serves only the other document, which then answers v=2 requests too
+
+  configure_local_evaluation_v2_fallback_response:
+    description: Queue the /flags?v=4 response that answers an inconclusive contract case's fallback, sent byte for byte
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
+      repeat:
+        type: integer
+        default: 10
+
   # Timing actions
   wait:
     description: Wait for a specified duration
@@ -281,6 +320,86 @@
         type: string
         required: true
         description: Expected query parameter value (string, since URL params are always strings)
+
+  assert_local_case_value:
+    description: >
+      Assert the adapter reported success and the legacy getter returned the contract case's
+      legacy value with strict JSON types, or with fallback=true the legacy value of its
+      fallback response
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
+      entry:
+        type: string
+        optional: true
+      fallback:
+        type: boolean
+        default: false
+
+  assert_local_case_payload:
+    description: >
+      Assert the payload accessor returned the case's number or object value, or no payload for a
+      null result, and no /flags request was made
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
+
+  assert_local_case_events:
+    description: >
+      Assert exactly one $feature_flag_called for the case's flag with locally_evaluated true,
+      the definition's $feature_flag_id and $feature_flag_version, and the case's closed
+      context projection; and exactly one $experiment_exposure with the case's projection for
+      an experiment split, none otherwise. A closed projection keeps the properties it rejects,
+      and neither event may carry an assignment seed
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
+
+  assert_feed_siblings_evaluate_locally:
+    description: >
+      Read every feed_v1 and feed_v2 entry of the definitions feed other than the case in
+      local-only mode: config version 1 entries must be conclusive and config version 2 entries
+      must return their legacy value, with no new /flags request
+    params:
+      source:
+        type: string
+        default: feed_v2
+      case:
+        type: string
+        required: true
+        description: The feed entry to leave out
+
+  assert_definitions_request_query:
+    description: Assert at least one definitions request, each carrying exactly one value of param equal to expected
+    params:
+      param:
+        type: string
+        default: v
+      expected:
+        type: string
+        required: true
+
+  assert_last_definitions_request:
+    description: Assert the status and If-None-Match header of the latest definitions request, when given
+    params:
+      status:
+        type: integer
+        optional: true
+      if_none_match:
+        type: string
+        optional: true
 
   assert_legacy_flag_value_for_case:
     description: >

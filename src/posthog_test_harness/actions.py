@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from time import monotonic
 from typing import TYPE_CHECKING, Any, Dict
 
-from . import flags_v4
+from . import flags_v4, local_evaluation_v2
 from .assertions import assert_request_count
 from .types import CaptureRequest, FeatureFlagRequest, InitRequest, MockResponse
 
@@ -337,6 +337,12 @@ class ReloadFeatureFlagDefinitionsAction(Action):
         if not isinstance(result, dict) or result.get("success") is not True or result.get("ready") is not True:
             raise AssertionError("Definitions reload did not report success and ready=true")
         requests = ctx.mock_server.get_definition_requests()[before:]
+        if params.get("expect_not_modified"):
+            # A conditional reload: the SDK sent the ETag it holds and keeps its snapshot.
+            if not requests or any(r.response_status != 304 for r in requests):
+                statuses = [r.response_status for r in requests]
+                raise AssertionError(f"Definitions reload was not answered only with 304, got statuses {statuses}")
+            return result
         if not any(r.response_status == 200 for r in requests):
             raise AssertionError("Definitions reload did not fetch a fresh successful snapshot")
         return result
@@ -2592,6 +2598,287 @@ class AssertLegacyFlagPayloadForCaseAction(Action):
         result = _case_result(params, ctx)
         expected = _case_expectation(params)["legacy_payload"]
         _assert_json_equal(params["case"], "payload", result.get("value"), expected)
+
+
+# ============================================================================
+# Local Evaluation of Config Version 2 Flags
+# ============================================================================
+
+
+def _local_label(params: Dict[str, Any]) -> str:
+    """A case label for messages: the case, and the sibling entry when one is read."""
+    case = params.get("case") or params["source"]
+    return f"{case} -> {params['entry']}" if params.get("entry") else case
+
+
+def _local_expectation(params: Dict[str, Any]) -> Dict[str, Any]:
+    case = params.get("entry") or params.get("case")
+    if case is None:
+        raise ValueError(f"source {params['source']} needs a case or an entry")
+    return local_evaluation_v2.expectation(params["source"], case)
+
+
+def _successful_result(params: Dict[str, Any], ctx: "TestContext") -> Dict[str, Any]:
+    result = ctx.last_action_result
+    if not isinstance(result, dict) or result.get("success") is not True:
+        raise AssertionError(f"[{_local_label(params)}] the adapter did not report success: {result!r}")
+    return result
+
+
+class ConfigureLocalEvaluationV2DefinitionsAction(Action):
+    """Serve a contract case's legacy and v=2 definitions documents.
+
+    ``source`` is a ``local_evaluation_v2`` source and ``case`` a case ID (a corpus source
+    needs one; every feed case serves the same feed). ``etag`` and ``legacy_etag`` give
+    the v=2 and the legacy document an ETag, so a matching If-None-Match gets 304. With
+    ``serve_v2: false`` only the legacy document is set, so a v=2 request gets it, as for a
+    project without config version 2 flags.
+    """
+
+    @property
+    def name(self) -> str:
+        return "configure_local_evaluation_v2_definitions"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        legacy, v2 = local_evaluation_v2.documents(params["source"], params.get("case"))
+        ctx.mock_server.set_definitions(legacy, etag=params.get("legacy_etag"))
+        if params.get("serve_v2", True):
+            ctx.mock_server.set_v2_definitions(v2, etag=params.get("etag"))
+        else:
+            ctx.mock_server.remove_v2_definitions()
+
+
+class GetFeatureFlagForLocalCaseAction(Action):
+    """Read a contract case's flag, or a feed sibling ``entry``, with the case's identity and properties.
+
+    ``mode: local_only`` sends only_evaluate_locally=true and keeps get_feature_flag's
+    local-only checks; ``expect_inconclusive`` and ``check_unresolved_reason`` require no
+    value and, with the second, the case's unresolved reason. ``mode: default`` sends
+    allow_remote_fallback=true: the SDK's default getter, local first, then /flags.
+    """
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "get_feature_flag_for_local_case"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        args: Dict[str, Any] = local_evaluation_v2.read(params["source"], params.get("case"), params.get("entry"))
+        mode = params.get("mode", "local_only")
+        if mode == "local_only":
+            args["only_evaluate_locally"] = True
+            if params.get("expect_inconclusive"):
+                args["expect_inconclusive"] = True
+                if params.get("check_unresolved_reason"):
+                    args["expected_unresolved_reason"] = _local_expectation(params)["unresolved_reason"]
+        elif mode == "default":
+            if params.get("expect_inconclusive"):
+                raise ValueError("expect_inconclusive requires mode: local_only")
+            args["allow_remote_fallback"] = True
+        else:
+            raise ValueError(f"Unknown mode {mode!r}; expected local_only or default")
+        return await GetFeatureFlagAction().execute(args, ctx)
+
+
+class AssertLocalCaseValueAction(Action):
+    """Assert the legacy getter returned the case's legacy value, or its fallback response's with ``fallback``."""
+
+    @property
+    def name(self) -> str:
+        return "assert_local_case_value"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        result = _successful_result(params, ctx)
+        if params.get("fallback"):
+            expected = local_evaluation_v2.fallback_legacy_value(params["source"], params["case"])
+        else:
+            expectation = _local_expectation(params)
+            if "legacy_value" not in expectation:
+                raise ValueError(f"[{_local_label(params)}] the contract states no value for this case")
+            expected = expectation["legacy_value"]
+        _assert_json_equal(_local_label(params), "legacy value", result.get("value"), expected)
+
+
+class GetFeatureFlagPayloadForLocalCaseAction(Action):
+    """Read a contract case's payload locally with the legacy payload accessor; requires feature_flag_payloads."""
+
+    records_result = True
+
+    @property
+    def name(self) -> str:
+        return "get_feature_flag_payload_for_local_case"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        args = local_evaluation_v2.read(params["source"], params.get("case"), params.get("entry"))
+        request = FeatureFlagRequest(only_evaluate_locally=True, **args)
+        return await ctx.sdk_adapter.get_feature_flag_payload(request)
+
+
+class AssertLocalCasePayloadAction(Action):
+    """Assert the payload accessor returned the case's number or object value, or none, with no /flags request."""
+
+    @property
+    def name(self) -> str:
+        return "assert_local_case_payload"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        result = _successful_result(params, ctx)
+        if any("/flags" in r.path for r in ctx.mock_server.get_requests()):
+            raise AssertionError(f"[{_local_label(params)}] the local payload read made a /flags request")
+        expected = _local_expectation(params)["legacy_payload"]
+        _assert_json_equal(_local_label(params), "payload", result.get("value"), expected)
+
+
+class ConfigureLocalEvaluationV2FallbackResponseAction(Action):
+    """Queue the /flags?v=4 response that answers an inconclusive case's fallback, byte for byte."""
+
+    @property
+    def name(self) -> str:
+        return "configure_local_evaluation_v2_fallback_response"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        body = json.dumps(local_evaluation_v2.fallback_response(params["source"], params["case"]))
+        response = MockResponse(status_code=200, body=body, path="/flags", raw_body=True)
+        ctx.mock_server.set_response_queue([response] * params.get("repeat", FLAGS_V4_RESPONSE_REPEAT))
+
+
+class AssertLocalCaseEventsAction(Action):
+    """Assert the captured events of one locally evaluated read of the case's flag.
+
+    Exactly one ``$feature_flag_called`` for the key, with ``locally_evaluated: true``, the
+    definition's ``$feature_flag_id`` and ``$feature_flag_version``, and a context
+    projection equal to the case's. An experiment split adds exactly one
+    ``$experiment_exposure`` with the case's projection; any other result adds none.
+    Neither event may carry an assignment seed, at any depth.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_local_case_events"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        label = _local_label(params)
+        expected = _local_expectation(params)
+        key = expected["key"]
+
+        def named(name: str) -> list:
+            return [
+                e
+                for e in _capture_events(ctx)
+                if e.get("event") == name
+                and isinstance(e.get("properties"), dict)
+                and e["properties"].get("$feature_flag") == key
+            ]
+
+        called = named("$feature_flag_called")
+        if len(called) != 1:
+            raise AssertionError(f"[{label}] expected 1 $feature_flag_called event for {key}, got {len(called)}")
+        exposures = named("$experiment_exposure")
+        for event in called + exposures:
+            seeds = local_evaluation_v2.seed_paths(event)
+            if seeds:
+                raise AssertionError(f"[{label}] {event['event']} carries an assignment seed at {seeds}")
+        properties = called[0]["properties"]
+        _assert_json_equal(
+            label, "$feature_flag_called context", local_evaluation_v2.called_projection(properties), expected["called"]
+        )
+        for prop, value in (
+            ("locally_evaluated", True),
+            ("$feature_flag_id", expected["flag_id"]),
+            ("$feature_flag_version", expected["flag_version"]),
+        ):
+            _assert_json_equal(label, f"$feature_flag_called {prop}", properties.get(prop), value)
+        if expected["exposure"] is None:
+            if exposures:
+                raise AssertionError(f"[{label}] expected no $experiment_exposure event, got {len(exposures)}")
+            return
+        if len(exposures) != 1:
+            raise AssertionError(f"[{label}] expected 1 $experiment_exposure event, got {len(exposures)}")
+        _assert_json_equal(
+            label,
+            "$experiment_exposure properties",
+            local_evaluation_v2.exposure_projection(exposures[0]["properties"]),
+            expected["exposure"],
+        )
+
+
+class AssertFeedSiblingsEvaluateLocallyAction(Action):
+    """Read every other ``feed_v1`` and ``feed_v2`` entry of the feed in local-only mode.
+
+    A config version 1 entry must be conclusive, and a config version 2 entry must return
+    its stated legacy value. The reads may follow a fallback, so they must add no /flags
+    request rather than find none.
+    """
+
+    @property
+    def name(self) -> str:
+        return "assert_feed_siblings_evaluate_locally"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        source = params.get("source", "feed_v2")
+        remote_before = len([r for r in ctx.mock_server.get_requests() if "/flags" in r.path])
+        for sibling_source in ("feed_v1", "feed_v2"):
+            for key in local_evaluation_v2.case_ids(sibling_source):
+                if key == params.get("case"):
+                    continue
+                label = f"{params.get('case')} -> {key}"
+                request = FeatureFlagRequest(only_evaluate_locally=True, **local_evaluation_v2.read(source, entry=key))
+                result = await ctx.sdk_adapter.get_feature_flag(request)
+                if (
+                    not isinstance(result, dict)
+                    or result.get("success") is not True
+                    or result.get("locally_evaluated") is not True
+                    or not isinstance(result.get("value"), (bool, str))
+                ):
+                    raise AssertionError(f"[{label}] the local-only read was not conclusive: {result!r}")
+                expected = local_evaluation_v2.expectation(sibling_source, key)
+                if "legacy_value" in expected:
+                    _assert_json_equal(label, "legacy value", result["value"], expected["legacy_value"])
+        remote_after = len([r for r in ctx.mock_server.get_requests() if "/flags" in r.path])
+        if remote_after != remote_before:
+            raise AssertionError(
+                f"[{params.get('case')}] local-only sibling reads made {remote_after - remote_before} /flags requests"
+            )
+
+
+class AssertDefinitionsRequestQueryAction(Action):
+    """Assert at least one definitions request, each with exactly one ``param`` query value equal to ``expected``."""
+
+    @property
+    def name(self) -> str:
+        return "assert_definitions_request_query"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        param, expected = params.get("param", "v"), params["expected"]
+        requests = ctx.mock_server.get_definition_requests()
+        if not requests:
+            raise AssertionError("No flag definitions request was received")
+        values = [(r.query_param_lists or {}).get(param, []) for r in requests]
+        if any(v != [expected] for v in values):
+            raise AssertionError(
+                f"Every flag definitions request must carry {param}={expected} exactly once; got {values}"
+            )
+
+
+class AssertLastDefinitionsRequestAction(Action):
+    """Assert the latest definitions request's ``status`` and ``If-None-Match`` header, when given."""
+
+    @property
+    def name(self) -> str:
+        return "assert_last_definitions_request"
+
+    async def execute(self, params: Dict[str, Any], ctx: "TestContext") -> Any:
+        requests = ctx.mock_server.get_definition_requests()
+        if not requests:
+            raise AssertionError("No flag definitions request was received")
+        last = requests[-1]
+        if "status" in params and last.response_status != params["status"]:
+            raise AssertionError(f"Expected definitions status {params['status']}, got {last.response_status}")
+        if "if_none_match" in params and last.headers.get("if-none-match") != params["if_none_match"]:
+            raise AssertionError(
+                f"Expected If-None-Match {params['if_none_match']!r}, got {last.headers.get('if-none-match')!r}"
+            )
 
 
 # ============================================================================

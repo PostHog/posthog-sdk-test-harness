@@ -294,6 +294,24 @@ async def event_property(ctx, step, name, key, encoded):
     )
 
 
+@STEPS.step(r'no received event named "([^"]*)" should have property "([^"]*)"')
+async def event_property_absent(ctx, step, name, key):
+    """At least one event has the name, and none of them has the property, whatever its value."""
+    found = named_events(ctx, name)
+    expect(bool(found), "flag_event_missing", "No received event has the name")
+    present = [
+        {"index": index, "value": event["properties"][key]}
+        for index, event in enumerate(found)
+        if isinstance(event.get("properties"), dict) and key in event["properties"]
+    ]
+    expect(
+        not present,
+        "flag_event_property_present",
+        "A received event with the name has the property",
+        details={"event": name, "property": key, "events": len(found), "with_property": present},
+    )
+
+
 @STEPS.step(
     "a feature flag listener is registered", routes=("/on_feature_flags",), fixtures=("callbacks.continuation",)
 )

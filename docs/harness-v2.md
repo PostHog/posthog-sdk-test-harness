@@ -161,6 +161,20 @@ After explicit public flush, `the flushed snapshot traffic should be:` checks ev
 
 A fresh receiver loads controlled definitions through the mock definitions service using public SDK configuration. Scenarios call the local-only getter directly after initialization and compare conclusive results with exact expectations, recording authenticated HTTP 200 definitions fetched during setup or initial evaluation. When definitions change, scenarios explicitly reload through the public SDK method, require fresh authenticated HTTP 200 definitions within five seconds, and evaluate again. Different properties and changed definitions detect constants, defaults and stale reloads. Definitions downloads are allowed; `/flags` and `/decide` requests are forbidden throughout setup, loading, evaluation and public cleanup. No private evaluator observation is required.
 
+### Config version 2 flags and the v=2 definitions feed
+
+The steps for local evaluation of config version 2 flags (sdk-specs #244) build on the black-box local evaluation steps:
+
+- `the definitions service serves this typed document for v=2 requests:` serves its `definitions` to a definitions request with exactly one `v` query parameter equal to `2`. Every other request, including one with `v=2` twice or `v=1`, gets the document of `the definitions service serves this typed document:`, and so does a `v=2` request while no v=2 document is set, as the flags service does for a project without config version 2 flags. Both steps accept optional `api_key` and `personal_api_key`, shared between the two documents, and an optional `etag` for their own document: the response carries it, and a request whose `If-None-Match` matches it gets `304` with no body.
+- `the SDK is initialized for native local evaluation with remote fallback and JSON arguments:` initializes the SDK as the native local evaluation step does but allows `/flags` and `/decide` requests, during setup and in the teardown check. The scenario asserts remote traffic itself: `the local flag getter is called with JSON arguments:` and `no remote flag evaluation path should have been requested` still forbid any in the whole window, and the two reload steps forbid any made during the reload.
+- `every flag definitions request query parameter "<name>" should equal "<value>"` requires at least one definitions request, and each one must carry exactly one `<name>` equal to `<value>`.
+- `no received event named "<name>" should have property "<property>"` requires at least one received event with the name, and none of them may have the property, whatever its value.
+- `local definitions are publicly reloaded within 5000 milliseconds and the definitions service answers 304` reloads as the fresh reload step does, but every definitions request of the reload must be authenticated and answered with `304`.
+- `the definition request should include If-None-Match "<etag>"` checks the header of the latest definitions request.
+- `every flag definitions request after the first should have been answered with 304` requires at least one definitions request, and every later one must have got `304`. After a conditional reload it shows that the SDK kept the definitions it holds instead of downloading them again.
+
+Failures report `definitions_request_missing`, `definitions_request_query` (with each request's values), `definitions_request_if_none_match`, `definitions_request_not_modified` (with each request's status), `local_reload_not_modified`, `flag_event_missing` and `flag_event_property_present` (with the events that have the property).
+
 ## Isolation, networks and results
 
 Every case receives a distinct ephemeral mock URL. Retired listeners remain bound until run teardown and reject late requests, so traffic cannot enter a later case. Configure `--mock-bind-host` and `--mock-advertised-host` independently for separate containers. `--allow-private-network` permits an operator-selected adapter DNS/IP address; it does not prove privacy. Use separate network namespaces, an internal network, and no published host ports. Bare IPv6 addresses are accepted and bracketed in constructed URLs.

@@ -167,8 +167,9 @@ def test_suite_covers_spec_scenarios():
 
 
 def test_expect_inconclusive_is_used_only_by_this_suite():
+    # The local evaluation v2 suite passes it through get_feature_flag_for_local_case.
     for name, definition in ContractExecutor().get_test_suites().items():
-        if name == SUITE:
+        if name in {SUITE, "feature_flags_local_evaluation_v2"}:
             continue
         for category in definition.get("categories", {}).values():
             for test in category.get("tests", []):

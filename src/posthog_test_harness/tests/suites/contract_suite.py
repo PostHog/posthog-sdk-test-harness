@@ -6,7 +6,7 @@ Loads tests from CONTRACT.yaml and executes them.
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from ... import flags_v4
+from ... import flags_v4, local_evaluation_v2
 from ...contract import ContractExecutor
 from ...types import TestResult, TestSuiteResult
 from ..context import TestContext
@@ -54,13 +54,15 @@ def _expand_cases(test_name: str, test_def: Dict[str, Any]) -> List[Tuple[str, D
     """Expand a test with ``cases: <source>`` into one test per contract fixture case.
 
     Each expanded test is named ``<test>[<case id>]`` and has ``{case}`` replaced
-    by the case ID in its steps. Sources are listed in ``flags_v4.SOURCES``.
+    by the case ID in its steps. Sources are listed in ``flags_v4.SOURCES`` and
+    ``local_evaluation_v2.SOURCES``.
     """
     source = test_def.get("cases")
     if source is None:
         return [(test_name, test_def)]
     expanded = []
-    for case_id in flags_v4.case_ids(source):
+    module = local_evaluation_v2 if source in local_evaluation_v2.SOURCES else flags_v4
+    for case_id in module.case_ids(source):
         case_def = {k: v for k, v in test_def.items() if k != "cases"}
         case_def["steps"] = _substitute_case(test_def.get("steps", []), case_id)
         expanded.append((f"{test_name}[{case_id}]", case_def))

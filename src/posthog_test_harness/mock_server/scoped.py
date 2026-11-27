@@ -1,6 +1,6 @@
 """Scoped mock server state for parallel test execution."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..types import MockResponse, RecordedRequest
 from .state import MockServerState
@@ -30,9 +30,27 @@ class ScopedMockServerState:
         self._state.set_default_response(response, test_id=self._test_id)
 
     def set_definitions(
-        self, definitions: Dict[str, Any], api_key: str = "phc_test_key", personal_api_key: str = "phx_test_key"
+        self,
+        definitions: Dict[str, Any],
+        api_key: str = "phc_test_key",
+        personal_api_key: str = "phx_test_key",
+        *,
+        etag: Optional[str] = None,
     ) -> None:
-        self._state.set_definitions(definitions, api_key, personal_api_key, test_id=self._test_id)
+        self._state.set_definitions(definitions, api_key, personal_api_key, test_id=self._test_id, etag=etag)
+
+    def set_v2_definitions(
+        self,
+        definitions: Dict[str, Any],
+        api_key: Optional[str] = None,
+        personal_api_key: Optional[str] = None,
+        *,
+        etag: Optional[str] = None,
+    ) -> None:
+        self._state.set_v2_definitions(definitions, api_key, personal_api_key, test_id=self._test_id, etag=etag)
+
+    def remove_v2_definitions(self) -> None:
+        self._state.remove_v2_definitions(test_id=self._test_id)
 
     def get_definition_requests(self) -> List[RecordedRequest]:
         return self._state.get_definition_requests(test_id=self._test_id)

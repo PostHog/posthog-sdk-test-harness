@@ -1,0 +1,376 @@
+# Local Evaluation of Config Version 2 Flags
+# Source: sdk-specs flag-rules-v2-local-evaluation, local-feature-flag-evaluator and
+# flag-definition-loader. The SDK asks for the definitions feed with v=2 and evaluates config
+# version 2 flags itself. The mock serves one document to a request with exactly one v=2 and
+# another to every other request, so an SDK that leaves out v=2 reads the legacy document,
+# which has no config version 2 flag.
+#
+# Definitions and expectations come from the feature flag rules v2 contract package
+# (contracts/feature_flag_rules_v2), through posthog_test_harness.local_evaluation_v2. A test
+# with `cases: <source>` runs once per case and substitutes {case}:
+#   feed_v1, feed_v2, feed_v2_payloads, feed_unsupported: entries of
+#     fixtures/wire/definitions_feed.json, read with the feed's context. The v=2 document is
+#     the whole feed and the legacy document is its config version 1 entries. feed_v1 leaves
+#     out the group flag, which the feed's context, with no group, does not decide.
+#   corpus_conclusive, corpus_payloads, corpus_inconclusive: cases of the corpora that
+#     rules/local_outcomes.json maps, by local outcome, that a black-box SDK can run: UTC, a
+#     non-empty distinct ID, no relative date, no private seam, and no key read from a
+#     complete property map that the map lacks. The v=2 document holds the case's one flag.
+#   The payload sources are the number and object flags: a value, or no payload for null.
+#
+# Reads in local-only mode send only_evaluate_locally=true. Reads in auto mode send
+# allow_remote_fallback=true, the SDK's default getter on the client with definitions. A
+# fallback is answered by an invented /flags?v=4 record; a string flag's value there is one no
+# rule or default returns. Event checks use the closed projections of the contract's event
+# schemas, and no event may carry an assignment seed.
+
+description: 'Opt-in local evaluation of config version 2 flags from the v=2 definitions feed, driven by the rules v2 contract.'
+requires: [feature_flags_local_evaluation_v1, feature_flags_local_evaluation_v2]
+categories:
+  definitions_request:
+    description: >
+      Every definitions request carries exactly one v=2: the first load, every reload, and a
+      conditional reload with the ETag of the v=2 document, which the mock answers with 304.
+    tests:
+    - name: requests_v2_on_load_and_reload
+      steps:
+      - &configure_feed
+        action: configure_local_evaluation_v2_definitions
+        params:
+          source: feed_v2
+      - &init
+        action: init
+        params:
+          personal_api_key: phx_test_key
+      - &reload
+        action: reload_feature_flag_definitions
+        params:
+          timeout_ms: 5000
+      - &read_layout_preview
+        action: get_feature_flag_for_local_case
+        params:
+          source: feed_v2
+          case: layout-preview
+      - &layout_preview_value
+        action: assert_local_case_value
+        params:
+          source: feed_v2
+          case: layout-preview
+      - *reload
+      - *read_layout_preview
+      - *layout_preview_value
+      - &v2_query
+        action: assert_definitions_request_query
+        params:
+          param: v
+          expected: '2'
+      - &no_flags
+        action: assert_flags_request_count
+        params:
+          expected: 0
+
+    - name: conditional_reload_keeps_v2
+      description: >
+        The v=2 document has its own ETag. A reload that sends it with v=2 gets 304 and keeps
+        the config version 2 flags. A reload that left out v=2 would reach the legacy document,
+        whose ETag differs, and get its body. The documents get their ETags only after the
+        first reload, so the reload that fetches the v=2 ETag gets 200 whether or not the SDK
+        loaded definitions at initialization.
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: configure_local_evaluation_v2_definitions
+        params:
+          source: feed_v2
+          etag: '"definitions-v2-feed"'
+          legacy_etag: '"definitions-legacy-feed"'
+      - *reload
+      - action: reload_feature_flag_definitions
+        params:
+          timeout_ms: 5000
+          expect_not_modified: true
+      - action: assert_last_definitions_request
+        params:
+          status: 304
+          if_none_match: '"definitions-v2-feed"'
+      - *v2_query
+      - *read_layout_preview
+      - *layout_preview_value
+      - *no_flags
+
+    - name: legacy_body_answers_v2_without_config_version_2_flags
+      description: >
+        For a project without config version 2 flags the service answers v=2 with the legacy
+        document. Its config version 1 flags evaluate locally.
+      steps:
+      - action: configure_local_evaluation_v2_definitions
+        params:
+          source: feed_v1
+          serve_v2: false
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_v1
+          case: legacy-banner
+      - *v2_query
+      - *no_flags
+
+  feed:
+    description: >
+      The contract's mixed feed. Every entry the reader supports and the feed's context decides
+      is evaluated locally with no /flags request, and every config version 2 entry returns its
+      stated result: the legacy getter renders a number or object as true and an inactive flag
+      as false, and the payload accessor returns a number or object value. An unsupported entry
+      falls back to /flags on its own in auto mode and has no value in local-only mode; its
+      siblings keep their local results.
+    tests:
+    - name: v2_entry_is_evaluated_locally
+      cases: feed_v2
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - &read_feed_case
+        action: get_feature_flag_for_local_case
+        params:
+          source: feed_v2
+          case: '{case}'
+      - &feed_case_value
+        action: assert_local_case_value
+        params:
+          source: feed_v2
+          case: '{case}'
+      - *v2_query
+      - *no_flags
+
+    - name: v2_entry_payload
+      cases: feed_v2_payloads
+      requires: feature_flag_payloads
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: get_feature_flag_payload_for_local_case
+        params:
+          source: feed_v2
+          case: '{case}'
+      - action: assert_local_case_payload
+        params:
+          source: feed_v2
+          case: '{case}'
+      - *v2_query
+
+    - name: v2_entry_events
+      description: >
+        A locally evaluated read sends one $feature_flag_called with locally_evaluated true and
+        the record's config version 2 context, and an experiment split also sends one
+        $experiment_exposure.
+      cases: feed_v2
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_v2
+          case: '{case}'
+          mode: default
+      - *feed_case_value
+      - *v2_query
+      - *no_flags
+      - &flush
+        action: flush
+      - action: assert_local_case_events
+        params:
+          source: feed_v2
+          case: '{case}'
+
+    - name: v1_entry_is_evaluated_locally
+      cases: feed_v1
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_v1
+          case: '{case}'
+      - *v2_query
+      - *no_flags
+
+    - name: unsupported_entry_falls_back
+      cases: feed_unsupported
+      steps:
+      - *configure_feed
+      - &feed_fallback_response
+        action: configure_local_evaluation_v2_fallback_response
+        params:
+          source: feed_unsupported
+          case: '{case}'
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_unsupported
+          case: '{case}'
+          mode: default
+      - action: assert_local_case_value
+        params:
+          source: feed_unsupported
+          case: '{case}'
+          fallback: true
+      - &one_flags
+        action: assert_flags_request_count
+        params:
+          expected: 1
+      - &siblings
+        action: assert_feed_siblings_evaluate_locally
+        params:
+          source: feed_unsupported
+          case: '{case}'
+      - *v2_query
+      - *one_flags
+
+    - name: unsupported_entry_has_no_value_in_local_only_mode
+      cases: feed_unsupported
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_unsupported
+          case: '{case}'
+          expect_inconclusive: true
+      - *siblings
+      - *v2_query
+      - *no_flags
+
+    - name: unsupported_entry_reports_unsupported_definition
+      cases: feed_unsupported
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - *configure_feed
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: feed_unsupported
+          case: '{case}'
+          expect_inconclusive: true
+          check_unresolved_reason: true
+      - *v2_query
+      - *no_flags
+
+  corpus:
+    description: >
+      Cases of the boolean, value, experiment and local corpora, by their local outcome. A
+      conclusive case returns its value locally with no /flags request and sends its events.
+      An inconclusive case falls back to /flags once in auto mode, and has no value in
+      local-only mode.
+    tests:
+    - name: conclusive_case_is_evaluated_locally
+      cases: corpus_conclusive
+      steps:
+      - &configure_corpus
+        action: configure_local_evaluation_v2_definitions
+        params:
+          source: corpus_conclusive
+          case: '{case}'
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: corpus_conclusive
+          case: '{case}'
+          mode: default
+      - action: assert_local_case_value
+        params:
+          source: corpus_conclusive
+          case: '{case}'
+      - *v2_query
+      - *no_flags
+      - *flush
+      - action: assert_local_case_events
+        params:
+          source: corpus_conclusive
+          case: '{case}'
+
+    - name: conclusive_case_payload
+      cases: corpus_payloads
+      requires: feature_flag_payloads
+      steps:
+      - action: configure_local_evaluation_v2_definitions
+        params:
+          source: corpus_payloads
+          case: '{case}'
+      - *init
+      - *reload
+      - action: get_feature_flag_payload_for_local_case
+        params:
+          source: corpus_payloads
+          case: '{case}'
+      - action: assert_local_case_payload
+        params:
+          source: corpus_payloads
+          case: '{case}'
+      - *v2_query
+
+    - name: inconclusive_case_falls_back
+      cases: corpus_inconclusive
+      steps:
+      - &configure_inconclusive
+        action: configure_local_evaluation_v2_definitions
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+      - action: configure_local_evaluation_v2_fallback_response
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+          mode: default
+      - action: assert_local_case_value
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+          fallback: true
+      - *v2_query
+      - *one_flags
+
+    - name: inconclusive_case_has_no_value_in_local_only_mode
+      cases: corpus_inconclusive
+      steps:
+      - *configure_inconclusive
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+          expect_inconclusive: true
+      - *v2_query
+      - *no_flags
+
+    - name: inconclusive_case_reports_its_reason
+      cases: corpus_inconclusive
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - *configure_inconclusive
+      - *init
+      - *reload
+      - action: get_feature_flag_for_local_case
+        params:
+          source: corpus_inconclusive
+          case: '{case}'
+          expect_inconclusive: true
+          check_unresolved_reason: true
+      - *v2_query
+      - *no_flags

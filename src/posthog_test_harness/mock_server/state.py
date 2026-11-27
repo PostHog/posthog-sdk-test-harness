@@ -3,13 +3,14 @@
 import gzip
 import json
 import logging
+import re
 import threading
 import time
 import uuid as uuid_module
 from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from ..types import MockResponse, RecordedRequest
 from .endpoints.capture import is_v1_capture_path
@@ -17,6 +18,28 @@ from .endpoints.capture import is_v1_capture_path
 logger = logging.getLogger(__name__)
 
 TEST_ID_HEADER = "x-test-id"
+
+_LEGACY_DEFINITIONS = "legacy"
+_V2_DEFINITIONS = "v2"
+_EMPTY_DEFINITIONS: Dict[str, Any] = {"flags": [], "cohorts": {}, "group_type_mapping": {}}
+
+
+# One If-None-Match list member: ``*``, or an entity tag whose quoted part may hold commas.
+# An unquoted tag, as the Gherkin steps serve, runs to the next comma or space.
+_IF_NONE_MATCH_MEMBER = re.compile(r'\s*(\*|(?:W/)?"[^"]*"|[^\s,]+)\s*(?:,|$)')
+
+
+def _etag_matches(if_none_match: Optional[str], etag: str) -> bool:
+    """``If-None-Match`` weak comparison: ``*`` or any listed tag, ignoring a ``W/`` prefix."""
+    if if_none_match is None:
+        return False
+    tags: List[str] = []
+    position = 0
+    while position < len(if_none_match) and (member := _IF_NONE_MATCH_MEMBER.match(if_none_match, position)):
+        tags.append(member.group(1))
+        position = member.end()
+    return "*" in tags or etag.removeprefix("W/") in [tag.removeprefix("W/") for tag in tags]
+
 
 _V1_RETRYABLE_STATUSES = {408, 500, 503, 504}
 
@@ -119,7 +142,9 @@ class MockServerState:
 
         # Definitions GETs have independent configuration/accounting, including
         # the global (None) partition; polling must not consume capture responses.
-        self._definitions: Dict[Optional[str], Dict[str, Any]] = {}
+        # Each partition holds a legacy snapshot and, optionally, a v=2 snapshot,
+        # each with an optional ETag.
+        self._definitions: Dict[Optional[str], Dict[str, Tuple[Dict[str, Any], Optional[str]]]] = {}
         self._definition_auth: Dict[Optional[str], tuple[str, str]] = {}
         self._definition_requests: Dict[Optional[str], List[RecordedRequest]] = {}
 
@@ -129,20 +154,70 @@ class MockServerState:
         api_key: str = "phc_test_key",
         personal_api_key: str = "phx_test_key",
         test_id: Optional[str] = None,
+        *,
+        etag: Optional[str] = None,
     ) -> None:
-        """Replace the complete snapshot; omission must not retain an older version."""
+        """Replace the legacy snapshot; omission must not retain an older version.
+
+        The legacy snapshot answers every definitions request except one with exactly one
+        ``v`` query parameter equal to ``2`` while a v=2 snapshot is set. With ``etag``, the
+        response carries that ETag and a matching ``If-None-Match`` gets 304.
+        """
         with self._lock:
-            self._definitions[test_id] = deepcopy({"flags": [], "cohorts": {}, "group_type_mapping": {}, **definitions})
+            self._set_document(_LEGACY_DEFINITIONS, definitions, etag, test_id)
             self._definition_auth[test_id] = (api_key, personal_api_key)
+
+    def set_v2_definitions(
+        self,
+        definitions: Dict[str, Any],
+        api_key: Optional[str] = None,
+        personal_api_key: Optional[str] = None,
+        test_id: Optional[str] = None,
+        *,
+        etag: Optional[str] = None,
+    ) -> None:
+        """Replace the snapshot served to a definitions request with exactly one ``v=2``.
+
+        Until one is set, such a request gets the legacy snapshot and its ETag, as the flags
+        service answers a project without config version 2 flags. Credentials are shared with
+        the legacy snapshot; given ones replace them.
+        """
+        with self._lock:
+            self._set_document(_V2_DEFINITIONS, definitions, etag, test_id)
+            if api_key is not None or personal_api_key is not None:
+                current = self._definition_auth.get(test_id, ("phc_test_key", "phx_test_key"))
+                self._definition_auth[test_id] = (api_key or current[0], personal_api_key or current[1])
+
+    def remove_v2_definitions(self, test_id: Optional[str] = None) -> None:
+        """Stop serving a v=2 snapshot, so a v=2 request gets the legacy snapshot again."""
+        with self._lock:
+            self._definitions.get(test_id, {}).pop(_V2_DEFINITIONS, None)
+
+    def _set_document(
+        self, feed: str, definitions: Dict[str, Any], etag: Optional[str], test_id: Optional[str]
+    ) -> None:
+        """Store one snapshot as a copy. Must be called with lock held."""
+        document = deepcopy({**_EMPTY_DEFINITIONS, **definitions})
+        self._definitions.setdefault(test_id, {})[feed] = (document, etag)
 
     def get_definition_requests(self, test_id: Optional[str] = None) -> List[RecordedRequest]:
         with self._lock:
             return list(self._definition_requests.get(test_id, []))
 
     def record_definition_request(
-        self, path: str, headers: Dict[str, str], query_params: Dict[str, str]
+        self,
+        path: str,
+        headers: Dict[str, str],
+        query_params: Dict[str, str],
+        query_param_lists: Optional[Dict[str, List[str]]] = None,
     ) -> RecordedRequest:
-        """Serve definitions with project token and privileged Bearer authentication."""
+        """Serve definitions with project token and privileged Bearer authentication.
+
+        ``query_param_lists`` holds every value of each query parameter; without it each
+        parameter has the single value in ``query_params``.
+        """
+        if query_param_lists is None:
+            query_param_lists = {key: [value] for key, value in query_params.items()}
         with self._lock:
             test_id = headers.get(TEST_ID_HEADER)
             api_key, personal_api_key = self._definition_auth.get(test_id, ("phc_test_key", "phx_test_key"))
@@ -150,7 +225,18 @@ class MockServerState:
                 query_params.get("token") == api_key
                 and headers.get("authorization", "").split() == ["Bearer", personal_api_key]
             )
-            body = self._definitions.get(test_id, {"flags": [], "cohorts": {}, "group_type_mapping": {}})
+            documents = self._definitions.get(test_id, {})
+            feed = _V2_DEFINITIONS if query_param_lists.get("v") == ["2"] else _LEGACY_DEFINITIONS
+            body, etag = documents.get(feed) or documents.get(_LEGACY_DEFINITIONS) or (_EMPTY_DEFINITIONS, None)
+            response_body: Optional[str]
+            if not authorized:
+                status, response_headers = 401, {}
+                response_body = json.dumps({"error": "Invalid definitions credentials"})
+            elif etag is not None and _etag_matches(headers.get("if-none-match"), etag):
+                status, response_headers, response_body = 304, {"ETag": etag}, None
+            else:
+                status, response_headers = 200, ({"ETag": etag} if etag is not None else {})
+                response_body = json.dumps(body)
             recorded = RecordedRequest(
                 timestamp_ms=int(time.time() * 1000),
                 method="GET",
@@ -160,9 +246,10 @@ class MockServerState:
                 body_raw=b"",
                 body_decompressed=None,
                 parsed_events=None,
-                response_status=200 if authorized else 401,
-                response_headers={},
-                response_body=json.dumps(body if authorized else {"error": "Invalid definitions credentials"}),
+                response_status=status,
+                response_headers=response_headers,
+                response_body=response_body,
+                query_param_lists={key: list(values) for key, values in query_param_lists.items()},
             )
             self._definition_requests.setdefault(test_id, []).append(recorded)
             return recorded

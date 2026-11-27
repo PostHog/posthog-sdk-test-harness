@@ -47,6 +47,7 @@ Health check endpoint. The `capabilities` array controls which test suites are r
 | `feature_flags_unsupported_filter_types_v1` | The SDK treats a property filter type other than `person`, `group`, `cohort` or `flag` (such as `person_metadata`) as inconclusive, and `/get_feature_flag` honors `allow_remote_fallback`. Runs only together with `feature_flags_local_evaluation_v1`. See [Unsupported property-filter types](#optional-unsupported-property-filter-types-protocol-v1) |
 | `feature_flags_unusable_group_key_v1` | The SDK treats an omitted group or an empty string group key as no group, so a group flag is `false` locally with no `/flags` request. Runs only together with `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1`. See [Unusable group keys](#unusable-group-keys) |
 | `feature_flags_json_group_keys_v1` | `/get_feature_flag` passes JSON `null`, `true`, `[]` and `{}` group keys to the SDK unchanged, and the SDK treats them as no group. Runs only together with `feature_flags_unusable_group_key_v1` |
+| `feature_flags_local_evaluation_v2` | The SDK requests the definitions feed with `v=2`, evaluates config version 2 flags locally, and `/get_feature_flag` honors `allow_remote_fallback`. Runs only together with `feature_flags_local_evaluation_v1`. See [Local evaluation of config version 2 flags](#optional-local-evaluation-of-config-version-2-flags) |
 | `event_options` | The SDK sends caller event options unchanged, and a legacy `$` property fills only an unset (missing or `null`) option |
 | `event_uuid_override` | The adapter passes a caller-supplied `uuid` on `/capture` and `/capture_ai` to the SDK, which sends it in canonical lowercase form |
 | `bounded_retries` | The SDK stops retrying after `max_retries` retries (`max_retries` + 1 attempts) |
@@ -717,3 +718,58 @@ return `snapshot.unresolved_flags.get(key)`. The suite expects
 unresolved flags is optional in the spec, so SDKs without that API skip these
 cases and still run the rest of the suite. Cover the load-time definition check
 in the SDK's own tests.
+
+## Optional local evaluation of config version 2 flags
+
+Only adapters that advertise **both** `feature_flags_local_evaluation_v1` and
+`feature_flags_local_evaluation_v2` run the `feature_flags_local_evaluation_v2`
+suite. It covers the sdk-specs change for local evaluation of config version 2
+flags (sdk-specs #244): the SDK sends exactly one `v=2` on every definitions
+request and evaluates config version 2 flags itself. Declare the capability
+only in an SDK release that sends `v=2`.
+
+The definitions mock serves one document to a request with exactly one `v`
+query parameter equal to `2`, and another to every other request. In this suite
+the other document holds only the config version 1 flags, as the legacy feed
+does, so an SDK that leaves out `v=2` cannot read a config version 2 flag. Each
+document can carry its own ETag, and a request whose `If-None-Match` matches the
+ETag of the document it selects gets `304`. The definitions request query is
+recorded with every value of each parameter.
+
+The suite needs no new adapter route. It uses:
+
+- `/reload_feature_flag_definitions`, as in the local evaluation suite. One
+  test reloads twice with an ETag on the v=2 document: the second reload must
+  send that ETag with `v=2` and get `304`, and the SDK must keep its config
+  version 2 flags. Report `ready: true` after a `304`.
+- `only_evaluate_locally: true` for local results and for results with no value,
+  as in the unsupported property-filter types suite.
+- `allow_remote_fallback: true`, as described in
+  [the known-absent protocol](#optional-known-absent-property-keys-protocol-v1),
+  for reads that send events and for fallbacks. Adapters with this capability
+  must honor it even without `feature_flags_known_absent_v1`. Flush the
+  `$feature_flag_called` and `$experiment_exposure` events before returning, or
+  let the harness `flush` do it.
+- `/get_feature_flag_payload` with `only_evaluate_locally: true` for number and
+  object values, when the adapter advertises `feature_flag_payloads`.
+- `unresolved_reason`, when the adapter advertises
+  `feature_flags_unresolved_reasons_v1`.
+
+Definitions and expectations come from the feature flag rules v2 contract
+package. The feed tests serve `fixtures/wire/definitions_feed.json` and read it
+with its context. The corpus tests serve one flag from each case of the corpora
+that `rules/local_outcomes.json` maps, when a black-box SDK can run the case: UTC,
+a non-empty distinct ID, no relative date, no private seam, and no key read from
+a complete property map that the map lacks. A conclusive case must return its
+legacy value with no `/flags` request and send one `$feature_flag_called` with
+`locally_evaluated: true`, the definition's `$feature_flag_id` and
+`$feature_flag_version`, and the case's config version 2 context; an experiment
+split also sends one `$experiment_exposure`. Neither event may carry an
+assignment seed, at any depth. The payload accessor returns the value of a
+number or object flag, and no payload when its result is null. An inconclusive
+case or an unsupported feed entry falls back to `/flags` once in auto mode, and
+has no value in local-only mode, while the other entries keep their local
+values. The feed's group flag is not read: its context names no group, and a
+group flag without its group belongs to `feature_flags_unusable_group_key_v1`.
+The fallback is answered with an invented `/flags?v=4` record; for a string
+flag its value is one that no rule or default returns.
