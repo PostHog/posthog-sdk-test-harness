@@ -46,7 +46,7 @@ adapter_interface:
             "feature_flag_payloads", "feature_flags_local_evaluation_v1",
             "feature_flags_known_absent_v1", "feature_flags_unusable_group_key_v1",
             "feature_flags_json_group_keys_v1", "feature_flags_unsupported_filter_types_v1",
-            "feature_flags_unresolved_reasons_v1".
+            "feature_flags_unresolved_reasons_v1", "feature_flags_local_evaluation_v2".
           default: []
 
   # Parallel test execution
@@ -314,8 +314,8 @@ adapter_interface:
         allow_remote_fallback:
           type: boolean
           description: >
-            Optional, feature_flags_known_absent_v1 or feature_flags_unsupported_filter_types_v1 only.
-            When true, call the SDK's default getter on the
+            Optional, feature_flags_known_absent_v1, feature_flags_unsupported_filter_types_v1 or
+            feature_flags_local_evaluation_v2 only. When true, call the SDK's default getter on the
             client with local definitions: evaluate locally, then fall back to /flags when inconclusive.
             Return 400 when combined with force_remote=true or only_evaluate_locally=true. Absent means
             existing behavior is unchanged.
@@ -434,3 +434,8 @@ test_suites:
 
   # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_unsupported_filter_types_v1
   feature_flags_unsupported_filter_types: !include contracts/feature_flags_unsupported_filter_types_tests.yaml
+
+  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_local_evaluation_v2.
+  # Definitions and expectations come from the rules v2 contract package; some cases also need
+  # feature_flag_payloads or feature_flags_unresolved_reasons_v1.
+  feature_flags_local_evaluation_v2: !include contracts/feature_flags_local_evaluation_v2_tests.yaml

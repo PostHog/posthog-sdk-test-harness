@@ -100,15 +100,25 @@ class MockServer:
 
         # Definitions polling is separate from capture/remote response queues
         # and request accounting. Both current and legacy SDK paths are served.
+        # The state chooses the document by the request's v values and answers a
+        # matching If-None-Match with 304.
         @self.app.route("/flags/definitions", methods=["GET"])
         @self.app.route("/flags/definitions/", methods=["GET"])
         @self.app.route("/api/feature_flag/local_evaluation", methods=["GET"])
         @self.app.route("/api/feature_flag/local_evaluation/", methods=["GET"])
         def definitions() -> Response:
             recorded = self.state.record_definition_request(
-                request.path, {k.lower(): v for k, v in request.headers.items()}, dict(request.args)
+                request.path,
+                {k.lower(): v for k, v in request.headers.items()},
+                dict(request.args),
+                request.args.to_dict(flat=False),
             )
-            return Response(recorded.response_body, status=recorded.response_status, mimetype="application/json")
+            return Response(
+                recorded.response_body,
+                status=recorded.response_status,
+                headers=recorded.response_headers,
+                mimetype=None if recorded.response_status == 304 else "application/json",
+            )
 
         # Control endpoints for test harness
         @self.app.route("/_control/requests", methods=["GET"])

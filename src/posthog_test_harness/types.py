@@ -127,6 +127,8 @@ class RecordedRequest:
     response_headers: Dict[str, str]
     response_body: Optional[str]
     response_raw: bool = False
+    # Every value of each query parameter, in request order; set for definitions requests.
+    query_param_lists: Optional[Dict[str, List[str]]] = None
 
 
 @dataclass

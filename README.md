@@ -136,6 +136,7 @@ Tests are defined in [CONTRACT.yaml](CONTRACT.yaml) and organized into suites. W
 | `feature_flags_local_evaluation` | `feature_flags_local_evaluation_v1` | Local rules from mocked definitions, no `/flags` requests |
 | `feature_flags_known_absent` | `feature_flags_local_evaluation_v1` and `feature_flags_known_absent_v1` | Known-absent property keys, locally and in the `/flags` fallback body. Its unusable group key cases also need `feature_flags_unusable_group_key_v1`, and the non-string key cases need `feature_flags_json_group_keys_v1` |
 | `feature_flags_unsupported_filter_types` | `feature_flags_local_evaluation_v1` and `feature_flags_unsupported_filter_types_v1` | Unsupported property-filter types (such as `person_metadata`) are inconclusive locally and fall back to `/flags` |
+| `feature_flags_local_evaluation_v2` | `feature_flags_local_evaluation_v1` and `feature_flags_local_evaluation_v2` | Definitions requested with `v=2`, and config version 2 flags evaluated locally from the feature flag rules v2 contract: values, payloads, events and per-flag fallback |
 
 Some individual tests have additional requirements (e.g., `encoding_gzip`, `encoding_zstd`, `event_options`, `event_uuid_override`, `bounded_retries`, `feature_flag_payloads`). See [ADAPTER_GUIDE.md](ADAPTER_GUIDE.md) for the full list.
 
@@ -315,3 +316,11 @@ filter on `created_at`, must stay inconclusive locally and fall back to
 `/flags` through `allow_remote_fallback`. Adapters that also advertise
 `feature_flags_unresolved_reasons_v1` return the SDK's `unresolved_reason`, and
 three more cases check that it is `unsupported_definition`. See [the unsupported filter types protocol](ADAPTER_GUIDE.md#optional-unsupported-property-filter-types-protocol-v1).
+
+Adapters that advertise `feature_flags_local_evaluation_v2` run the
+`feature_flags_local_evaluation_v2` suite: the SDK requests the definitions feed
+with `v=2`, also on a conditional reload, and evaluates config version 2 flags
+locally. The suite serves the rules v2 contract's mixed definitions feed and its
+corpus cases, and checks local values of every return type, both events with
+`locally_evaluated` true, no `/flags` request for a supported flag, and a
+per-flag fallback in auto mode with no value in local-only mode. See [local evaluation of config version 2 flags](ADAPTER_GUIDE.md#optional-local-evaluation-of-config-version-2-flags).

@@ -180,7 +180,7 @@
       allow_remote_fallback:
         type: boolean
         optional: true
-        description: Use the SDK's default getter on the client with local definitions (local, then /flags when inconclusive); requires feature_flags_known_absent_v1 or feature_flags_unsupported_filter_types_v1. Conflicts with force_remote=true and only_evaluate_locally=true (400).
+        description: Use the SDK's default getter on the client with local definitions (local, then /flags when inconclusive); requires feature_flags_known_absent_v1, feature_flags_unsupported_filter_types_v1 or feature_flags_local_evaluation_v2. Conflicts with force_remote=true and only_evaluate_locally=true (400).
       expect_inconclusive:
         type: boolean
         optional: true
@@ -227,6 +227,51 @@
         type: integer
         default: 5000
         description: Positive deadline, at most 30000 ms; errors or ready=false fail the test
+      expect_not_modified:
+        type: boolean
+        optional: true
+        description: Harness-only, never sent to the adapter. Require every definitions GET of the reload to get 304 instead of requiring a 200
+
+  get_feature_flag_for_local_case:
+    description: >
+      Call /get_feature_flag for a feature flag rules v2 contract case's flag with the case's
+      distinct ID and person properties; requires feature_flags_local_evaluation_v2
+    params:
+      source:
+        type: string
+        required: true
+        description: A posthog_test_harness.local_evaluation_v2 source (feed_v1, feed_v2, feed_unsupported, corpus_conclusive, corpus_inconclusive, ...)
+      case:
+        type: string
+        description: Case ID; a feed entry key or a corpus case ID
+      entry:
+        type: string
+        optional: true
+        description: Read this feed entry instead of the case's
+      mode:
+        type: string
+        default: local_only
+        description: local_only sends only_evaluate_locally=true with get_feature_flag's local-only checks; default sends allow_remote_fallback=true
+      expect_inconclusive:
+        type: boolean
+        optional: true
+        description: Harness-only. With mode local_only, require no flag value and no /flags request
+      check_unresolved_reason:
+        type: boolean
+        optional: true
+        description: Harness-only. With expect_inconclusive, require the case's unresolved_reason; used only by tests that require feature_flags_unresolved_reasons_v1
+
+  get_feature_flag_payload_for_local_case:
+    description: >
+      Call /get_feature_flag_payload with only_evaluate_locally=true for a contract case's flag;
+      requires feature_flags_local_evaluation_v2 and feature_flag_payloads
+    params:
+      source:
+        type: string
+        required: true
+      case:
+        type: string
+        required: true
 
   flush:
     description: Flush pending events via the adapter

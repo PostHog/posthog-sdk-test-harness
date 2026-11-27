@@ -1205,10 +1205,22 @@ Handler: [`snapshot_value`](../src/posthog_test_harness/v2/local_flag_steps.py).
 ### local_parity_steps
 
 ```text
+every flag definitions request query parameter "([^"]*)" should equal "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`definitions_query`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
 local definitions are publicly reloaded within 5000 milliseconds
 ```
 Argument: `none`. Routes: `/reload_feature_flags`. Fixture capabilities: None declared.
 Handler: [`reload`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
+local definitions are publicly reloaded within 5000 milliseconds and the definitions service answers 304
+```
+Argument: `none`. Routes: `/reload_feature_flags`. Fixture capabilities: None declared.
+Handler: [`reload_not_modified`](../src/posthog_test_harness/v2/local_parity_steps.py).
 
 ```text
 no remote flag evaluation path should have been requested
@@ -1221,6 +1233,24 @@ the SDK is initialized for native local evaluation with JSON arguments:
 ```
 Argument: `docString`. Routes: `/setup`. Fixture capabilities: None declared.
 Handler: [`setup`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
+the SDK is initialized for native local evaluation with remote fallback and JSON arguments:
+```
+Argument: `docString`. Routes: `/setup`. Fixture capabilities: None declared.
+Handler: [`setup_with_fallback`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
+the definition request should include If-None-Match "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`definitions_if_none_match`](../src/posthog_test_harness/v2/local_parity_steps.py).
+
+```text
+the definitions service serves this typed document for v=2 requests:
+```
+Argument: `docString`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`v2_definitions`](../src/posthog_test_harness/v2/local_parity_steps.py).
 
 ```text
 the definitions service serves this typed document:
@@ -1339,6 +1369,12 @@ get feature flag payload is called with JSON arguments:
 ```
 Argument: `docString`. Routes: `/get_feature_flag_payload`. Fixture capabilities: None declared.
 Handler: [`payload_getter`](../src/posthog_test_harness/v2/remote_flag_steps.py).
+
+```text
+no received event named "([^"]*)" should have property "([^"]*)"
+```
+Argument: `none`. Routes: None declared. Fixture capabilities: None declared.
+Handler: [`event_property_absent`](../src/posthog_test_harness/v2/remote_flag_steps.py).
 
 ```text
 the feature flag listener is unsubscribed
