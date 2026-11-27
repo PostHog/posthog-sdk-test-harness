@@ -419,6 +419,21 @@ def test_equal_values_keep_distinct_analytical_identities() -> None:
     assert a["value"] == b["value"]
 
 
+def test_definitions_feed_carries_the_team_settings_of_the_legacy_feed() -> None:
+    feed = {
+        "flags": [],
+        "cohorts": {},
+        "group_type_mapping": {},
+        "minimal_flag_called_events": True,
+        "property_matching_version": 2,
+        "null_counts_as_not_set": False,
+    }
+    schema = validator("schemas/definitions_v2.schema.json")
+    assert schema.is_valid(feed)
+    assert not schema.is_valid({**feed, "null_counts_as_not_set": "false"})
+    assert not schema.is_valid({**feed, "unknown_setting": True})
+
+
 def test_definitions_preserve_required_assignment_data_at_the_separate_boundary() -> None:
     value = SETS["definitions"]["templates"]["v2"]
     assert validator("schemas/definitions_entry.schema.json").is_valid(value)

@@ -1,0 +1,494 @@
+# Source: sdk-specs local-feature-flag-evaluator, "Unsupported property-filter types are inconclusive".
+# person and group filters match caller properties, and a missing, null or empty-string type is a
+# person filter. Any other type, such as person_metadata (first seen, read from the persons table by
+# /flags) or a type added later, is inconclusive. It is an ordinary inconclusive input: negation and
+# not_in don't turn it into a match, another definitive filter or a later condition still decides,
+# and other flags keep evaluating locally.
+# Inconclusive cases use only_evaluate_locally=true with the harness-only expect_inconclusive=true
+# (no value and no /flags request), or allow_remote_fallback=true (exactly one /flags request).
+# Definitive cases use only_evaluate_locally=true, which already fails on any /flags request.
+description: 'Opt-in unsupported property-filter types (person_metadata, unknown types) are inconclusive locally.'
+requires: [feature_flags_local_evaluation_v1, feature_flags_unsupported_filter_types_v1]
+categories:
+  person_metadata_cohort_leaf:
+    tests:
+    - name: local_only_inconclusive_with_created_at_after_condition
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: &first_seen_definitions
+            flags:
+            - &first_seen_flag
+              id: 1
+              key: first-seen
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: id, value: 1, type: cohort}
+                  rollout_percentage: 100
+            cohorts:
+              '1':
+                type: OR
+                values:
+                - &first_seen_leaf {key: created_at, value: '2025-01-01', operator: is_date_after, type: person_metadata}
+            group_type_mapping: {}
+      - &init
+        action: init
+        params:
+          personal_api_key: phx_test_key
+      - &reload
+        action: reload_feature_flag_definitions
+        params:
+          timeout_ms: 5000
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {created_at: '2026-06-01'}
+      - &no_flags_count
+        action: assert_flags_request_count
+        params:
+          expected: 0
+
+    - name: local_only_inconclusive_with_created_at_before_condition
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {created_at: '2020-06-01'}
+      - *no_flags_count
+
+    - name: local_only_inconclusive_without_person_properties
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+      - *no_flags_count
+
+    - name: local_only_inconclusive_with_created_at_known_absent
+      requires: feature_flags_known_absent_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {}
+          person_property_keys_known_absent: [created_at]
+      - *no_flags_count
+
+    - name: default_getter_falls_back_with_created_at_after_condition
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - &remote_first_seen
+        action: configure_mock_responses
+        params:
+          responses:
+          - path: /flags
+            status_code: 200
+            body: >-
+              {"featureFlags": {"first-seen": "remote-value"},
+              "flags": {"first-seen": {"key": "first-seen", "enabled": true, "variant": "remote-value",
+              "reason": {"code": "condition_match", "condition_index": 0},
+              "metadata": {"id": 1, "version": 1, "payload": null}}}}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          allow_remote_fallback: true
+          person_properties: {created_at: '2026-06-01'}
+      - &remote_value
+        action: assert_action_result
+        params:
+          field: value
+          expected: remote-value
+      - &one_flags_request
+        action: assert_flags_request_count
+        params:
+          expected: 1
+
+    - name: default_getter_falls_back_with_created_at_before_condition
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *remote_first_seen
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          allow_remote_fallback: true
+          person_properties: {created_at: '2020-06-01'}
+      - *remote_value
+      - *one_flags_request
+
+    - name: default_getter_falls_back_without_person_properties
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *remote_first_seen
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          allow_remote_fallback: true
+      - *remote_value
+      - *one_flags_request
+
+    - name: negated_leaf_stays_inconclusive
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags: [*first_seen_flag]
+            cohorts:
+              '1':
+                type: OR
+                values:
+                - {key: created_at, value: '2025-01-01', operator: is_date_after, type: person_metadata, negation: true}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {created_at: '2020-06-01'}
+      - *no_flags_count
+
+    - name: outer_not_in_stays_inconclusive
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: first-seen
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: id, value: 1, type: cohort, operator: not_in}
+                  rollout_percentage: 100
+            cohorts:
+              '1':
+                type: OR
+                values: [*first_seen_leaf]
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {created_at: '2020-06-01'}
+      - *no_flags_count
+
+    - name: other_leaf_decides_and_group
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: first-seen-pro
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: id, value: 1, type: cohort}
+                  rollout_percentage: 100
+            cohorts:
+              '1':
+                type: AND
+                values:
+                - *first_seen_leaf
+                - {key: plan, value: pro, operator: exact, type: person}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen-pro
+          distinct_id: user-123
+          only_evaluate_locally: true
+          person_properties: {plan: free}
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - *no_flags_count
+
+  person_filter_type:
+    tests:
+    - name: created_at_person_filter_matches_caller_property
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - {id: 1, key: type-person, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after, type: person}], rollout_percentage: 100}]}}
+            - {id: 2, key: type-omitted, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after}], rollout_percentage: 100}]}}
+            - {id: 3, key: type-null, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after, type: null}], rollout_percentage: 100}]}}
+            - {id: 4, key: type-empty, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after, type: ''}], rollout_percentage: 100}]}}
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - {action: get_feature_flag, params: {key: type-person, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: type-omitted, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: type-null, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - {action: get_feature_flag, params: {key: type-empty, distinct_id: user-123, only_evaluate_locally: true, person_properties: {created_at: '2026-06-01'}}}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - *no_flags_count
+
+    - name: default_getter_resolves_person_filter_locally
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - {id: 1, key: type-person, active: true, version: 1, filters: {groups: [{properties: [{key: created_at, value: '2025-01-01', operator: is_date_after, type: person}], rollout_percentage: 100}]}}
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: type-person
+          distinct_id: user-123
+          allow_remote_fallback: true
+          person_properties: {created_at: '2026-06-01'}
+      - {action: assert_action_result, params: {field: value, expected: true}}
+      - *no_flags_count
+
+  unknown_condition_type:
+    tests:
+    - name: unknown_type_defers_only_that_flag
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: future-type
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: pro, operator: exact, type: future_type}
+                  rollout_percentage: 100
+            - id: 2
+              key: beta-ui
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties: []
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: future-type
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          person_properties: {plan: pro}
+      - action: get_feature_flag
+        params:
+          key: beta-ui
+          distinct_id: user-123
+          only_evaluate_locally: true
+          person_properties: {plan: pro}
+      - action: assert_action_result
+        params:
+          field: value
+          expected: true
+      - *no_flags_count
+
+    - name: false_person_filter_decides_condition
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: future-type-plan
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: region, value: eu, operator: exact, type: future_type}
+                  - {key: plan, value: pro, operator: exact, type: person}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: future-type-plan
+          distinct_id: user-123
+          only_evaluate_locally: true
+          person_properties: {plan: free, region: eu}
+      - action: assert_action_result
+        params:
+          field: value
+          expected: false
+      - *no_flags_count
+
+    - name: later_catch_all_condition_decides
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: first-seen-variant
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: created_at, value: '2025-01-01', operator: is_date_after, type: person_metadata}
+                  rollout_percentage: 100
+                  variant: new-user
+                - properties: []
+                  rollout_percentage: 100
+                  variant: existing-user
+                multivariate:
+                  variants:
+                  - {key: new-user, rollout_percentage: 50}
+                  - {key: existing-user, rollout_percentage: 50}
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen-variant
+          distinct_id: user-123
+          only_evaluate_locally: true
+          person_properties: {created_at: '2026-06-01'}
+      - action: assert_action_result
+        params:
+          field: value
+          expected: existing-user
+      - *no_flags_count
+
+  # Needs feature_flags_unresolved_reasons_v1: the adapter returns the SDK's unresolved reason.
+  unresolved_reason:
+    tests:
+    - name: person_metadata_cohort_leaf_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+          person_properties: {created_at: '2026-06-01'}
+      - *no_flags_count
+
+    - name: person_metadata_without_properties_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions: *first_seen_definitions
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: first-seen
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+      - *no_flags_count
+
+    - name: unknown_condition_type_reports_unsupported_definition
+      requires: feature_flags_unresolved_reasons_v1
+      steps:
+      - action: configure_local_evaluation_definitions
+        params:
+          definitions:
+            flags:
+            - id: 1
+              key: future-type
+              active: true
+              version: 1
+              filters:
+                groups:
+                - properties:
+                  - {key: plan, value: pro, operator: exact, type: future_type}
+                  rollout_percentage: 100
+            cohorts: {}
+            group_type_mapping: {}
+      - *init
+      - *reload
+      - action: get_feature_flag
+        params:
+          key: future-type
+          distinct_id: user-123
+          only_evaluate_locally: true
+          expect_inconclusive: true
+          expected_unresolved_reason: unsupported_definition
+          person_properties: {plan: pro}
+      - *no_flags_count

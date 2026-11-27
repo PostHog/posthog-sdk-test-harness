@@ -44,7 +44,9 @@ adapter_interface:
             "generated_payloads", "property_layers", "fail_open",
             "encoding_gzip", "encoding_zstd", "encoding_br", "encoding_deflate",
             "feature_flag_payloads", "feature_flags_local_evaluation_v1",
-            "feature_flags_known_absent_v1".
+            "feature_flags_known_absent_v1", "feature_flags_unusable_group_key_v1",
+            "feature_flags_json_group_keys_v1", "feature_flags_unsupported_filter_types_v1",
+            "feature_flags_unresolved_reasons_v1".
           default: []
 
   # Parallel test execution
@@ -282,7 +284,9 @@ adapter_interface:
           description: Person properties to send with the request
         groups:
           type: object
-          description: Group identifiers
+          description: >
+            Group type name to group key. Pass each key to the SDK unchanged. Keys are strings except in
+            feature_flags_json_group_keys_v1 tests, which also send JSON null, true, [] and {}
         group_properties:
           type: object
           description: Group properties
@@ -310,7 +314,8 @@ adapter_interface:
         allow_remote_fallback:
           type: boolean
           description: >
-            Optional, feature_flags_known_absent_v1 only. When true, call the SDK's default getter on the
+            Optional, feature_flags_known_absent_v1 or feature_flags_unsupported_filter_types_v1 only.
+            When true, call the SDK's default getter on the
             client with local definitions: evaluate locally, then fall back to /flags when inconclusive.
             Return 400 when combined with force_remote=true or only_evaluate_locally=true. Absent means
             existing behavior is unchanged.
@@ -326,6 +331,12 @@ adapter_interface:
         locally_evaluated:
           type: boolean
           description: Required true for a successful only_evaluate_locally request; absent on legacy responses is allowed
+        unresolved_reason:
+          type: string
+          description: >
+            Optional, feature_flags_unresolved_reasons_v1 only. When an only_evaluate_locally request has no
+            value, the SDK's unresolved reason for the flag (experience_continuity, unsupported_definition,
+            unresolved_dependency or missing_context), read from its unresolved flags API. Omit it otherwise.
 
   # Optional: feature_flag_payloads only
   get_feature_flag_payload:
@@ -416,5 +427,10 @@ test_suites:
   # Explicit adapter opt-in only; never inferred from sdk_type
   feature_flags_local_evaluation: !include contracts/feature_flags_local_evaluation_tests.yaml
 
-  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_known_absent_v1
+  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_known_absent_v1.
+  # Its unusable_group_key category also requires feature_flags_unusable_group_key_v1, and its
+  # non-string group key cases also require feature_flags_json_group_keys_v1.
   feature_flags_known_absent: !include contracts/feature_flags_known_absent_tests.yaml
+
+  # Explicit opt-in only; requires feature_flags_local_evaluation_v1 and feature_flags_unsupported_filter_types_v1
+  feature_flags_unsupported_filter_types: !include contracts/feature_flags_unsupported_filter_types_tests.yaml

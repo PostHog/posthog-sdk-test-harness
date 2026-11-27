@@ -1,6 +1,7 @@
 """Tests for the test runner, including parallel dispatch."""
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,21 @@ from posthog_test_harness.mock_server.state import MockServerState
 from posthog_test_harness.sdk_adapter.client import SDKAdapterClient
 from posthog_test_harness.tests.context import TestContext
 from posthog_test_harness.tests.runner import run_all_suites
+from posthog_test_harness.types import MockResponse
+
+
+@pytest.fixture(autouse=True)
+def _no_adapter_http():
+    # The runner swallows cleanup errors, so record calls instead of relying on a raised error.
+    calls = []
+
+    async def record(self, method, url, **kwargs):
+        calls.append((method, str(url)))
+        raise RuntimeError("runner tests must not make HTTP calls")
+
+    with patch("aiohttp.ClientSession._request", record):
+        yield
+    assert calls == []
 
 
 class TestSequentialMode:
@@ -74,6 +90,14 @@ class TestSequentialMode:
 
 class TestParallelMode:
     """Verify parallel mode dispatches tests concurrently."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_scoped_reset(self):
+        with patch(
+            "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+            new=AsyncMock(return_value={"success": True}),
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_parallel_creates_scoped_contexts(self):
@@ -177,12 +201,7 @@ class TestParallelMode:
             mock_contract.get_test_suites.return_value = {
                 "suite1": {
                     "categories": {
-                        "cat": {
-                            "tests": [
-                                {"name": f"t{i}", "sdk_types": ["server"], "steps": []}
-                                for i in range(10)
-                            ]
-                        }
+                        "cat": {"tests": [{"name": f"t{i}", "sdk_types": ["server"], "steps": []} for i in range(10)]}
                     }
                 }
             }
@@ -205,3 +224,164 @@ class TestParallelMode:
         assert summary.passed == 10
         # Semaphore should have limited to 3
         assert max_concurrent <= 3
+
+
+class TestParallelCleanup:
+    """Verify each parallel test's scoped state is reset after it finishes."""
+
+    @staticmethod
+    def _contract(run_test):
+        mock_contract = MagicMock()
+        mock_contract.get_test_suites.return_value = {
+            "suite1": {
+                "categories": {
+                    "cat": {
+                        "tests": [
+                            {"name": "passes", "sdk_types": ["server"], "steps": []},
+                            {"name": "fails", "sdk_types": ["server"], "steps": []},
+                        ]
+                    }
+                }
+            }
+        }
+        mock_contract.run_test = run_test
+        return mock_contract
+
+    @pytest.mark.asyncio
+    async def test_scoped_reset_after_each_test_even_on_failure(self):
+        adapter = SDKAdapterClient("http://localhost:8080")
+        state = MockServerState()
+        ctx = TestContext(adapter, state, "http://localhost:8081")
+
+        test_ids = {}
+        finished = set()
+        resets_after_finish = []
+
+        async def run_test(test_def, test_ctx):
+            test_ids[test_def["name"]] = test_ctx.test_id
+            test_ctx.mock_server.set_response_queue([MockResponse(status_code=503)])
+            finished.add(test_ctx.test_id)
+            if test_def["name"] == "fails":
+                raise AssertionError("boom")
+
+        async def fake_scoped_reset(self):
+            if self._test_id in finished:
+                resets_after_finish.append(self._test_id)
+            return {"success": True}
+
+        with (
+            patch("posthog_test_harness.tests.runner.ContractExecutor") as mock_ce,
+            patch(
+                "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+                fake_scoped_reset,
+            ),
+        ):
+            mock_ce.return_value = self._contract(run_test)
+            summary = await run_all_suites(ctx, concurrency=2, supports_parallel=True)
+
+        assert summary.total == 2
+        assert summary.passed == 1
+        assert sorted(resets_after_finish) == sorted(test_ids.values())
+        for test_id in test_ids.values():
+            assert test_id not in state._partitioned_response_queue
+
+    @pytest.mark.asyncio
+    async def test_failed_cleanup_does_not_change_result(self, caplog):
+        adapter = SDKAdapterClient("http://localhost:8080")
+        state = MockServerState()
+        ctx = TestContext(adapter, state, "http://localhost:8081")
+
+        finished = set()
+
+        async def run_test(test_def, test_ctx):
+            finished.add(test_ctx.test_id)
+            if test_def["name"] == "fails":
+                raise AssertionError("boom")
+
+        async def failing_reset_after_test(self):
+            if self._test_id in finished:
+                raise RuntimeError("adapter reset failed")
+            return {"success": True}
+
+        with (
+            patch("posthog_test_harness.tests.runner.ContractExecutor") as mock_ce,
+            patch(
+                "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+                failing_reset_after_test,
+            ),
+        ):
+            mock_ce.return_value = self._contract(run_test)
+            with caplog.at_level(logging.DEBUG, logger="posthog_test_harness.tests.runner"):
+                summary = await run_all_suites(ctx, concurrency=2, supports_parallel=True)
+
+        results = {r.name: r for suite in summary.suites for r in suite.results}
+        assert results["cat.passes"].passed
+        assert not results["cat.fails"].passed
+        assert "boom" in (results["cat.fails"].message or "")
+        cleanup_logs = [r.getMessage() for r in caplog.records if "Post-test reset failed" in r.getMessage()]
+        assert len(cleanup_logs) == 2
+        assert all("adapter reset failed" in message for message in cleanup_logs)
+
+    @pytest.mark.asyncio
+    async def test_stalled_cleanup_is_bounded(self):
+        adapter = SDKAdapterClient("http://localhost:8080")
+        state = MockServerState()
+        ctx = TestContext(adapter, state, "http://localhost:8081")
+
+        finished = set()
+
+        async def run_test(test_def, test_ctx):
+            finished.add(test_ctx.test_id)
+            if test_def["name"] == "fails":
+                raise AssertionError("boom")
+
+        async def stalled_reset_after_test(self):
+            if self._test_id in finished:
+                await asyncio.Event().wait()
+            return {"success": True}
+
+        with (
+            patch("posthog_test_harness.tests.runner.ContractExecutor") as mock_ce,
+            patch(
+                "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+                stalled_reset_after_test,
+            ),
+            patch("posthog_test_harness.tests.runner.POST_TEST_RESET_TIMEOUT_SECONDS", 0.05),
+        ):
+            mock_ce.return_value = self._contract(run_test)
+            summary = await asyncio.wait_for(run_all_suites(ctx, concurrency=2, supports_parallel=True), timeout=2)
+
+        results = {r.name: r for suite in summary.suites for r in suite.results}
+        assert results["cat.passes"].passed
+        assert not results["cat.fails"].passed
+
+    @pytest.mark.asyncio
+    async def test_mock_state_recorded_during_adapter_reset_is_released(self):
+        adapter = SDKAdapterClient("http://localhost:8080")
+        state = MockServerState()
+        ctx = TestContext(adapter, state, "http://localhost:8081")
+
+        finished = set()
+
+        async def run_test(test_def, test_ctx):
+            finished.add(test_ctx.test_id)
+
+        async def reset_with_shutdown_flush(self):
+            if self._test_id in finished:
+                state.record_request("POST", "/batch", {"x-test-id": self._test_id}, {}, b'{"batch":[]}')
+            return {"success": True}
+
+        with (
+            patch("posthog_test_harness.tests.runner.ContractExecutor") as mock_ce,
+            patch(
+                "posthog_test_harness.sdk_adapter.client.ScopedSDKAdapterClient.reset",
+                reset_with_shutdown_flush,
+            ),
+        ):
+            mock_ce.return_value = self._contract(run_test)
+            summary = await run_all_suites(ctx, concurrency=2, supports_parallel=True)
+
+        assert summary.passed == 2
+        for test_id in finished:
+            assert test_id not in state._partitioned_requests
+            assert test_id not in state._partitioned_response_queue

@@ -1,5 +1,35 @@
 # posthog-sdk-test-harness
 
+## 1.36.0 — 2026-11-26
+
+### Minor changes
+
+- [70ea635](https://github.com/posthog/posthog-sdk-test-harness/commit/70ea635056b06b9166c491018cbd7c78edbe1231) State what a local evaluator does with every feature flag rules v2 evaluation case (contract package 10.1.0). A local evaluator is an SDK that holds only the definitions feed and the context its caller supplied.
+  
+  - `rules/local_outcomes.json` gives the local outcome of every case in the boolean, value, experiment and local corpora, from the case's expected status and error kind. A `success` case is `conclusive`: the evaluator returns the expected result itself. An `error` or `parse_error` case is `inconclusive`: the evaluator returns no value, the SDK asks the server in auto mode, and the flag is unresolved in local-only mode. The unresolved reason is `missing_context` for `missing_context` and `invalid_property`, and `unsupported_definition` for `invalid_regex` and both parse errors. An `omitted` case is `not_applicable`. Cases gain no field.
+  - `corpus/v2_local_evaluation.json` adds 8 cases that only a local evaluator runs, with a partial property map. The `flag_disabled` family (6 cases) pins an inactive flag for each return type: no value, the reason `flag_disabled`, and no rule or variant, whatever the rules and the default say. The `context` family (2 cases) pins that a rule which needs a property the caller did not supply stops the evaluation, also after an earlier targeting miss, and that an earlier matching rule is still terminal.
+  - `fixtures/wire/definitions_feed.json` is one whole definitions feed: version 1 and version 2 flags, active and inactive, a cohort map, a group type mapping, and entries with an unknown config version, an unknown rule type and an unknown rule field. Each entry states the evaluator that reads it and the reader outcome in auto and local-only mode, and each supported version 2 entry states its result for the fixture context. An unsupported entry falls back alone; the entries beside it keep their results.
+  - New schemas: `schemas/local_outcomes.schema.json`, `schemas/v2_local_evaluation.schema.json` and `schemas/definitions_feed_fixture.schema.json`.
+  - No existing case, expectation or schema changes, and the generated `/flags?v=4` features do not change. Files and cases are added, so this is a minor contract version. — Thanks @andehen!
+- [8ef8d9a](https://github.com/posthog/posthog-sdk-test-harness/commit/8ef8d9a20e1a35a89c8deb5a12b2351484a8e9e4) Add opt-in `unusable_group_key` cases to the `feature_flags_known_absent` suite. Adapters opt in with `feature_flags_unusable_group_key_v1`. The cases check that a group flag evaluated with the group omitted or with an empty string group key is `false` locally with no `/flags` request, in local-only mode and through the default getter. They also check that a person condition still decides a flag whose group condition has an empty string key, and that a dependency on a group flag with an empty string key is `false`. Adapters that also declare `feature_flags_json_group_keys_v1` run the group flag case with JSON `null`, `true`, `[]` and `{}` group keys. The `/get_feature_flag` request shape doesn't change. — Thanks @marandaneto!
+- [589f6cf](https://github.com/posthog/posthog-sdk-test-harness/commit/589f6cf98c49176ee432205a7f37517b7157d319) Add the opt-in `feature_flags_unsupported_filter_types` suite for adapters that declare both `feature_flags_local_evaluation_v1` and `feature_flags_unsupported_filter_types_v1`. It covers the sdk-specs rule that a property filter type other than `person`, `group`, `cohort` or `flag`, such as a cohort's `person_metadata` filter on `created_at`, is inconclusive locally. A `person_metadata` cohort leaf has no local value whatever `created_at` the caller passes, and the default getter (`allow_remote_fallback`, which this capability also requires) falls back to `/flags`. Leaf negation and an outer `not_in` don't turn it into a match. A `person` filter on `created_at` with the type set, omitted, `null` or `""` still matches locally. Another cohort leaf, a definitively false person filter or a later catch-all condition still decides locally, and an unknown type in one flag doesn't stop another flag from resolving. A case that also lists `created_at` as known absent runs only with `feature_flags_known_absent_v1`. Adapters that also declare `feature_flags_unresolved_reasons_v1` return the SDK's `unresolved_reason` for a local-only request with no value, and three more cases check that it is `unsupported_definition`. `get_feature_flag` gains the harness-only `expect_inconclusive` and `expected_unresolved_reason` step params, which are never sent to the adapter. — Thanks @marandaneto!
+
+## 1.35.0 — 2026-11-25
+
+### Minor changes
+
+- [1f81b5b](https://github.com/posthog/posthog-sdk-test-harness/commit/1f81b5bac420bbb222d9b4850142ef0dad133336) Allow the team setting `null_counts_as_not_set` in the feature flag rules v2 definitions feed (contract package 10.1.0).
+  
+  - PostHog/posthog#141619 added the boolean `null_counts_as_not_set` to the legacy definitions response. The `?v=2` feed is that response plus the config version 2 flags, so it carries the field too.
+  - `schemas/definitions_v2.schema.json` accepts an optional boolean `null_counts_as_not_set`. The top level stays closed, so any other field is still rejected.
+  - An added optional field is a minor contract version. Consumers that vendor the feed schema need to copy this release before they validate a feed from a PostHog build with #141619. — Thanks @andehen!
+
+## 1.34.1 — 2026-11-24
+
+### Patch changes
+
+- [10bcfa4](https://github.com/posthog/posthog-sdk-test-harness/commit/10bcfa4af0d7cc30cfd8618168677698cb09864d) In parallel mode, send a scoped `/reset?test_id=...` after each test finishes, including failed tests, so adapters can release per-test SDK clients instead of holding them until the container exits. The cleanup is best-effort, gives up after 10 seconds, and never changes the test result. — Thanks @marandaneto!
+
 ## 1.34.0 — 2026-11-20
 
 ### Minor changes
