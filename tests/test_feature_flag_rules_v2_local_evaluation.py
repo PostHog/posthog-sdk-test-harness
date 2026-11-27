@@ -1,5 +1,6 @@
 """Contract meta-tests only: these do not execute an SDK or an evaluator."""
 
+import copy
 import re
 from collections import Counter
 from typing import Any, Optional
@@ -140,6 +141,8 @@ def _evaluator(entry: dict[str, Any]) -> Optional[str]:
         return None
     if version == versions["v1"]:
         return "v1"
+    if version == versions["v2"] and not entry["active"]:
+        return "v2"  # an inactive entry is disabled before its document is read
     filters = entry["filters"]
     if version == versions["v2"] and not list(CONFIG.iter_errors(filters)) and not _semantic_errors(filters):
         return "v2"
@@ -295,6 +298,46 @@ def test_feed_entry_is_valid_or_fails_as_declared(entry: dict[str, Any], expecta
         assert_failure(errors, expectation["producer_failure"])
 
 
+def _at(document: Any, pointer: str) -> Any:
+    for part in pointer.split("/")[1:]:
+        document = document[int(part)] if isinstance(document, list) else document[part]
+    return document
+
+
+def _registered(pointer: str) -> list[Any]:
+    """The registry's values for the field that a `const` producer failure names."""
+    if pointer == "/filters/version":
+        return [LITERALS["config_versions"]["v1"], LITERALS["config_versions"]["v2"]]
+    assert pointer.endswith("/rule_type"), pointer
+    return [rule_type["value"] for rule_type in LITERALS["rule_types"]]
+
+
+INVALID_ENTRIES = [(entry, x) for entry, x in ENTRIES if x["producer_expected"] == "invalid"]
+
+
+@pytest.mark.parametrize("entry, expectation", INVALID_ENTRIES, ids=[entry["key"] for entry, _ in INVALID_ENTRIES])
+def test_invalid_feed_entry_has_no_defect_but_its_declared_one(
+    entry: dict[str, Any], expectation: dict[str, Any]
+) -> None:
+    # Undoing the declared failure leaves a valid entry, so the failure is not one diagnostic among several.
+    failure = expectation["producer_failure"]
+    if failure["keyword"] == "additionalProperties":
+        repaired = copy.deepcopy(entry)
+        del _at(repaired, failure["instance_path"])[failure["message_contains"]]
+        assert schema_errors(ENTRY_SCHEMA, repaired) == []
+        return
+    assert failure["keyword"] == "const"
+    parent, _, field = failure["instance_path"].rpartition("/")
+    registered = _registered(failure["instance_path"])
+    assert _at(entry, parent)[field] not in registered
+    repairs = []
+    for value in registered:
+        repaired = copy.deepcopy(entry)
+        _at(repaired, parent)[field] = value
+        repairs.append(schema_errors(ENTRY_SCHEMA, repaired) == [])
+    assert any(repairs)
+
+
 def test_feed_matches_the_feed_schema_without_its_unsupported_entries() -> None:
     supported = [entry for entry, expectation in ENTRIES if expectation["producer_expected"] == "valid"]
     assert 0 < len(supported) < len(ENTRIES)
@@ -306,8 +349,14 @@ def test_feed_matches_the_feed_schema_without_its_unsupported_entries() -> None:
 def test_feed_reader_outcome_follows_the_entry_alone(entry: dict[str, Any], expectation: dict[str, Any]) -> None:
     evaluator = _evaluator(entry)
     assert expectation.get("evaluator") == evaluator
-    # An entry that the producer schema rejects is one that no evaluator arm reads, and the reverse.
-    assert (expectation["producer_expected"] == "invalid") == (evaluator is None)
+    # An entry that the producer schema rejects is one that no evaluator arm reads, and the reverse, except an
+    # unknown entry field outside filters, which the reader ignores, and an inactive version 2 entry, whose
+    # document the reader does not read.
+    failure = expectation.get("producer_failure", {})
+    unknown_entry_field = failure.get("keyword") == "additionalProperties" and failure.get("instance_path") == ""
+    inactive_v2 = not entry["active"] and entry["filters"].get("version") == LITERALS["config_versions"]["v2"]
+    read_anyway = unknown_entry_field or inactive_v2
+    assert (expectation["producer_expected"] == "invalid" and not read_anyway) == (evaluator is None)
     if evaluator is None:
         assert expectation["reader"] == {"auto": "remote_fallback", "local_only": "unsupported"}
     else:
@@ -340,11 +389,22 @@ def test_feed_covers_both_config_versions_and_every_unsupported_kind() -> None:
     indexes = [entry["filters"].get("aggregation_group_type_index") for entry in v1]
     groups = {str(index) for index in indexes if index is not None}
     assert groups and groups == set(FEED["group_type_mapping"])
-    failures = [x["producer_failure"] for _, x in ENTRIES if "producer_failure" in x]
-    assert {failure["instance_path"]: failure["keyword"] for failure in failures} == {
+    # Three kinds of document make an active entry unsupported, so the reader falls back...
+    unsupported = [(entry, x["producer_failure"]) for entry, x in ENTRIES if "evaluator" not in x]
+    assert all(entry["active"] for entry, _ in unsupported)
+    assert {failure["instance_path"]: failure["keyword"] for _, failure in unsupported} == {
         "/filters/version": "const",
         "/filters/rules/1/rule_type": "const",
         "/filters/rules/1": "additionalProperties",
+    }
+    # ...and the reader reads two entries that the producer never sends: an inactive one with an unknown rule
+    # type, and one with an unknown entry field.
+    read_invalid = [
+        (entry, x["producer_failure"]) for entry, x in ENTRIES if "evaluator" in x and "producer_failure" in x
+    ]
+    assert {(f["instance_path"], f["keyword"], entry["active"]) for entry, f in read_invalid} == {
+        ("/filters/rules/0/rule_type", "const", False),
+        ("", "additionalProperties", True),
     }
 
 
